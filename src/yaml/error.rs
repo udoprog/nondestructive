@@ -46,6 +46,8 @@ pub(crate) enum ErrorKind {
     ValueError,
     /// Expected table separator.
     ExpectedTableSeparator,
+    /// Expected list,
+    ExpectedListMarker,
 }
 
 impl fmt::Display for ErrorKind {
@@ -53,6 +55,7 @@ impl fmt::Display for ErrorKind {
         match self {
             ErrorKind::ValueError => write!(f, "value error"),
             ErrorKind::ExpectedTableSeparator => write!(f, "expected table separator"),
+            ErrorKind::ExpectedListMarker => write!(f, "expected list marker"),
         }
     }
 }

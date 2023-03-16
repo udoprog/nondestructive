@@ -2,7 +2,7 @@ use crate::yaml;
 
 #[test]
 fn test_property_eol() -> Result<(), Box<dyn std::error::Error>> {
-    let mut doc = yaml::parse(
+    let doc = yaml::parse(
         r#"
         table:
             inner: so this is as a matter of @ course, a large document
@@ -10,21 +10,54 @@ fn test_property_eol() -> Result<(), Box<dyn std::error::Error>> {
         "#,
     )?;
 
-    let mut root = doc
-        .root_mut()
-        .into_table_mut()
-        .ok_or("missing root table")?;
+    let root = doc.root().as_table().ok_or("missing root table")?;
 
     let table = root
-        .get_mut("table")
-        .and_then(|v| v.into_table_mut())
+        .get("table")
+        .and_then(|v| v.as_table())
         .ok_or("missing inner table")?;
 
-    let table = table.as_ref();
     let string = table.get("inner").and_then(|v| v.as_str());
     assert_eq!(
         string,
         Some("so this is as a matter of @ course, a large document")
     );
+    Ok(())
+}
+
+#[test]
+fn test_lists() -> Result<(), Box<dyn std::error::Error>> {
+    let doc = yaml::parse(
+        r#"
+        - one
+        - two
+        - - three
+          - four: 2
+            five: 1
+        - six
+        "#,
+    )?;
+
+    let root = doc.root().as_list().ok_or("missing root list")?;
+
+    assert_eq!(root.get(0).and_then(|v| v.as_str()), Some("one"));
+    assert_eq!(root.get(1).and_then(|v| v.as_str()), Some("two"));
+
+    let three = root
+        .get(2)
+        .and_then(|v| v.as_list())
+        .ok_or("missing three")?;
+
+    assert_eq!(three.get(0).and_then(|v| v.as_str()), Some("three"));
+
+    let four = three
+        .get(1)
+        .and_then(|v| v.as_table())
+        .ok_or("missing four")?;
+
+    assert_eq!(four.get("four").and_then(|v| v.as_u32()), Some(2));
+    assert_eq!(four.get("five").and_then(|v| v.as_u32()), Some(1));
+
+    assert_eq!(root.get(3).and_then(|v| v.as_str()), Some("six"));
     Ok(())
 }

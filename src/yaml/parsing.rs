@@ -5,8 +5,10 @@ use bstr::ByteSlice;
 use crate::slab::{Pointer, Slab};
 use crate::strings::{StringId, Strings};
 use crate::yaml::error::{Error, ErrorKind};
-use crate::yaml::raw::{Raw, RawNumber, RawString, RawTable, RawTableElement};
+use crate::yaml::raw::{Raw, RawListItem, RawNumber, RawString, RawTable, RawTableItem};
 use crate::yaml::{Document, StringKind};
+
+use super::raw::RawList;
 
 type Result<T, E = Error> = std::result::Result<T, E>;
 
@@ -168,16 +170,67 @@ impl<'a> Parser<'a> {
         )))
     }
 
-    /// Parse a raw table.
-    fn table(
-        &mut self,
-        indentation: StringId,
-        mut last_key: RawString,
-    ) -> Result<(Raw, Option<StringId>)> {
-        let mut children = Vec::new();
-        let mut last_suffix = None;
+    /// Parse a list.
+    fn list(&mut self, indentation: StringId) -> Result<(Raw, StringId)> {
+        let mut items = Vec::new();
+        let mut previous = None;
 
-        let current_prefix = 'outer: loop {
+        let ws = loop {
+            if !matches!(self.peek(), b'-') {
+                return Err(Error::new(self.span(1), ErrorKind::ExpectedListMarker));
+            }
+
+            self.bump(1);
+            let (separator, _) = self.ws();
+            let new_indentation = self.indentation(&separator);
+            let new_indentation = self.build_list_indentation(&indentation, &new_indentation);
+
+            let (value, ws) = self.value(new_indentation, true)?;
+            let value = self.tree.insert(value);
+
+            let ws = match ws {
+                Some(suffix) => suffix,
+                None => self.ws().0,
+            };
+
+            items.push(RawListItem {
+                prefix: previous.take(),
+                separator,
+                value,
+            });
+
+            let current_indentation = self.indentation(&ws);
+
+            if current_indentation != indentation || !matches!(self.peek(), b'-') {
+                break ws;
+            }
+
+            previous = Some(ws);
+        };
+
+        Ok((Raw::List(RawList { indentation, items }), ws))
+    }
+
+    /// Construct list indentation.
+    fn build_list_indentation(&mut self, indentation: &StringId, addition: &StringId) -> StringId {
+        self.scratch.clear();
+        self.scratch
+            .extend(self.strings.get(indentation).as_bytes());
+        // Account for the list marker (`-`).
+        self.scratch.push(b' ');
+        self.scratch.extend(self.strings.get(addition).as_bytes());
+
+        let string = self.strings.insert(&self.scratch);
+        self.scratch.clear();
+        string
+    }
+
+    /// Parse a raw table.
+    fn table(&mut self, indentation: StringId, mut last_key: RawString) -> Result<(Raw, StringId)> {
+        let mut children = Vec::new();
+        let mut previous = None;
+
+        let ws = 'outer: loop {
             if !matches!(self.peek(), b':') {
                 return Err(Error::new(self.span(1), ErrorKind::ExpectedTableSeparator));
             }
@@ -186,37 +239,37 @@ impl<'a> Parser<'a> {
 
             let (separator, nl) = self.ws();
             let first_indent = self.indentation(&separator);
-            let (first_value, first_suffix) = self.value(first_indent, nl > 0)?;
-            let first_value = self.tree.insert(first_value);
+            let (value, suffix) = self.value(first_indent, nl > 0)?;
+            let value = self.tree.insert(value);
 
-            let suffix = match first_suffix {
+            let ws = match suffix {
                 Some(suffix) => suffix,
                 None => self.ws().0,
             };
 
-            children.push(RawTableElement {
-                prefix: last_suffix.take(),
+            children.push(RawTableItem {
+                prefix: previous.take(),
                 key: last_key,
                 separator,
-                value: first_value,
+                value,
             });
 
-            let current_indentation = self.indentation(&suffix);
+            let current_indentation = self.indentation(&ws);
 
             if current_indentation != indentation {
-                break Some(suffix);
+                break ws;
             }
 
             let start = self.position;
 
-            last_suffix = Some(suffix);
+            previous = Some(ws);
             last_key = loop {
                 match self.peek() {
                     b':' | EOF => {
                         let string = self.string(start);
 
                         if string.is_empty() {
-                            break 'outer Some(suffix);
+                            break 'outer ws;
                         }
 
                         let string = self.strings.insert(string);
@@ -232,9 +285,9 @@ impl<'a> Parser<'a> {
         Ok((
             Raw::Table(RawTable {
                 indentation,
-                children,
+                items: children,
             }),
-            current_prefix,
+            ws,
         ))
     }
 
@@ -243,18 +296,23 @@ impl<'a> Parser<'a> {
         let string = self.strings.get(string);
         let indent = string.rfind(b"\n").unwrap_or(0);
         let indent = &string[indent..];
-        self.scratch.clear();
         self.scratch.extend(indent.as_bytes());
-        self.strings.insert(&self.scratch)
+        let string = self.strings.insert(&self.scratch);
+        self.scratch.clear();
+        string
     }
 
     /// Consume a single value.
     fn value(&mut self, indentation: StringId, table: bool) -> Result<(Raw, Option<StringId>)> {
-        let kind = match self.peek() {
-            number_first!() => self.number()?,
-            b'"' => self.double_quoted()?,
-            b'\'' => self.single_quoted()?,
-            b if b.is_ascii_graphic() => {
+        let kind = match self.peek2() {
+            (b'-', b) if b.is_ascii_whitespace() => {
+                let (value, ws) = self.list(indentation)?;
+                return Ok((value, Some(ws)));
+            }
+            (number_first!(), _) => self.number()?,
+            (b'"', _) => self.double_quoted()?,
+            (b'\'', _) => self.single_quoted()?,
+            (b, _) if b.is_ascii_graphic() => {
                 let start = self.position;
 
                 loop {
@@ -262,7 +320,8 @@ impl<'a> Parser<'a> {
                         b':' if table => {
                             let string = self.strings.insert(self.string(start));
                             let string = RawString::new(StringKind::Bare, string);
-                            return self.table(indentation, string);
+                            let (value, ws) = self.table(indentation, string)?;
+                            return Ok((value, Some(ws)));
                         }
                         b'\n' | EOF => {
                             break;

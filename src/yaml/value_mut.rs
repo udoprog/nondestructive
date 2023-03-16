@@ -549,7 +549,7 @@ impl<'a> TableMut<'a> {
     pub fn get_mut(&mut self, key: &str) -> Option<ValueMut<'_>> {
         let raw = self.raw()?;
 
-        for e in &raw.children {
+        for e in &raw.items {
             if self.doc.strings.get(&e.key.string) == key {
                 return Some(ValueMut::new(self.doc, e.value));
             }

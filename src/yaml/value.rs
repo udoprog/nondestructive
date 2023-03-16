@@ -3,10 +3,8 @@ use core::fmt;
 use bstr::ByteSlice;
 
 use crate::slab::Pointer;
-use crate::yaml::raw::Raw;
+use crate::yaml::raw::{Raw, RawList, RawTable};
 use crate::yaml::Document;
-
-use super::raw::RawTable;
 
 /// The kind of string value.
 #[derive(Debug, Clone, Copy)]
@@ -197,6 +195,35 @@ impl<'a> Value<'a> {
         }
     }
 
+    /// Get the value as a table.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nondestructive::yaml;
+    ///
+    /// let doc = yaml::parse(
+    ///     r#"
+    ///     - one
+    ///     - two
+    ///     - three
+    ///     "#,
+    /// )?;
+    ///
+    /// let root = doc.root().as_list().ok_or("missing root list")?;
+    ///
+    /// assert_eq!(root.get(0).and_then(|v| v.as_str()), Some("one"));
+    /// assert_eq!(root.get(1).and_then(|v| v.as_str()), Some("two"));
+    /// assert_eq!(root.get(2).and_then(|v| v.as_str()), Some("three"));
+    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn as_list(&self) -> Option<List<'a>> {
+        match self.raw() {
+            Some(Raw::List(..)) => Some(List::new(self.doc, self.pointer)),
+            _ => None,
+        }
+    }
+
     as_number!(as_f32, f32, "32-bit float", 10.42);
     as_number!(as_f64, f64, "64-bit float", 10.42);
     as_number!(as_u8, u8, "8-bit unsigned integer", 42);
@@ -313,10 +340,146 @@ impl<'a> Table<'a> {
     pub fn get(&self, key: &str) -> Option<Value<'_>> {
         let raw = self.raw()?;
 
-        for e in &raw.children {
+        for e in &raw.items {
             if self.doc.strings.get(&e.key.string) == key {
                 return Some(Value::new(self.doc, e.value));
             }
+        }
+
+        None
+    }
+}
+
+/// Accessor for a list.
+///
+/// # Examples
+///
+/// ```
+/// use nondestructive::yaml;
+///
+/// let doc = yaml::parse(
+///     r#"
+///     - one
+///     - two
+///     - three
+///     "#,
+/// )?;
+///
+/// let root = doc.root().as_list().ok_or("missing root list")?;
+///
+/// assert_eq!(root.get(0).and_then(|v| v.as_str()), Some("one"));
+/// assert_eq!(root.get(1).and_then(|v| v.as_str()), Some("two"));
+/// assert_eq!(root.get(2).and_then(|v| v.as_str()), Some("three"));
+/// # Ok::<_, Box<dyn std::error::Error>>(())
+/// ```
+///
+/// More complex example:
+///
+/// ```
+/// use nondestructive::yaml;
+///
+/// let doc = yaml::parse(
+///     r#"
+///     - one
+///     - two
+///     - - three
+///       - four: 2
+///         five: 1
+///     - six
+///     "#,
+/// )?;
+///
+/// let root = doc.root().as_list().ok_or("missing root list")?;
+///
+/// assert_eq!(root.get(0).and_then(|v| v.as_str()), Some("one"));
+/// assert_eq!(root.get(1).and_then(|v| v.as_str()), Some("two"));
+///
+/// let three = root
+///     .get(2)
+///     .and_then(|v| v.as_list())
+///     .ok_or("missing three")?;
+///
+/// assert_eq!(three.get(0).and_then(|v| v.as_str()), Some("three"));
+///
+/// let four = three
+///     .get(1)
+///     .and_then(|v| v.as_table())
+///     .ok_or("missing four")?;
+///
+/// assert_eq!(four.get("four").and_then(|v| v.as_u32()), Some(2));
+/// assert_eq!(four.get("five").and_then(|v| v.as_u32()), Some(1));
+///
+/// assert_eq!(root.get(3).and_then(|v| v.as_str()), Some("six"));
+/// # Ok::<_, Box<dyn std::error::Error>>(())
+/// ```
+pub struct List<'a> {
+    doc: &'a Document,
+    pointer: Pointer,
+}
+
+impl<'a> List<'a> {
+    pub(crate) fn new(doc: &'a Document, pointer: Pointer) -> Self {
+        Self { doc, pointer }
+    }
+
+    /// Get the raw element based on the value pointer.
+    pub(crate) fn raw(&self) -> Option<&RawList> {
+        match self.doc.tree.get(&self.pointer) {
+            Some(Raw::List(table)) => Some(table),
+            _ => None,
+        }
+    }
+
+    /// Get the length of the list.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nondestructive::yaml;
+    ///
+    /// let doc = yaml::parse(
+    ///     r#"
+    ///     - one
+    ///     - two
+    ///     - three
+    ///     "#,
+    /// )?;
+    ///
+    /// let root = doc.root().as_list().ok_or("missing root list")?;
+    /// assert_eq!(root.len(), 3);
+    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn len(&self) -> usize {
+        self.raw().map(|list| list.items.len()).unwrap_or_default()
+    }
+
+    /// Get a value from the list.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nondestructive::yaml;
+    ///
+    /// let doc = yaml::parse(
+    ///     r#"
+    ///     - one
+    ///     - two
+    ///     - three
+    ///     "#,
+    /// )?;
+    ///
+    /// let root = doc.root().as_list().ok_or("missing root list")?;
+    ///
+    /// assert_eq!(root.get(0).and_then(|v| v.as_str()), Some("one"));
+    /// assert_eq!(root.get(1).and_then(|v| v.as_str()), Some("two"));
+    /// assert_eq!(root.get(2).and_then(|v| v.as_str()), Some("three"));
+    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn get(&self, index: usize) -> Option<Value<'_>> {
+        let raw = self.raw()?;
+
+        if let Some(item) = raw.items.get(index) {
+            return Some(Value::new(self.doc, item.value));
         }
 
         None

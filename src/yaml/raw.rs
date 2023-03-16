@@ -16,8 +16,9 @@ pub(crate) enum Raw {
     /// A string.
     String(RawString),
     /// A table.
-    #[allow(unused)]
     Table(RawTable),
+    /// A list.
+    List(RawList),
 }
 
 impl Raw {
@@ -56,17 +57,31 @@ impl Raw {
                     }
                 }
             }
-            Raw::Table(table) => {
-                for e in &table.children {
-                    if let Some(prefix) = &e.prefix {
+            Raw::Table(raw) => {
+                for item in &raw.items {
+                    if let Some(prefix) = &item.prefix {
                         doc.strings.get(prefix).fmt(f)?;
                     }
 
-                    doc.strings.get(&e.key.string).fmt(f)?;
+                    doc.strings.get(&item.key.string).fmt(f)?;
                     ':'.fmt(f)?;
-                    doc.strings.get(&e.separator).fmt(f)?;
+                    doc.strings.get(&item.separator).fmt(f)?;
 
-                    if let Some(raw) = doc.tree.get(&e.value) {
+                    if let Some(raw) = doc.tree.get(&item.value) {
+                        raw.display(doc, f)?;
+                    }
+                }
+            }
+            Raw::List(raw) => {
+                for item in &raw.items {
+                    if let Some(prefix) = &item.prefix {
+                        doc.strings.get(prefix).fmt(f)?;
+                    }
+
+                    '-'.fmt(f)?;
+                    doc.strings.get(&item.separator).fmt(f)?;
+
+                    if let Some(raw) = doc.tree.get(&item.value) {
                         raw.display(doc, f)?;
                     }
                 }
@@ -174,9 +189,27 @@ impl RawString {
     }
 }
 
+/// An element in a YAML list.
+#[derive(Debug, Clone)]
+pub(crate) struct RawListItem {
+    pub(crate) prefix: Option<StringId>,
+    pub(crate) separator: StringId,
+    pub(crate) value: Pointer,
+}
+
+/// A YAML list.
+#[derive(Debug, Clone)]
+pub(crate) struct RawList {
+    /// Indentation used by list.
+    #[allow(unused)]
+    pub(crate) indentation: StringId,
+    /// Items in the list.
+    pub(crate) items: Vec<RawListItem>,
+}
+
 /// An element in a YAML table.
 #[derive(Debug, Clone)]
-pub(crate) struct RawTableElement {
+pub(crate) struct RawTableItem {
     pub(crate) prefix: Option<StringId>,
     pub(crate) key: RawString,
     pub(crate) separator: StringId,
@@ -187,29 +220,25 @@ pub(crate) struct RawTableElement {
 #[derive(Debug, Clone)]
 pub(crate) struct RawTable {
     pub(crate) indentation: StringId,
-    pub(crate) children: Vec<RawTableElement>,
+    pub(crate) items: Vec<RawTableItem>,
 }
 
 impl RawTable {
     /// Insert a value into the table.
     pub(crate) fn insert(&mut self, key: RawString, separator: StringId, value: Pointer) {
-        if let Some(existing) = self
-            .children
-            .iter_mut()
-            .find(|c| c.key.string == key.string)
-        {
+        if let Some(existing) = self.items.iter_mut().find(|c| c.key.string == key.string) {
             existing.separator = separator;
             existing.value = value;
             return;
         }
 
-        let prefix = if !self.children.is_empty() {
+        let prefix = if !self.items.is_empty() {
             Some(self.indentation)
         } else {
             None
         };
 
-        self.children.push(RawTableElement {
+        self.items.push(RawTableItem {
             prefix,
             key,
             separator,
