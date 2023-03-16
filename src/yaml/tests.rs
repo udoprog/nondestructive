@@ -22,6 +22,9 @@ fn test_property_eol() -> Result<(), Box<dyn std::error::Error>> {
 
     let table = table.as_ref();
     let string = table.get("inner").and_then(|v| v.as_str());
-    assert_eq!(string, Some("so this is as a matter of @ course, a large document"));
+    assert_eq!(
+        string,
+        Some("so this is as a matter of @ course, a large document")
+    );
     Ok(())
 }

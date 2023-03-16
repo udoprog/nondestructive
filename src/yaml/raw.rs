@@ -186,7 +186,7 @@ pub(crate) struct RawTableElement {
 /// A YAML table.
 #[derive(Debug, Clone)]
 pub(crate) struct RawTable {
-    pub(crate) indent: StringId,
+    pub(crate) indentation: StringId,
     pub(crate) children: Vec<RawTableElement>,
 }
 
@@ -204,7 +204,7 @@ impl RawTable {
         }
 
         let prefix = if !self.children.is_empty() {
-            Some(self.indent)
+            Some(self.indentation)
         } else {
             None
         };

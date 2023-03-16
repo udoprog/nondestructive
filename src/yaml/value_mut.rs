@@ -271,11 +271,15 @@ impl<'a> ValueMut<'a> {
     ///
     /// let mut doc = yaml::parse("  string")?;
     /// doc.root_mut().set_string("I am a string");
-    /// assert_eq!(doc.to_string(), "  'I am a string'");
+    /// assert_eq!(doc.to_string(), "  I am a string");
+    ///
+    /// let mut doc = yaml::parse("  string")?;
+    /// doc.root_mut().set_string("I am a\n string");
+    /// assert_eq!(doc.to_string(), "  \"I am a\\n string\"");
     ///
     /// let mut doc = yaml::parse("  string")?;
     /// doc.root_mut().set_string("I am a string with \"quotes\"");
-    /// assert_eq!(doc.to_string(), "  'I am a string with \"quotes\"'");
+    /// assert_eq!(doc.to_string(), "  I am a string with \"quotes\"");
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     pub fn set_string<S>(&mut self, string: S)

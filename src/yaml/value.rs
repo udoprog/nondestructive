@@ -25,15 +25,16 @@ impl StringKind {
     pub(crate) fn detect(string: &str) -> StringKind {
         let mut kind = StringKind::Bare;
 
-        for c in string.bytes() {
-            match (kind, c) {
-                (_, b'\'') => {
+        for c in string.chars() {
+            match c {
+                '\'' => {
                     return StringKind::DoubleQuoted;
                 }
-                (StringKind::Bare, c) => {
-                    if !matches!(c, id_remainder!()) {
-                        kind = StringKind::SingleQuoted;
-                    }
+                ':' => {
+                    kind = StringKind::SingleQuoted;
+                }
+                b if b.is_control() => {
+                    return StringKind::DoubleQuoted;
                 }
                 _ => {}
             }
