@@ -182,6 +182,30 @@ impl<'a> ValueMut<'a> {
     }
 }
 
+macro_rules! set_float {
+    ($name:ident, $ty:ty, $string:literal, $lit:literal) => {
+        #[doc = concat!("Set the value as a ", $string, ".")]
+        ///
+        /// # Examples
+        ///
+        /// ```
+        /// use nondestructive::yaml;
+        ///
+        /// let mut doc = yaml::parse("10")?;
+        #[doc = concat!("let value = doc.root_mut().", stringify!($name), "(", stringify!($lit), ");")]
+        #[doc = concat!("assert_eq!(doc.to_string(), \"", stringify!($lit), "\");")]
+        /// # Ok::<_, Box<dyn std::error::Error>>(())
+        /// ```
+        pub fn $name(&mut self, value: $ty) {
+            if let Some(raw) = self.doc.tree.get_mut(&self.pointer) {
+                let mut buffer = ryu::Buffer::new();
+                let string = self.doc.strings.insert(buffer.format(value));
+                *raw = Raw::Number(RawNumber::new(string));
+            }
+        }
+    };
+}
+
 macro_rules! set_number {
     ($name:ident, $ty:ty, $string:literal, $lit:literal) => {
         #[doc = concat!("Set the value as a ", $string, ".")]
@@ -234,7 +258,7 @@ impl<'a> ValueMut<'a> {
         }
     }
 
-    /// Delete the value, replacing it with a null value.
+    /// Set the value as a string.
     ///
     /// # Examples
     ///
@@ -252,7 +276,6 @@ impl<'a> ValueMut<'a> {
     /// let mut doc = yaml::parse("  string")?;
     /// doc.root_mut().set_string("I am a string with \"quotes\"");
     /// assert_eq!(doc.to_string(), "  'I am a string with \"quotes\"'");
-    ///
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     pub fn set_string<S>(&mut self, string: S)
@@ -269,6 +292,33 @@ impl<'a> ValueMut<'a> {
         *raw = Raw::String(string);
     }
 
+    /// Set the value as a boolean.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nondestructive::yaml;
+    ///
+    /// let mut doc = yaml::parse("  string")?;
+    /// doc.root_mut().set_bool(true);
+    /// assert_eq!(doc.to_string(), "  true");
+    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn set_bool(&mut self, value: bool) {
+        const TRUE: &[u8] = b"true";
+        const FALSE: &[u8] = b"false";
+
+        let Some(raw) = self.doc.tree.get_mut(&self.pointer) else {
+            return;
+        };
+
+        let string = self.doc.strings.insert(if value { TRUE } else { FALSE });
+        let string = RawString::new(StringKind::Bare, string);
+        *raw = Raw::String(string);
+    }
+
+    set_float!(set_f32, f32, "32-bit float", 10.42);
+    set_float!(set_f64, f64, "64-bit float", 10.42);
     set_number!(set_u8, u8, "8-bit unsigned integer", 42);
     set_number!(set_i8, i8, "8-bit signed integer", -42);
     set_number!(set_u16, u16, "16-bit unsigned integer", 42);
@@ -322,6 +372,39 @@ impl<'a> ValueMut<'a> {
 pub struct TableMut<'a> {
     doc: &'a mut Document,
     pointer: Pointer,
+}
+
+macro_rules! insert_float {
+    ($name:ident, $ty:ty, $string:literal, $lit:literal) => {
+        #[doc = concat!("Set the value as a ", $string, ".")]
+        ///
+        /// # Examples
+        ///
+        /// ```
+        /// use nondestructive::yaml;
+        ///
+        /// let mut doc = yaml::parse(r#"
+        /// number1: 10
+        /// "#)?;
+        /// let mut value = doc.root_mut().into_table_mut().ok_or("not a table")?;
+        #[doc = concat!("value.", stringify!($name), "(\"number2\", ", stringify!($lit), ");")]
+        #[doc = concat!("assert_eq!(doc.to_string(), \"\\nnumber1: 10\\nnumber2: ", stringify!($lit), "\\n\");")]
+        /// # Ok::<_, Box<dyn std::error::Error>>(())
+        /// ```
+        pub fn $name(&mut self, key: &str, value: $ty) {
+            let mut buffer = ryu::Buffer::new();
+            let number = self.doc.strings.insert(buffer.format(value));
+            let value = self.doc.tree.insert(Raw::Number(RawNumber::new(number)));
+
+            if let Some(Raw::Table(table)) = self.doc.tree.get_mut(&self.pointer) {
+                let separator = self.doc.strings.insert(" ");
+                let kind = StringKind::detect(key);
+                let key = self.doc.strings.insert(key);
+                let key = RawString::new(kind, key);
+                table.insert(key, separator, value);
+            }
+        }
+    };
 }
 
 macro_rules! insert_number {
@@ -466,6 +549,8 @@ impl<'a> TableMut<'a> {
         None
     }
 
+    insert_float!(insert_f32, f32, "32-bit float", 10.42);
+    insert_float!(insert_f64, f64, "64-bit float", 10.42);
     insert_number!(insert_u8, u8, "8-bit unsigned integer", 42);
     insert_number!(insert_i8, i8, "8-bit signed integer", -42);
     insert_number!(insert_u16, u16, "16-bit unsigned integer", 42);

@@ -133,6 +133,36 @@ impl<'a> Value<'a> {
         }
     }
 
+    /// Get the value as a boolean.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nondestructive::yaml;
+    ///
+    /// let doc = yaml::parse("true")?;
+    /// assert_eq!(doc.root().as_bool(), Some(true));
+    ///
+    /// let doc = yaml::parse("string")?;
+    /// assert_eq!(doc.root().as_bool(), None);
+    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn as_bool(&self) -> Option<bool> {
+        const TRUE: &[u8] = b"true";
+        const FALSE: &[u8] = b"false";
+
+        match self.raw() {
+            Some(Raw::String(raw)) => {
+                match (raw.kind, self.doc.strings.get(&raw.string).as_bytes()) {
+                    (StringKind::Bare, TRUE) => Some(true),
+                    (StringKind::Bare, FALSE) => Some(false),
+                    _ => None,
+                }
+            }
+            _ => None,
+        }
+    }
+
     /// Get the value as a table.
     ///
     /// # Examples
@@ -166,6 +196,8 @@ impl<'a> Value<'a> {
         }
     }
 
+    as_number!(as_f32, f32, "32-bit float", 10.42);
+    as_number!(as_f64, f64, "64-bit float", 10.42);
     as_number!(as_u8, u8, "8-bit unsigned integer", 42);
     as_number!(as_i8, i8, "8-bit signed integer", -42);
     as_number!(as_u16, u16, "16-bit unsigned integer", 42);
