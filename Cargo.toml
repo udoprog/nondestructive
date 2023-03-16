@@ -1,0 +1,24 @@
+[package]
+name = "nondestructive"
+version = "0.0.0"
+authors = ["John-John Tedro <udoprog@tedro.se>"]
+edition = "2021"
+rust-version = "1.65"
+description = "Nondestructive editing over various file formats."
+documentation = "https://docs.rs/nondestructive"
+readme = "README.md"
+homepage = "https://github.com/udoprog/nondestructive"
+repository = "https://github.com/udoprog/nondestructive"
+license = "MIT/Apache-2.0"
+keywords = ["yaml"]
+categories = ["encoding", "parser-implementations"]
+
+[features]
+yaml = []
+
+[dependencies]
+bstr = "1.3.0"
+itoa = "1.0.6"
+lexical-core = "0.8.5"
+slab = "0.4.8"
+twox-hash = "1.6.3"
