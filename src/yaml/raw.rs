@@ -1,4 +1,6 @@
-use core::fmt;
+use std::fmt::{self, Write};
+
+use bstr::ByteSlice;
 
 use crate::slab::Pointer;
 use crate::strings::StringId;
@@ -45,10 +47,10 @@ impl Raw {
                         string.fmt(f)?;
                     }
                     StringKind::DoubleQuoted => {
-                        write!(f, "\"{string}\"")?;
+                        escape_double_quoted(string, f)?;
                     }
                     StringKind::SingleQuoted => {
-                        write!(f, "'{string}'")?;
+                        escape_single_quoted(string, f)?;
                     }
                 }
             }
@@ -71,6 +73,76 @@ impl Raw {
 
         Ok(())
     }
+}
+
+/// Single-quoted escape sequences:
+/// <https://yaml.org/spec/1.2.2/#escaped-characters>.
+fn escape_single_quoted(string: &bstr::BStr, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+    f.write_char('\'')?;
+
+    for c in string.chars() {
+        match c {
+            '\'' => {
+                f.write_str("''")?;
+            }
+            c => {
+                f.write_char(c)?;
+            }
+        }
+    }
+
+    f.write_char('\'')?;
+    Ok(())
+}
+
+/// Double-quoted escape sequences:
+/// <https://yaml.org/spec/1.2.2/#escaped-characters>.
+fn escape_double_quoted(string: &bstr::BStr, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+    f.write_char('"')?;
+
+    for c in string.chars() {
+        match c {
+            '\u{0000}' => {
+                f.write_str("\\0")?;
+            }
+            '\u{0007}' => {
+                f.write_str("\\a")?;
+            }
+            '\u{0008}' => {
+                f.write_str("\\b")?;
+            }
+            '\u{0009}' => {
+                f.write_str("\\t")?;
+            }
+            '\n' => {
+                f.write_str("\\n")?;
+            }
+            '\u{000b}' => {
+                f.write_str("\\v")?;
+            }
+            '\u{000c}' => {
+                f.write_str("\\f")?;
+            }
+            '\r' => {
+                f.write_str("\\r")?;
+            }
+            '\u{001b}' => {
+                f.write_str("\\e")?;
+            }
+            '\"' => {
+                f.write_str("\\\"")?;
+            }
+            c if c.is_ascii_control() => {
+                write!(f, "\\x{:02x}", c as u8)?;
+            }
+            c => {
+                f.write_char(c)?;
+            }
+        }
+    }
+
+    f.write_char('"')?;
+    Ok(())
 }
 
 /// The kind of a YAML value.

@@ -15,7 +15,7 @@ fn nested_table() -> Result<(), Box<dyn std::error::Error>> {
     let mut root = doc
         .root_mut()
         .into_table_mut()
-        .map_err(|_| "missing root table")?;
+        .ok_or("missing root table")?;
 
     assert_eq!(
         root.as_ref().get("number1").and_then(|v| v.as_u32()),
@@ -29,7 +29,7 @@ fn nested_table() -> Result<(), Box<dyn std::error::Error>> {
     {
         let table = root
             .get_mut("table")
-            .and_then(|v| v.into_table_mut().ok())
+            .and_then(|v| v.into_table_mut())
             .ok_or("missing inner table")?;
 
         assert_eq!(

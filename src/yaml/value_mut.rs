@@ -38,12 +38,12 @@ impl<'a> ValueMut<'a> {
     /// string3: "I am a quoted string!"
     /// "#)?;
     ///
-    /// let mut root = doc.root_mut().into_table_mut().map_err(|_| "missing root table")?;
+    /// let mut root = doc.root_mut().into_table_mut().ok_or("missing root table")?;
     ///
     /// assert_eq!(root.get_mut("number1").and_then(|v| v.as_ref().as_u32()), Some(10));
     /// assert_eq!(root.get_mut("number2").and_then(|v| v.as_ref().as_u32()), Some(20));
     ///
-    /// let mut table = root.get_mut("table").and_then(|v| v.into_table_mut().ok()).ok_or("missing inner table")?;
+    /// let mut table = root.get_mut("table").and_then(|v| v.into_table_mut()).ok_or("missing inner table")?;
     /// assert_eq!(table.get_mut("inner").and_then(|v| v.as_ref().as_u32()), Some(400));
     ///
     /// assert_eq!(root.get_mut("string3").and_then(|v| v.into_ref().as_str()), Some("I am a quoted string!"));
@@ -72,12 +72,12 @@ impl<'a> ValueMut<'a> {
     /// string3: "I am a quoted string!"
     /// "#)?;
     ///
-    /// let mut root = doc.root_mut().into_table_mut().map_err(|_| "missing root table")?;
+    /// let mut root = doc.root_mut().into_table_mut().ok_or("missing root table")?;
     ///
     /// assert_eq!(root.get_mut("number1").and_then(|v| v.into_ref().as_u32()), Some(10));
     /// assert_eq!(root.get_mut("number2").and_then(|v| v.into_ref().as_u32()), Some(20));
     ///
-    /// let mut table = root.get_mut("table").and_then(|v| v.into_table_mut().ok()).ok_or("missing inner table")?;
+    /// let mut table = root.get_mut("table").and_then(|v| v.into_table_mut()).ok_or("missing inner table")?;
     /// assert_eq!(table.get_mut("inner").and_then(|v| v.into_ref().as_u32()), Some(400));
     ///
     /// assert_eq!(root.get_mut("string3").and_then(|v| v.into_ref().as_str()), Some("I am a quoted string!"));
@@ -143,7 +143,7 @@ impl<'a> ValueMut<'a> {
     ///   string3: "I am a quoted string!"
     /// "#)?;
     ///
-    /// let mut root = doc.root_mut().into_table_mut().map_err(|_| "missing root table")?;
+    /// let mut root = doc.root_mut().into_table_mut().ok_or("missing root table")?;
     /// root.get_mut("number2").ok_or("missing inner table")?.set_u32(30);
     /// root.get_mut("string3").ok_or("missing inner table")?.set_string("i-am-a-bare-string");
     ///
@@ -158,12 +158,26 @@ impl<'a> ValueMut<'a> {
     /// "#
     /// };
     ///
+    /// let mut root = doc.root_mut().into_table_mut().ok_or("missing root table")?;
+    /// root.get_mut("string3").ok_or("missing inner table")?.set_string("It's \n a good day!");
+    ///
+    /// assert_eq! {
+    /// doc.to_string(),
+    /// r#"
+    ///   number1: 10
+    ///   number2: 30
+    ///   table:
+    ///     inner: 400
+    ///   string3: "It's \n a good day!"
+    /// "#
+    /// };
+    ///
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
-    pub fn into_table_mut(self) -> Result<TableMut<'a>, Self> {
+    pub fn into_table_mut(self) -> Option<TableMut<'a>> {
         match self.raw().map(|r| &r.kind) {
-            Some(RawKind::Table(..)) => Ok(TableMut::new(self.doc, self.pointer)),
-            _ => Err(self),
+            Some(RawKind::Table(..)) => Some(TableMut::new(self.doc, self.pointer)),
+            _ => None,
         }
     }
 }
@@ -308,13 +322,13 @@ impl<'a> ValueMut<'a> {
 ///   string3: "I am a quoted string!"
 /// "#)?;
 ///
-/// let mut root = doc.root_mut().into_table_mut().map_err(|_| "missing root table")?;
+/// let mut root = doc.root_mut().into_table_mut().ok_or("missing root table")?;
 ///
 /// assert_eq!(root.as_ref().get("number1").and_then(|v| v.as_u32()), Some(10));
 /// assert_eq!(root.as_ref().get("number2").and_then(|v| v.as_u32()), Some(20));
 /// assert_eq!(root.as_ref().get("string3").and_then(|v| v.as_str()), Some("I am a quoted string!"));
 ///
-/// let table = root.get_mut("table").and_then(|v| v.into_table_mut().ok()).ok_or("missing inner table")?;
+/// let table = root.get_mut("table").and_then(|v| v.into_table_mut()).ok_or("missing inner table")?;
 /// assert_eq!(table.as_ref().get("inner").and_then(|v| v.as_u32()), Some(400));
 ///
 /// root.get_mut("number2").ok_or("missing inner table")?.set_u32(30);
@@ -348,7 +362,7 @@ macro_rules! insert_unsigned {
         /// let mut doc = yaml::parse(r#"
         /// number1: 10
         /// "#)?;
-        /// let mut value = doc.root_mut().into_table_mut().map_err(|_| "not a table")?;
+        /// let mut value = doc.root_mut().into_table_mut().ok_or("not a table")?;
         #[doc = concat!("value.", stringify!($name), "(\"number2\", 42);")]
         /// assert_eq!(doc.to_string(), "\nnumber1: 10\nnumber2: 42\n");
         /// # Ok::<_, Box<dyn std::error::Error>>(())
@@ -384,7 +398,7 @@ macro_rules! insert_signed {
         /// let mut doc = yaml::parse(r#"
         /// number1: 10
         /// "#)?;
-        /// let mut value = doc.root_mut().into_table_mut().map_err(|_| "not a table")?;
+        /// let mut value = doc.root_mut().into_table_mut().ok_or("not a table")?;
         #[doc = concat!("value.", stringify!($name), "(\"number2\", -42);")]
         /// assert_eq!(doc.to_string(), "\nnumber1: 10\nnumber2: -42\n");
         /// # Ok::<_, Box<dyn std::error::Error>>(())

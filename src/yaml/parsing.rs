@@ -68,6 +68,17 @@ impl<'a> Parser<'a> {
         b
     }
 
+    /// Peek the next next value.
+    pub(crate) fn peek2(&self) -> (u8, u8) {
+        let b0 = self.peek();
+
+        let Some(&b) = self.input.get(self.position.wrapping_add(1)) else {
+            return (b0, 0);
+        };
+
+        (b0, b)
+    }
+
     /// Insert a value into the tree.
     pub(crate) fn insert(&mut self, kind: RawKind) -> Pointer {
         self.tree.insert(Raw {
@@ -77,8 +88,8 @@ impl<'a> Parser<'a> {
     }
 
     /// Bump a single byte of input.
-    pub(crate) fn bump(&mut self) {
-        self.position = self.position.wrapping_add(1).min(self.input.len());
+    pub(crate) fn bump(&mut self, n: usize) {
+        self.position = self.position.wrapping_add(n).min(self.input.len());
     }
 
     /// Get the current span.
@@ -98,7 +109,7 @@ impl<'a> Parser<'a> {
         let start = self.position;
 
         while self.peek().is_ascii_whitespace() {
-            self.bump();
+            self.bump(1);
         }
 
         self.strings.insert(self.string(start))
@@ -109,11 +120,11 @@ impl<'a> Parser<'a> {
         let start = self.position;
 
         if matches!(self.peek(), b'-') {
-            self.bump();
+            self.bump(1);
         }
 
         while matches!(self.peek(), number_remainder!()) {
-            self.bump();
+            self.bump(1);
         }
 
         let string = self.strings.insert(self.string(start));
@@ -125,7 +136,7 @@ impl<'a> Parser<'a> {
         let start = self.position;
 
         while matches!(self.peek(), id_remainder!()) {
-            self.bump();
+            self.bump(1);
         }
 
         let string = self.strings.insert(self.string(start));
@@ -134,15 +145,25 @@ impl<'a> Parser<'a> {
 
     /// Read a double-quoted string.
     pub(crate) fn single_quoted(&mut self) -> Result<RawKind> {
-        self.bump();
+        self.bump(1);
         let start = self.position;
 
-        while !matches!(self.peek(), b'\'') {
-            self.bump();
+        loop {
+            match self.peek2() {
+                (b'\'', b'\'') => {
+                    self.bump(2);
+                }
+                (b'\'', _) => {
+                    break;
+                }
+                _ => {
+                    self.bump(1);
+                }
+            }
         }
 
         let string = self.strings.insert(self.string(start));
-        self.bump();
+        self.bump(1);
         Ok(RawKind::String(RawString::new(
             StringKind::SingleQuoted,
             string,
@@ -151,15 +172,15 @@ impl<'a> Parser<'a> {
 
     /// Read a double-quoted string.
     pub(crate) fn double_quoted(&mut self) -> Result<RawKind> {
-        self.bump();
+        self.bump(1);
         let start = self.position;
 
         while !matches!(self.peek(), b'"') {
-            self.bump();
+            self.bump(1);
         }
 
         let string = self.strings.insert(self.string(start));
-        self.bump();
+        self.bump(1);
         Ok(RawKind::String(RawString::new(
             StringKind::DoubleQuoted,
             string,
@@ -180,7 +201,7 @@ impl<'a> Parser<'a> {
                 return Err(Error::new(self.span(1), ErrorKind::ExpectedTableSeparator));
             }
 
-            self.bump();
+            self.bump(1);
 
             let separator = self.ws();
             let first_indent = self.indent(&separator);
