@@ -182,8 +182,8 @@ impl<'a> ValueMut<'a> {
     }
 }
 
-macro_rules! set_unsigned {
-    ($name:ident, $ty:ty, $string:literal) => {
+macro_rules! set_number {
+    ($name:ident, $ty:ty, $string:literal, $lit:literal) => {
         #[doc = concat!("Set the value as a ", $string, ".")]
         ///
         /// # Examples
@@ -192,46 +192,16 @@ macro_rules! set_unsigned {
         /// use nondestructive::yaml;
         ///
         /// let mut doc = yaml::parse("10")?;
-        #[doc = concat!("let value = doc.root_mut().", stringify!($name), "(42);")]
-        /// assert_eq!(doc.to_string(), "42");
+        #[doc = concat!("let value = doc.root_mut().", stringify!($name), "(", stringify!($lit), ");")]
+        #[doc = concat!("assert_eq!(doc.to_string(), \"", stringify!($lit), "\");")]
         /// # Ok::<_, Box<dyn std::error::Error>>(())
         /// ```
         pub fn $name(&mut self, value: $ty) {
-            let Some(raw) = self.doc.tree.get_mut(&self.pointer) else {
-                                        return;
-                                    };
-
-            let mut buffer = itoa::Buffer::new();
-            let printed = buffer.format(value);
-            let string = self.doc.strings.insert(printed.as_bytes());
-            *raw = Raw::Number(RawNumber::new(string));
-        }
-    };
-}
-
-macro_rules! set_signed {
-    ($name:ident, $ty:ty, $string:literal) => {
-        #[doc = concat!("Set the value as a ", $string, ".")]
-        ///
-        /// # Examples
-        ///
-        /// ```
-        /// use nondestructive::yaml;
-        ///
-        /// let mut doc = yaml::parse("10")?;
-        #[doc = concat!("let value = doc.root_mut().", stringify!($name), "(-42);")]
-        /// assert_eq!(doc.to_string(), "-42");
-        /// # Ok::<_, Box<dyn std::error::Error>>(())
-        /// ```
-        pub fn $name(&mut self, value: $ty) {
-            let Some(raw) = self.doc.tree.get_mut(&self.pointer) else {
-                                        return;
-                                    };
-
-            let mut buffer = itoa::Buffer::new();
-            let printed = buffer.format(value);
-            let string = self.doc.strings.insert(printed.as_bytes());
-            *raw = Raw::Number(RawNumber::new(string));
+            if let Some(raw) = self.doc.tree.get_mut(&self.pointer) {
+                let mut buffer = itoa::Buffer::new();
+                let string = self.doc.strings.insert(buffer.format(value));
+                *raw = Raw::Number(RawNumber::new(string));
+            }
         }
     };
 }
@@ -299,16 +269,16 @@ impl<'a> ValueMut<'a> {
         *raw = Raw::String(string);
     }
 
-    set_unsigned!(set_u8, u8, "8-bit unsigned integer");
-    set_signed!(set_i8, i8, "8-bit signed integer");
-    set_unsigned!(set_u16, u16, "16-bit unsigned integer");
-    set_signed!(set_i16, i16, "16-bit signed integer");
-    set_unsigned!(set_u32, u32, "32-bit unsigned integer");
-    set_signed!(set_i32, i32, "32-bit signed integer");
-    set_unsigned!(set_u64, u64, "64-bit unsigned integer");
-    set_signed!(set_i64, i64, "64-bit signed integer");
-    set_unsigned!(set_u128, u128, "128-bit unsigned integer");
-    set_signed!(set_i128, i128, "128-bit signed integer");
+    set_number!(set_u8, u8, "8-bit unsigned integer", 42);
+    set_number!(set_i8, i8, "8-bit signed integer", -42);
+    set_number!(set_u16, u16, "16-bit unsigned integer", 42);
+    set_number!(set_i16, i16, "16-bit signed integer", -42);
+    set_number!(set_u32, u32, "32-bit unsigned integer", 42);
+    set_number!(set_i32, i32, "32-bit signed integer", -42);
+    set_number!(set_u64, u64, "64-bit unsigned integer", 42);
+    set_number!(set_i64, i64, "64-bit signed integer", -42);
+    set_number!(set_u128, u128, "128-bit unsigned integer", 42);
+    set_number!(set_i128, i128, "128-bit signed integer", -42);
 }
 
 /// Accessor for a table.
@@ -354,8 +324,8 @@ pub struct TableMut<'a> {
     pointer: Pointer,
 }
 
-macro_rules! insert_unsigned {
-    ($name:ident, $ty:ty, $string:literal) => {
+macro_rules! insert_number {
+    ($name:ident, $ty:ty, $string:literal, $lit:literal) => {
         #[doc = concat!("Set the value as a ", $string, ".")]
         ///
         /// # Examples
@@ -367,59 +337,22 @@ macro_rules! insert_unsigned {
         /// number1: 10
         /// "#)?;
         /// let mut value = doc.root_mut().into_table_mut().ok_or("not a table")?;
-        #[doc = concat!("value.", stringify!($name), "(\"number2\", 42);")]
-        /// assert_eq!(doc.to_string(), "\nnumber1: 10\nnumber2: 42\n");
+        #[doc = concat!("value.", stringify!($name), "(\"number2\", ", stringify!($lit), ");")]
+        #[doc = concat!("assert_eq!(doc.to_string(), \"\\nnumber1: 10\\nnumber2: ", stringify!($lit), "\\n\");")]
         /// # Ok::<_, Box<dyn std::error::Error>>(())
         /// ```
         pub fn $name(&mut self, key: &str, value: $ty) {
             let mut buffer = itoa::Buffer::new();
-            let number = buffer.format(value);
-            let number = self.doc.strings.insert(number.as_bytes());
-            let separator = self.doc.strings.insert(" ");
-            let key = self.doc.strings.insert(key);
-            let key = RawString::new(StringKind::Bare, key);
+            let number = self.doc.strings.insert(buffer.format(value));
             let value = self.doc.tree.insert(Raw::Number(RawNumber::new(number)));
 
-            let Some(Raw::Table(table)) = self.doc.tree.get_mut(&self.pointer) else {
-                                        return;
-                                    };
-
-            table.insert(key, separator, value);
-        }
-    };
-}
-
-macro_rules! insert_signed {
-    ($name:ident, $ty:ty, $string:literal) => {
-        #[doc = concat!("Set the value as a ", $string, ".")]
-        ///
-        /// # Examples
-        ///
-        /// ```
-        /// use nondestructive::yaml;
-        ///
-        /// let mut doc = yaml::parse(r#"
-        /// number1: 10
-        /// "#)?;
-        /// let mut value = doc.root_mut().into_table_mut().ok_or("not a table")?;
-        #[doc = concat!("value.", stringify!($name), "(\"number2\", -42);")]
-        /// assert_eq!(doc.to_string(), "\nnumber1: 10\nnumber2: -42\n");
-        /// # Ok::<_, Box<dyn std::error::Error>>(())
-        /// ```
-        pub fn $name(&mut self, key: &str, value: $ty) {
-            let mut buffer = itoa::Buffer::new();
-            let number = buffer.format(value);
-            let number = self.doc.strings.insert(number.as_bytes());
-            let separator = self.doc.strings.insert(" ");
-            let key = self.doc.strings.insert(key);
-            let key = RawString::new(StringKind::Bare, key);
-            let value = self.doc.tree.insert(Raw::Number(RawNumber::new(number)));
-
-            let Some(Raw::Table(table)) = self.doc.tree.get_mut(&self.pointer) else {
-                                        return;
-                                    };
-
-            table.insert(key, separator, value);
+            if let Some(Raw::Table(table)) = self.doc.tree.get_mut(&self.pointer) {
+                let separator = self.doc.strings.insert(" ");
+                let kind = StringKind::detect(key);
+                let key = self.doc.strings.insert(key);
+                let key = RawString::new(kind, key);
+                table.insert(key, separator, value);
+            }
         }
     };
 }
@@ -533,14 +466,14 @@ impl<'a> TableMut<'a> {
         None
     }
 
-    insert_unsigned!(insert_u8, u8, "8-bit unsigned integer");
-    insert_signed!(insert_i8, i8, "8-bit signed integer");
-    insert_unsigned!(insert_u16, u16, "16-bit unsigned integer");
-    insert_signed!(insert_i16, i16, "16-bit signed integer");
-    insert_unsigned!(insert_u32, u32, "32-bit unsigned integer");
-    insert_signed!(insert_i32, i32, "32-bit signed integer");
-    insert_unsigned!(insert_u64, u64, "64-bit unsigned integer");
-    insert_signed!(insert_i64, i64, "64-bit signed integer");
-    insert_unsigned!(insert_u128, u128, "128-bit unsigned integer");
-    insert_signed!(insert_i128, i128, "128-bit signed integer");
+    insert_number!(insert_u8, u8, "8-bit unsigned integer", 42);
+    insert_number!(insert_i8, i8, "8-bit signed integer", -42);
+    insert_number!(insert_u16, u16, "16-bit unsigned integer", 42);
+    insert_number!(insert_i16, i16, "16-bit signed integer", -42);
+    insert_number!(insert_u32, u32, "32-bit unsigned integer", 42);
+    insert_number!(insert_i32, i32, "32-bit signed integer", -42);
+    insert_number!(insert_u64, u64, "64-bit unsigned integer", 42);
+    insert_number!(insert_i64, i64, "64-bit signed integer", -42);
+    insert_number!(insert_u128, u128, "128-bit unsigned integer", 42);
+    insert_number!(insert_i128, i128, "128-bit signed integer", -42);
 }

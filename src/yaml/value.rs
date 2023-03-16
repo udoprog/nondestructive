@@ -78,44 +78,18 @@ pub struct Value<'a> {
     pointer: Pointer,
 }
 
-macro_rules! as_unsigned {
-    ($name:ident, $ty:ty, $string:literal) => {
-        #[doc = concat!("Try and get the value as a ", $string, ".")]
+macro_rules! as_number {
+    ($name:ident, $ty:ty, $doc:literal, $lit:literal) => {
+        #[doc = concat!("Try and get the value as a ", $doc, ".")]
         ///
         /// # Examples
         ///
         /// ```
         /// use nondestructive::yaml;
         ///
-        /// let doc = yaml::parse("42")?;
+        #[doc = concat!("let doc = yaml::parse(\"", stringify!($lit), "\")?;")]
         #[doc = concat!("let value = doc.root().", stringify!($name), "();")]
-        /// assert_eq!(value, Some(42));
-        /// # Ok::<_, Box<dyn std::error::Error>>(())
-        /// ```
-        pub fn $name(&self) -> Option<$ty> {
-            match self.raw() {
-                Some(Raw::Number(raw)) => {
-                    let string = self.doc.strings.get(&raw.string);
-                    lexical_core::parse(string).ok()
-                }
-                _ => None,
-            }
-        }
-    };
-}
-
-macro_rules! as_signed {
-    ($name:ident, $ty:ty, $string:literal) => {
-        #[doc = concat!("Try and get the value as a ", $string, ".")]
-        ///
-        /// # Examples
-        ///
-        /// ```
-        /// use nondestructive::yaml;
-        ///
-        /// let doc = yaml::parse("-42")?;
-        #[doc = concat!("let value = doc.root().", stringify!($name), "();")]
-        /// assert_eq!(value, Some(-42));
+        #[doc = concat!("assert_eq!(value, Some(", stringify!($lit), "));")]
         /// # Ok::<_, Box<dyn std::error::Error>>(())
         /// ```
         pub fn $name(&self) -> Option<$ty> {
@@ -192,16 +166,16 @@ impl<'a> Value<'a> {
         }
     }
 
-    as_unsigned!(as_u8, u8, "8-bit unsigned integer");
-    as_signed!(as_i8, i8, "8-bit signed integer");
-    as_unsigned!(as_u16, u16, "16-bit unsigned integer");
-    as_signed!(as_i16, i16, "16-bit signed integer");
-    as_unsigned!(as_u32, u32, "16-bit unsigned integer");
-    as_signed!(as_i32, i32, "32-bit signed integer");
-    as_unsigned!(as_u64, u64, "16-bit unsigned integer");
-    as_signed!(as_i64, i64, "64-bit signed integer");
-    as_unsigned!(as_u128, u128, "16-bit unsigned integer");
-    as_signed!(as_i128, i128, "128-bit signed integer");
+    as_number!(as_u8, u8, "8-bit unsigned integer", 42);
+    as_number!(as_i8, i8, "8-bit signed integer", -42);
+    as_number!(as_u16, u16, "16-bit unsigned integer", 42);
+    as_number!(as_i16, i16, "16-bit signed integer", -42);
+    as_number!(as_u32, u32, "16-bit unsigned integer", 42);
+    as_number!(as_i32, i32, "32-bit signed integer", -42);
+    as_number!(as_u64, u64, "16-bit unsigned integer", 42);
+    as_number!(as_i64, i64, "64-bit signed integer", -42);
+    as_number!(as_u128, u128, "16-bit unsigned integer", 42);
+    as_number!(as_i128, i128, "128-bit signed integer", -42);
 }
 
 impl fmt::Display for Value<'_> {

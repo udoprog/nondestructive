@@ -221,9 +221,7 @@ impl<'a> Parser<'a> {
                 break Some(suffix);
             };
 
-            if self.strings.get(&current_indent) != self.strings.get(&indent)
-                || !matches!(self.peek(), id_first!())
-            {
+            if current_indent != indent || !matches!(self.peek(), id_first!()) {
                 break Some(suffix);
             }
 
