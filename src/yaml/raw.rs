@@ -8,22 +8,24 @@ use crate::yaml::{Document, NullKind, StringKind};
 
 /// A raw value.
 #[derive(Debug, Clone)]
-pub(crate) struct Raw {
+pub(crate) enum Raw {
+    /// A null value.
+    Null(NullKind),
+    /// A single number.
+    Number(RawNumber),
+    /// A string.
+    String(RawString),
+    /// A table.
     #[allow(unused)]
-    pub(crate) pointer: Pointer,
-    pub(crate) kind: RawKind,
+    Table(RawTable),
 }
 
 impl Raw {
-    pub(crate) fn new(pointer: Pointer, kind: RawKind) -> Self {
-        Self { pointer, kind }
-    }
-
     pub(crate) fn display(&self, doc: &Document, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use std::fmt::Display;
 
-        match &self.kind {
-            RawKind::Null(raw) => {
+        match self {
+            Raw::Null(raw) => {
                 match raw {
                     NullKind::Keyword => {
                         "null".fmt(f)?;
@@ -36,10 +38,10 @@ impl Raw {
                     }
                 }
             }
-            RawKind::Number(raw) => {
+            Raw::Number(raw) => {
                 doc.strings.get(&raw.string).fmt(f)?;
             }
-            RawKind::String(raw) => {
+            Raw::String(raw) => {
                 let string = doc.strings.get(&raw.string);
 
                 match raw.kind {
@@ -54,7 +56,7 @@ impl Raw {
                     }
                 }
             }
-            RawKind::Table(table) => {
+            Raw::Table(table) => {
                 for e in &table.children {
                     if let Some(prefix) = &e.prefix {
                         doc.strings.get(prefix).fmt(f)?;
@@ -143,20 +145,6 @@ fn escape_double_quoted(string: &bstr::BStr, f: &mut fmt::Formatter) -> Result<(
 
     f.write_char('"')?;
     Ok(())
-}
-
-/// The kind of a YAML value.
-#[derive(Debug, Clone)]
-pub(crate) enum RawKind {
-    /// A null value.
-    Null(NullKind),
-    /// A single number.
-    Number(RawNumber),
-    /// A string.
-    String(RawString),
-    /// A table.
-    #[allow(unused)]
-    Table(RawTable),
 }
 
 /// A YAML number.

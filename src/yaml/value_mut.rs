@@ -1,5 +1,5 @@
 use crate::slab::Pointer;
-use crate::yaml::raw::{Raw, RawKind, RawNumber};
+use crate::yaml::raw::{Raw, RawNumber};
 use crate::yaml::raw::{RawString, RawTable};
 use crate::yaml::{Document, NullKind, StringKind, Table, Value};
 
@@ -119,8 +119,8 @@ impl<'a> ValueMut<'a> {
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     pub fn as_table_mut(&mut self) -> Option<TableMut<'_>> {
-        match self.raw().map(|r| &r.kind) {
-            Some(RawKind::Table(..)) => Some(TableMut::new(self.doc, self.pointer)),
+        match self.raw() {
+            Some(Raw::Table(..)) => Some(TableMut::new(self.doc, self.pointer)),
             _ => None,
         }
     }
@@ -175,8 +175,8 @@ impl<'a> ValueMut<'a> {
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     pub fn into_table_mut(self) -> Option<TableMut<'a>> {
-        match self.raw().map(|r| &r.kind) {
-            Some(RawKind::Table(..)) => Some(TableMut::new(self.doc, self.pointer)),
+        match self.raw() {
+            Some(Raw::Table(..)) => Some(TableMut::new(self.doc, self.pointer)),
             _ => None,
         }
     }
@@ -197,12 +197,14 @@ macro_rules! set_unsigned {
         /// # Ok::<_, Box<dyn std::error::Error>>(())
         /// ```
         pub fn $name(&mut self, value: $ty) {
-            if let Some(raw) = self.doc.tree.get_mut(&self.pointer) {
-                let mut buffer = itoa::Buffer::new();
-                let printed = buffer.format(value);
-                let string = self.doc.strings.insert(printed.as_bytes());
-                raw.kind = RawKind::Number(RawNumber::new(string));
-            }
+            let Some(raw) = self.doc.tree.get_mut(&self.pointer) else {
+                                        return;
+                                    };
+
+            let mut buffer = itoa::Buffer::new();
+            let printed = buffer.format(value);
+            let string = self.doc.strings.insert(printed.as_bytes());
+            *raw = Raw::Number(RawNumber::new(string));
         }
     };
 }
@@ -222,12 +224,14 @@ macro_rules! set_signed {
         /// # Ok::<_, Box<dyn std::error::Error>>(())
         /// ```
         pub fn $name(&mut self, value: $ty) {
-            if let Some(raw) = self.doc.tree.get_mut(&self.pointer) {
-                let mut buffer = itoa::Buffer::new();
-                let printed = buffer.format(value);
-                let string = self.doc.strings.insert(printed.as_bytes());
-                raw.kind = RawKind::Number(RawNumber::new(string));
-            }
+            let Some(raw) = self.doc.tree.get_mut(&self.pointer) else {
+                                        return;
+                                    };
+
+            let mut buffer = itoa::Buffer::new();
+            let printed = buffer.format(value);
+            let string = self.doc.strings.insert(printed.as_bytes());
+            *raw = Raw::Number(RawNumber::new(string));
         }
     };
 }
@@ -256,7 +260,7 @@ impl<'a> ValueMut<'a> {
     /// ```
     pub fn set_null(&mut self, kind: NullKind) {
         if let Some(raw) = self.doc.tree.get_mut(&self.pointer) {
-            raw.kind = RawKind::Null(kind);
+            *raw = Raw::Null(kind);
         }
     }
 
@@ -292,7 +296,7 @@ impl<'a> ValueMut<'a> {
         let kind = StringKind::detect(string.as_ref());
         let string = self.doc.strings.insert(string.as_ref());
         let string = RawString::new(kind, string);
-        raw.kind = RawKind::String(string);
+        *raw = Raw::String(string);
     }
 
     set_unsigned!(set_u8, u8, "8-bit unsigned integer");
@@ -374,12 +378,11 @@ macro_rules! insert_unsigned {
             let separator = self.doc.strings.insert(" ");
             let key = self.doc.strings.insert(key);
             let key = RawString::new(StringKind::Bare, key);
-            let value = self.doc.tree.pointer();
-            let value = self.doc.tree.insert(Raw::new(value, RawKind::Number(RawNumber::new(number))));
+            let value = self.doc.tree.insert(Raw::Number(RawNumber::new(number)));
 
-            let Some(RawKind::Table(table)) = self.doc.tree.get_mut(&self.pointer).map(|r| &mut r.kind) else {
-                return;
-            };
+            let Some(Raw::Table(table)) = self.doc.tree.get_mut(&self.pointer) else {
+                                        return;
+                                    };
 
             table.insert(key, separator, value);
         }
@@ -410,12 +413,11 @@ macro_rules! insert_signed {
             let separator = self.doc.strings.insert(" ");
             let key = self.doc.strings.insert(key);
             let key = RawString::new(StringKind::Bare, key);
-            let value = self.doc.tree.pointer();
-            let value = self.doc.tree.insert(Raw::new(value, RawKind::Number(RawNumber::new(number))));
+            let value = self.doc.tree.insert(Raw::Number(RawNumber::new(number)));
 
-            let Some(RawKind::Table(table)) = self.doc.tree.get_mut(&self.pointer).map(|r| &mut r.kind) else {
-                return;
-            };
+            let Some(Raw::Table(table)) = self.doc.tree.get_mut(&self.pointer) else {
+                                        return;
+                                    };
 
             table.insert(key, separator, value);
         }
@@ -429,8 +431,8 @@ impl<'a> TableMut<'a> {
 
     /// Get the raw element based on the value pointer.
     pub(crate) fn raw(&self) -> Option<&RawTable> {
-        match &self.doc.tree.get(&self.pointer)?.kind {
-            RawKind::Table(table) => Some(table),
+        match self.doc.tree.get(&self.pointer) {
+            Some(Raw::Table(table)) => Some(table),
             _ => None,
         }
     }

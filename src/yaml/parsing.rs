@@ -5,7 +5,7 @@ use bstr::ByteSlice;
 use crate::slab::{Pointer, Slab};
 use crate::strings::{StringId, Strings};
 use crate::yaml::error::{Error, ErrorKind};
-use crate::yaml::raw::{Raw, RawKind, RawNumber, RawString};
+use crate::yaml::raw::{Raw, RawNumber, RawString};
 use crate::yaml::{Document, StringKind};
 
 use super::raw::{RawTable, RawTableElement};
@@ -14,26 +14,26 @@ type Result<T, E = Error> = std::result::Result<T, E>;
 
 macro_rules! id_first {
     () => {
-        b'a'..=b'z' | b'A'..=b'Z'
+        b'a'..=b'z' | b'A'..=b'Z' | b'@'
     }
 }
 
 #[macro_export]
 macro_rules! id_remainder {
     () => {
-        b'a'..=b'z' | b'A'..=b'Z' | b'-' | b'0'..=b'9'
+        b'a'..=b'z' | b'A'..=b'Z' | b'-' | b'0'..=b'9' | b'/' | b'@'
     }
 }
 
 macro_rules! number_first {
     () => {
-        b'-' | b'0'..=b'9'
+        b'-' | b'0'..=b'9' | b'.'
     };
 }
 
 macro_rules! number_remainder {
     () => {
-        b'0'..=b'9'
+        b'0'..=b'9' | b'.'
     };
 }
 
@@ -80,11 +80,8 @@ impl<'a> Parser<'a> {
     }
 
     /// Insert a value into the tree.
-    pub(crate) fn insert(&mut self, kind: RawKind) -> Pointer {
-        self.tree.insert(Raw {
-            pointer: self.tree.pointer(),
-            kind,
-        })
+    pub(crate) fn insert(&mut self, raw: Raw) -> Pointer {
+        self.tree.insert(raw)
     }
 
     /// Bump a single byte of input.
@@ -116,7 +113,7 @@ impl<'a> Parser<'a> {
     }
 
     /// Consume a single number.
-    pub(crate) fn number(&mut self) -> Result<RawKind> {
+    pub(crate) fn number(&mut self) -> Result<Raw> {
         let start = self.position;
 
         if matches!(self.peek(), b'-') {
@@ -128,7 +125,7 @@ impl<'a> Parser<'a> {
         }
 
         let string = self.strings.insert(self.string(start));
-        Ok(RawKind::Number(RawNumber::new(string)))
+        Ok(Raw::Number(RawNumber::new(string)))
     }
 
     /// Read an identifier.
@@ -144,7 +141,7 @@ impl<'a> Parser<'a> {
     }
 
     /// Read a double-quoted string.
-    pub(crate) fn single_quoted(&mut self) -> Result<RawKind> {
+    pub(crate) fn single_quoted(&mut self) -> Result<Raw> {
         self.bump(1);
         let start = self.position;
 
@@ -164,14 +161,14 @@ impl<'a> Parser<'a> {
 
         let string = self.strings.insert(self.string(start));
         self.bump(1);
-        Ok(RawKind::String(RawString::new(
+        Ok(Raw::String(RawString::new(
             StringKind::SingleQuoted,
             string,
         )))
     }
 
     /// Read a double-quoted string.
-    pub(crate) fn double_quoted(&mut self) -> Result<RawKind> {
+    pub(crate) fn double_quoted(&mut self) -> Result<Raw> {
         self.bump(1);
         let start = self.position;
 
@@ -181,7 +178,7 @@ impl<'a> Parser<'a> {
 
         let string = self.strings.insert(self.string(start));
         self.bump(1);
-        Ok(RawKind::String(RawString::new(
+        Ok(Raw::String(RawString::new(
             StringKind::DoubleQuoted,
             string,
         )))
@@ -206,7 +203,7 @@ impl<'a> Parser<'a> {
             let separator = self.ws();
             let first_indent = self.indent(&separator);
             let (first_value, first_suffix) = self.value(first_indent)?;
-            let first_value = self.insert(first_value);
+            let first_value = self.tree.insert(first_value);
 
             let suffix = match first_suffix {
                 Some(suffix) => suffix,
@@ -250,10 +247,7 @@ impl<'a> Parser<'a> {
     }
 
     /// Consume a single value.
-    pub(crate) fn value(
-        &mut self,
-        indent: Option<StringId>,
-    ) -> Result<(RawKind, Option<StringId>)> {
+    pub(crate) fn value(&mut self, indent: Option<StringId>) -> Result<(Raw, Option<StringId>)> {
         let kind = match self.peek() {
             number_first!() => self.number()?,
             id_first!() => {
@@ -261,9 +255,9 @@ impl<'a> Parser<'a> {
 
                 if let (Some(indent), b':') = (indent, self.peek()) {
                     let (value, prefix) = self.table(indent, id)?;
-                    return Ok((RawKind::Table(value), prefix));
+                    return Ok((Raw::Table(value), prefix));
                 } else {
-                    RawKind::String(id)
+                    Raw::String(id)
                 }
             }
             b'"' => self.double_quoted()?,

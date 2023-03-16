@@ -3,7 +3,7 @@ use core::fmt;
 use bstr::ByteSlice;
 
 use crate::slab::Pointer;
-use crate::yaml::raw::{Raw, RawKind};
+use crate::yaml::raw::Raw;
 use crate::yaml::Document;
 
 use super::raw::RawTable;
@@ -93,8 +93,8 @@ macro_rules! as_unsigned {
         /// # Ok::<_, Box<dyn std::error::Error>>(())
         /// ```
         pub fn $name(&self) -> Option<$ty> {
-            match &self.raw()?.kind {
-                RawKind::Number(raw) => {
+            match self.raw() {
+                Some(Raw::Number(raw)) => {
                     let string = self.doc.strings.get(&raw.string);
                     lexical_core::parse(string).ok()
                 }
@@ -119,8 +119,8 @@ macro_rules! as_signed {
         /// # Ok::<_, Box<dyn std::error::Error>>(())
         /// ```
         pub fn $name(&self) -> Option<$ty> {
-            match &self.raw()?.kind {
-                RawKind::Number(raw) => {
+            match self.raw() {
+                Some(Raw::Number(raw)) => {
                     let string = self.doc.strings.get(&raw.string);
                     lexical_core::parse(string).ok()
                 }
@@ -153,8 +153,8 @@ impl<'a> Value<'a> {
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     pub fn as_str(&self) -> Option<&'a str> {
-        match &self.raw()?.kind {
-            RawKind::String(raw) => self.doc.strings.get(&raw.string).to_str().ok(),
+        match self.raw() {
+            Some(Raw::String(raw)) => self.doc.strings.get(&raw.string).to_str().ok(),
             _ => None,
         }
     }
@@ -186,8 +186,8 @@ impl<'a> Value<'a> {
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     pub fn as_table(&self) -> Option<Table<'a>> {
-        match &self.raw()?.kind {
-            RawKind::Table(..) => Some(Table::new(self.doc, self.pointer)),
+        match self.raw() {
+            Some(Raw::Table(..)) => Some(Table::new(self.doc, self.pointer)),
             _ => None,
         }
     }
@@ -271,8 +271,8 @@ impl<'a> Table<'a> {
 
     /// Get the raw element based on the value pointer.
     pub(crate) fn raw(&self) -> Option<&RawTable> {
-        match &self.doc.tree.get(&self.pointer)?.kind {
-            RawKind::Table(table) => Some(table),
+        match self.doc.tree.get(&self.pointer) {
+            Some(Raw::Table(table)) => Some(table),
             _ => None,
         }
     }
