@@ -1,5 +1,5 @@
 use crate::strings::Strings;
-use crate::yaml::raw::{Raw, RawList, RawNumber, RawString, RawTable};
+use crate::yaml::raw::{Layout, RawKind, RawList, RawNumber, RawString, RawTable};
 use crate::yaml::{List, NullKind, StringKind, Table, Value};
 
 use super::raw::insert_bool;
@@ -7,13 +7,18 @@ use super::raw::insert_bool;
 /// A mutable value inside of a document.
 pub struct ValueMut<'a> {
     strings: &'a mut Strings,
-    raw: &'a mut Raw,
+    raw: &'a mut RawKind,
+    layout: &'a Layout,
 }
 
 impl<'a> ValueMut<'a> {
     /// Construct a new mutable value.
-    pub(crate) fn new(strings: &'a mut Strings, raw: &'a mut Raw) -> Self {
-        Self { strings, raw }
+    pub(crate) fn new(strings: &'a mut Strings, raw: &'a mut RawKind, layout: &'a Layout) -> Self {
+        Self {
+            strings,
+            raw,
+            layout,
+        }
     }
 
     /// Coerce a mutable value as an immutable [Value].
@@ -115,7 +120,7 @@ impl<'a> ValueMut<'a> {
     /// ```
     pub fn as_table_mut(&mut self) -> Option<TableMut<'_>> {
         match self.raw {
-            Raw::Table(raw) => Some(TableMut::new(self.strings, raw)),
+            RawKind::Table(raw) => Some(TableMut::new(self.strings, raw, self.layout)),
             _ => None,
         }
     }
@@ -167,7 +172,7 @@ impl<'a> ValueMut<'a> {
     /// ```
     pub fn into_table_mut(self) -> Option<TableMut<'a>> {
         match self.raw {
-            Raw::Table(raw) => Some(TableMut::new(self.strings, raw)),
+            RawKind::Table(raw) => Some(TableMut::new(self.strings, raw, self.layout)),
             _ => None,
         }
     }
@@ -202,7 +207,7 @@ impl<'a> ValueMut<'a> {
     /// ```
     pub fn as_list_mut(&mut self) -> Option<ListMut<'_>> {
         match self.raw {
-            Raw::List(raw) => Some(ListMut::new(self.strings, raw)),
+            RawKind::List(raw) => Some(ListMut::new(self.strings, raw, self.layout)),
             _ => None,
         }
     }
@@ -238,7 +243,7 @@ impl<'a> ValueMut<'a> {
     /// ```
     pub fn into_list_mut(self) -> Option<ListMut<'a>> {
         match self.raw {
-            Raw::List(raw) => Some(ListMut::new(self.strings, raw)),
+            RawKind::List(raw) => Some(ListMut::new(self.strings, raw, self.layout)),
             _ => None,
         }
     }
@@ -261,7 +266,7 @@ macro_rules! set_float {
         pub fn $name(&mut self, value: $ty) {
             let mut buffer = ryu::Buffer::new();
             let string = self.strings.insert(buffer.format(value));
-            *self.raw = Raw::Number(RawNumber::new(string));
+            *self.raw = RawKind::Number(RawNumber::new(string));
         }
     };
 }
@@ -283,7 +288,7 @@ macro_rules! set_number {
         pub fn $name(&mut self, value: $ty) {
             let mut buffer = itoa::Buffer::new();
             let string = self.strings.insert(buffer.format(value));
-            *self.raw = Raw::Number(RawNumber::new(string));
+            *self.raw = RawKind::Number(RawNumber::new(string));
         }
     };
 }
@@ -311,7 +316,7 @@ impl<'a> ValueMut<'a> {
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     pub fn set_null(&mut self, kind: NullKind) {
-        *self.raw = Raw::Null(kind);
+        *self.raw = RawKind::Null(kind);
     }
 
     /// Set the value as a string.
@@ -345,7 +350,7 @@ impl<'a> ValueMut<'a> {
         let kind = StringKind::detect(string.as_ref());
         let string = self.strings.insert(string.as_ref());
         let string = RawString::new(kind, string);
-        *self.raw = Raw::String(string);
+        *self.raw = RawKind::String(string);
     }
 
     /// Set the value as a boolean.
@@ -419,6 +424,7 @@ impl<'a> ValueMut<'a> {
 pub struct TableMut<'a> {
     strings: &'a mut Strings,
     raw: &'a mut RawTable,
+    layout: &'a Layout,
 }
 
 macro_rules! insert_float {
@@ -448,12 +454,12 @@ macro_rules! insert_float {
         pub fn $name(&mut self, key: &str, value: $ty) {
             let mut buffer = ryu::Buffer::new();
             let number = self.strings.insert(buffer.format(value));
-            let value = Raw::Number(RawNumber::new(number));
+            let value = RawKind::Number(RawNumber::new(number));
             let separator = self.strings.insert(" ");
             let kind = StringKind::detect(key);
             let key = self.strings.insert(key);
             let key = RawString::new(kind, key);
-            self.raw.insert(key, separator, value);
+            self.raw.insert(self.layout, key, separator, value);
         }
     };
 }
@@ -485,19 +491,23 @@ macro_rules! insert_number {
         pub fn $name(&mut self, key: &str, value: $ty) {
             let mut buffer = itoa::Buffer::new();
             let number = self.strings.insert(buffer.format(value));
-            let value = Raw::Number(RawNumber::new(number));
+            let value = RawKind::Number(RawNumber::new(number));
             let separator = self.strings.insert(" ");
             let kind = StringKind::detect(key);
             let key = self.strings.insert(key);
             let key = RawString::new(kind, key);
-            self.raw.insert(key, separator, value);
+            self.raw.insert(self.layout, key, separator, value);
         }
     };
 }
 
 impl<'a> TableMut<'a> {
-    pub(crate) fn new(strings: &'a mut Strings, raw: &'a mut RawTable) -> Self {
-        Self { strings, raw }
+    pub(crate) fn new(strings: &'a mut Strings, raw: &'a mut RawTable, layout: &'a Layout) -> Self {
+        Self {
+            strings,
+            raw,
+            layout,
+        }
     }
 
     /// Coerce a mutable table as an immutable [Table].
@@ -598,7 +608,11 @@ impl<'a> TableMut<'a> {
     pub fn get_mut(&mut self, key: &str) -> Option<ValueMut<'_>> {
         for e in &mut self.raw.items {
             if self.strings.get(&e.key.string) == key {
-                return Some(ValueMut::new(self.strings, &mut e.value));
+                return Some(ValueMut::new(
+                    self.strings,
+                    &mut e.value.kind,
+                    &e.value.layout,
+                ));
             }
         }
 
@@ -633,12 +647,12 @@ impl<'a> TableMut<'a> {
     {
         let kind = StringKind::detect(string.as_ref());
         let string = self.strings.insert(string.as_ref());
-        let string = Raw::String(RawString::new(kind, string));
+        let string = RawKind::String(RawString::new(kind, string));
         let separator = self.strings.insert(" ");
         let kind = StringKind::detect(key);
         let key = self.strings.insert(key);
         let key = RawString::new(kind, key);
-        self.raw.insert(key, separator, string);
+        self.raw.insert(self.layout, key, separator, string);
     }
 
     /// Insert a bool.
@@ -668,7 +682,7 @@ impl<'a> TableMut<'a> {
         let kind = StringKind::detect(key);
         let key = self.strings.insert(key);
         let key = RawString::new(kind, key);
-        self.raw.insert(key, separator, value);
+        self.raw.insert(self.layout, key, separator, value);
     }
 
     insert_float!(insert_f32, f32, "32-bit float", 10.42);
@@ -689,6 +703,7 @@ impl<'a> TableMut<'a> {
 pub struct ListMut<'a> {
     strings: &'a mut Strings,
     raw: &'a mut RawList,
+    layout: &'a Layout,
 }
 
 macro_rules! push_float {
@@ -718,9 +733,9 @@ macro_rules! push_float {
         pub fn $name(&mut self, value: $ty) {
             let mut buffer = ryu::Buffer::new();
             let number = self.strings.insert(buffer.format(value));
-            let value = Raw::Number(RawNumber::new(number));
+            let value = RawKind::Number(RawNumber::new(number));
             let separator = self.strings.insert(" ");
-            self.raw.push(separator, value);
+            self.raw.push(self.layout, separator, value);
         }
     };
 }
@@ -752,16 +767,20 @@ macro_rules! push_number {
         pub fn $name(&mut self, value: $ty) {
             let mut buffer = itoa::Buffer::new();
             let number = self.strings.insert(buffer.format(value));
-            let value = Raw::Number(RawNumber::new(number));
+            let value = RawKind::Number(RawNumber::new(number));
             let separator = self.strings.insert(" ");
-            self.raw.push(separator, value);
+            self.raw.push(self.layout, separator, value);
         }
     };
 }
 
 impl<'a> ListMut<'a> {
-    pub(crate) fn new(strings: &'a mut Strings, raw: &'a mut RawList) -> Self {
-        Self { strings, raw }
+    pub(crate) fn new(strings: &'a mut Strings, raw: &'a mut RawList, layout: &'a Layout) -> Self {
+        Self {
+            strings,
+            raw,
+            layout,
+        }
     }
 
     /// Coerce a mutable list as an immutable [List].
@@ -851,7 +870,11 @@ impl<'a> ListMut<'a> {
     /// ```
     pub fn get_mut(&mut self, index: usize) -> Option<ValueMut<'_>> {
         if let Some(item) = self.raw.items.get_mut(index) {
-            return Some(ValueMut::new(self.strings, &mut item.value));
+            return Some(ValueMut::new(
+                self.strings,
+                &mut item.value.kind,
+                &item.value.layout,
+            ));
         }
 
         None
@@ -885,9 +908,9 @@ impl<'a> ListMut<'a> {
     {
         let kind = StringKind::detect(string.as_ref());
         let string = self.strings.insert(string.as_ref());
-        let string = Raw::String(RawString::new(kind, string));
+        let string = RawKind::String(RawString::new(kind, string));
         let separator = self.strings.insert(" ");
-        self.raw.push(separator, string);
+        self.raw.push(self.layout, separator, string);
     }
 
     /// Push a bool.
@@ -915,7 +938,7 @@ impl<'a> ListMut<'a> {
     pub fn push_bool(&mut self, value: bool) {
         let value = insert_bool(self.strings, value);
         let separator = self.strings.insert(" ");
-        self.raw.push(separator, value);
+        self.raw.push(self.layout, separator, value);
     }
 
     push_float!(push_f32, f32, "32-bit float", 10.42);

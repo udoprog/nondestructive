@@ -3,7 +3,7 @@ use core::fmt;
 use bstr::ByteSlice;
 
 use crate::strings::Strings;
-use crate::yaml::raw::{Raw, RawList, RawTable};
+use crate::yaml::raw::{RawKind, RawList, RawTable};
 
 /// The kind of string value.
 #[derive(Debug, Clone, Copy)]
@@ -73,7 +73,7 @@ pub enum NullKind {
 /// ```
 pub struct Value<'a> {
     strings: &'a Strings,
-    raw: &'a Raw,
+    raw: &'a RawKind,
 }
 
 macro_rules! as_number {
@@ -92,7 +92,7 @@ macro_rules! as_number {
         /// ```
         pub fn $name(&self) -> Option<$ty> {
             match self.raw {
-                Raw::Number(raw) => {
+                RawKind::Number(raw) => {
                     let string = self.strings.get(&raw.string);
                     lexical_core::parse(string).ok()
                 }
@@ -103,7 +103,7 @@ macro_rules! as_number {
 }
 
 impl<'a> Value<'a> {
-    pub(crate) fn new(strings: &'a Strings, raw: &'a Raw) -> Self {
+    pub(crate) fn new(strings: &'a Strings, raw: &'a RawKind) -> Self {
         Self { strings, raw }
     }
 
@@ -121,7 +121,7 @@ impl<'a> Value<'a> {
     /// ```
     pub fn as_str(&self) -> Option<&'a str> {
         match self.raw {
-            Raw::String(raw) => self.strings.get(&raw.string).to_str().ok(),
+            RawKind::String(raw) => self.strings.get(&raw.string).to_str().ok(),
             _ => None,
         }
     }
@@ -145,7 +145,7 @@ impl<'a> Value<'a> {
         const FALSE: &[u8] = b"false";
 
         match self.raw {
-            Raw::String(raw) => match (raw.kind, self.strings.get(&raw.string).as_bytes()) {
+            RawKind::String(raw) => match (raw.kind, self.strings.get(&raw.string).as_bytes()) {
                 (StringKind::Bare, TRUE) => Some(true),
                 (StringKind::Bare, FALSE) => Some(false),
                 _ => None,
@@ -182,7 +182,7 @@ impl<'a> Value<'a> {
     /// ```
     pub fn as_table(&self) -> Option<Table<'a>> {
         match self.raw {
-            Raw::Table(raw) => Some(Table::new(self.strings, raw)),
+            RawKind::Table(raw) => Some(Table::new(self.strings, raw)),
             _ => None,
         }
     }
@@ -211,7 +211,7 @@ impl<'a> Value<'a> {
     /// ```
     pub fn as_list(&self) -> Option<List<'a>> {
         match self.raw {
-            Raw::List(raw) => Some(List::new(self.strings, raw)),
+            RawKind::List(raw) => Some(List::new(self.strings, raw)),
             _ => None,
         }
     }
@@ -320,7 +320,7 @@ impl<'a> Table<'a> {
     pub fn get(&self, key: &str) -> Option<Value<'_>> {
         for e in &self.raw.items {
             if self.strings.get(&e.key.string) == key {
-                return Some(Value::new(self.strings, &e.value));
+                return Some(Value::new(self.strings, &e.value.kind));
             }
         }
 
@@ -470,6 +470,6 @@ impl<'a> List<'a> {
     /// ```
     pub fn get(&self, index: usize) -> Option<Value<'_>> {
         let item = self.raw.items.get(index)?;
-        Some(Value::new(self.strings, &item.value))
+        Some(Value::new(self.strings, &item.value.kind))
     }
 }

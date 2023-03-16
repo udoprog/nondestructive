@@ -37,7 +37,7 @@ impl Document {
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     pub fn root(&self) -> Value<'_> {
-        Value::new(&self.strings, &self.root)
+        Value::new(&self.strings, &self.root.kind)
     }
 
     /// Get the root value of a document.
@@ -54,14 +54,14 @@ impl Document {
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     pub fn root_mut(&mut self) -> ValueMut<'_> {
-        ValueMut::new(&mut self.strings, &mut self.root)
+        ValueMut::new(&mut self.strings, &mut self.root.kind, &self.root.layout)
     }
 }
 
 impl fmt::Display for Document {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.strings.get(&self.prefix).fmt(f)?;
-        self.root.display(&self.strings, f)?;
+        self.root.kind.display(&self.strings, f)?;
         self.strings.get(&self.suffix).fmt(f)?;
         Ok(())
     }

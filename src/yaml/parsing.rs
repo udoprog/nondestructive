@@ -4,7 +4,7 @@ use bstr::ByteSlice;
 
 use crate::strings::{StringId, Strings};
 use crate::yaml::error::{Error, ErrorKind};
-use crate::yaml::raw::{Raw, RawListItem, RawNumber, RawString, RawTable, RawTableItem};
+use crate::yaml::raw::{Raw, RawKind, RawListItem, RawNumber, RawString, RawTable, RawTableItem};
 use crate::yaml::{Document, StringKind};
 
 use super::raw::RawList;
@@ -103,7 +103,7 @@ impl<'a> Parser<'a> {
     }
 
     /// Consume a single number.
-    fn number(&mut self) -> Result<Raw> {
+    fn number(&mut self) -> Result<RawKind> {
         let start = self.position;
 
         if matches!(self.peek(), b'-') {
@@ -115,11 +115,11 @@ impl<'a> Parser<'a> {
         }
 
         let string = self.strings.insert(self.string(start));
-        Ok(Raw::Number(RawNumber::new(string)))
+        Ok(RawKind::Number(RawNumber::new(string)))
     }
 
     /// Read a double-quoted string.
-    fn single_quoted(&mut self) -> Result<Raw> {
+    fn single_quoted(&mut self) -> Result<RawKind> {
         self.bump(1);
         let start = self.position;
 
@@ -139,14 +139,14 @@ impl<'a> Parser<'a> {
 
         let string = self.strings.insert(self.string(start));
         self.bump(1);
-        Ok(Raw::String(RawString::new(
+        Ok(RawKind::String(RawString::new(
             StringKind::SingleQuoted,
             string,
         )))
     }
 
     /// Read a double-quoted string.
-    fn double_quoted(&mut self) -> Result<Raw> {
+    fn double_quoted(&mut self) -> Result<RawKind> {
         self.bump(1);
         let start = self.position;
 
@@ -156,14 +156,14 @@ impl<'a> Parser<'a> {
 
         let string = self.strings.insert(self.string(start));
         self.bump(1);
-        Ok(Raw::String(RawString::new(
+        Ok(RawKind::String(RawString::new(
             StringKind::DoubleQuoted,
             string,
         )))
     }
 
     /// Parse a list.
-    fn list(&mut self, indentation: StringId) -> Result<(Raw, StringId)> {
+    fn list(&mut self, indentation: StringId) -> Result<(RawKind, StringId)> {
         let mut items = Vec::new();
         let mut previous = None;
 
@@ -208,7 +208,7 @@ impl<'a> Parser<'a> {
             previous = Some(ws);
         };
 
-        Ok((Raw::List(RawList { indentation, items }), ws))
+        Ok((RawKind::List(RawList { items }), ws))
     }
 
     /// Construct list indentation.
@@ -231,7 +231,7 @@ impl<'a> Parser<'a> {
     }
 
     /// Parse a raw table.
-    fn table(&mut self, indentation: StringId, mut key: RawString) -> Result<(Raw, StringId)> {
+    fn table(&mut self, indentation: StringId, mut key: RawString) -> Result<(RawKind, StringId)> {
         let mut items = Vec::new();
         let mut previous = None;
 
@@ -279,7 +279,7 @@ impl<'a> Parser<'a> {
             };
         };
 
-        Ok((Raw::Table(RawTable { indentation, items }), ws))
+        Ok((RawKind::Table(RawTable { items }), ws))
     }
 
     /// Find level of indentation.
@@ -298,7 +298,7 @@ impl<'a> Parser<'a> {
         let kind = match self.peek2() {
             (b'-', b) if b.is_ascii_whitespace() => {
                 let (value, ws) = self.list(indentation)?;
-                return Ok((value, Some(ws)));
+                return Ok((Raw::new(value, indentation), Some(ws)));
             }
             (number_first!(), _) => self.number()?,
             (b'"', _) => self.double_quoted()?,
@@ -312,7 +312,7 @@ impl<'a> Parser<'a> {
                             let string = self.strings.insert(self.string(start));
                             let string = RawString::new(StringKind::Bare, string);
                             let (value, ws) = self.table(indentation, string)?;
-                            return Ok((value, Some(ws)));
+                            return Ok((Raw::new(value, indentation), Some(ws)));
                         }
                         b'\n' | EOF => {
                             break;
@@ -325,12 +325,12 @@ impl<'a> Parser<'a> {
 
                 let string = self.strings.insert(self.string(start));
                 let string = RawString::new(StringKind::Bare, string);
-                Raw::String(string)
+                RawKind::String(string)
             }
             _ => return Err(Error::new(self.span(1), ErrorKind::ValueError)),
         };
 
-        Ok((kind, None))
+        Ok((Raw::new(kind, indentation), None))
     }
 
     /// Parses a single value, and returns its kind.

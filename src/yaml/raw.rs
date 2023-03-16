@@ -5,9 +5,29 @@ use bstr::ByteSlice;
 use crate::strings::{StringId, Strings};
 use crate::yaml::{NullKind, StringKind};
 
+#[derive(Debug, Clone)]
+pub(crate) struct Layout {
+    indentation: StringId,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct Raw {
+    pub(crate) kind: RawKind,
+    pub(crate) layout: Layout,
+}
+
+impl Raw {
+    pub(crate) fn new(kind: RawKind, indentation: StringId) -> Self {
+        Self {
+            layout: Layout { indentation },
+            kind,
+        }
+    }
+}
+
 /// A raw value.
 #[derive(Debug, Clone)]
-pub(crate) enum Raw {
+pub(crate) enum RawKind {
     /// A null value.
     Null(NullKind),
     /// A single number.
@@ -20,12 +40,12 @@ pub(crate) enum Raw {
     List(RawList),
 }
 
-impl Raw {
+impl RawKind {
     pub(crate) fn display(&self, strings: &Strings, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use std::fmt::Display;
 
         match self {
-            Raw::Null(raw) => {
+            RawKind::Null(raw) => {
                 match raw {
                     NullKind::Keyword => {
                         "null".fmt(f)?;
@@ -38,10 +58,10 @@ impl Raw {
                     }
                 }
             }
-            Raw::Number(raw) => {
+            RawKind::Number(raw) => {
                 strings.get(&raw.string).fmt(f)?;
             }
-            Raw::String(raw) => {
+            RawKind::String(raw) => {
                 let string = strings.get(&raw.string);
 
                 match raw.kind {
@@ -56,7 +76,7 @@ impl Raw {
                     }
                 }
             }
-            Raw::Table(raw) => {
+            RawKind::Table(raw) => {
                 for item in &raw.items {
                     if let Some(prefix) = &item.prefix {
                         strings.get(prefix).fmt(f)?;
@@ -65,10 +85,10 @@ impl Raw {
                     strings.get(&item.key.string).fmt(f)?;
                     ':'.fmt(f)?;
                     strings.get(&item.separator).fmt(f)?;
-                    item.value.display(strings, f)?;
+                    item.value.kind.display(strings, f)?;
                 }
             }
-            Raw::List(raw) => {
+            RawKind::List(raw) => {
                 for item in &raw.items {
                     if let Some(prefix) = &item.prefix {
                         strings.get(prefix).fmt(f)?;
@@ -76,7 +96,7 @@ impl Raw {
 
                     '-'.fmt(f)?;
                     strings.get(&item.separator).fmt(f)?;
-                    item.value.display(strings, f)?;
+                    item.value.kind.display(strings, f)?;
                 }
             }
         }
@@ -193,18 +213,15 @@ pub(crate) struct RawListItem {
 /// A YAML list.
 #[derive(Debug, Clone)]
 pub(crate) struct RawList {
-    /// Indentation used by list.
-    #[allow(unused)]
-    pub(crate) indentation: StringId,
     /// Items in the list.
     pub(crate) items: Vec<RawListItem>,
 }
 
 impl RawList {
     /// Push a value on the list.
-    pub(crate) fn push(&mut self, separator: StringId, value: Raw) {
+    pub(crate) fn push(&mut self, layout: &Layout, separator: StringId, value: RawKind) {
         let prefix = if !self.items.is_empty() {
-            Some(self.indentation)
+            Some(layout.indentation)
         } else {
             None
         };
@@ -212,7 +229,7 @@ impl RawList {
         self.items.push(RawListItem {
             prefix,
             separator,
-            value: Box::new(value),
+            value: Box::new(Raw::new(value, layout.indentation)),
         });
     }
 }
@@ -229,21 +246,26 @@ pub(crate) struct RawTableItem {
 /// A YAML table.
 #[derive(Debug, Clone)]
 pub(crate) struct RawTable {
-    pub(crate) indentation: StringId,
     pub(crate) items: Vec<RawTableItem>,
 }
 
 impl RawTable {
     /// Insert a value into the table.
-    pub(crate) fn insert(&mut self, key: RawString, separator: StringId, value: Raw) {
+    pub(crate) fn insert(
+        &mut self,
+        layout: &Layout,
+        key: RawString,
+        separator: StringId,
+        value: RawKind,
+    ) {
         if let Some(existing) = self.items.iter_mut().find(|c| c.key.string == key.string) {
             existing.separator = separator;
-            existing.value = Box::new(value);
+            existing.value.kind = value;
             return;
         }
 
         let prefix = if !self.items.is_empty() {
-            Some(self.indentation)
+            Some(layout.indentation)
         } else {
             None
         };
@@ -252,16 +274,16 @@ impl RawTable {
             prefix,
             key,
             separator,
-            value: Box::new(value),
+            value: Box::new(Raw::new(value, layout.indentation)),
         });
     }
 }
 
 /// Insert a boolean value.
-pub(crate) fn insert_bool(strings: &mut Strings, value: bool) -> Raw {
+pub(crate) fn insert_bool(strings: &mut Strings, value: bool) -> RawKind {
     const TRUE: &[u8] = b"true";
     const FALSE: &[u8] = b"false";
 
     let string = strings.insert(if value { TRUE } else { FALSE });
-    Raw::String(RawString::new(StringKind::Bare, string))
+    RawKind::String(RawString::new(StringKind::Bare, string))
 }
