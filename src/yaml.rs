@@ -29,10 +29,10 @@ pub use self::document::Document;
 mod raw;
 
 mod value;
-pub use self::value::{NullKind, StringKind, Table, Value};
+pub use self::value::{List, NullKind, StringKind, Table, Value};
 
 mod value_mut;
-pub use self::value_mut::{TableMut, ValueMut};
+pub use self::value_mut::{ListMut, TableMut, ValueMut};
 
 /// Parse a YAML document.
 pub fn parse<D>(input: D) -> Result<Document, Error>

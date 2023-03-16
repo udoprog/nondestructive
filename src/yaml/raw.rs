@@ -207,6 +207,23 @@ pub(crate) struct RawList {
     pub(crate) items: Vec<RawListItem>,
 }
 
+impl RawList {
+    /// Push a value on the list.
+    pub(crate) fn push(&mut self, separator: StringId, value: Pointer) {
+        let prefix = if !self.items.is_empty() {
+            Some(self.indentation)
+        } else {
+            None
+        };
+
+        self.items.push(RawListItem {
+            prefix,
+            separator,
+            value,
+        });
+    }
+}
+
 /// An element in a YAML table.
 #[derive(Debug, Clone)]
 pub(crate) struct RawTableItem {

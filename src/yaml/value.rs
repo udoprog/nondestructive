@@ -453,6 +453,29 @@ impl<'a> List<'a> {
         self.raw().map(|list| list.items.len()).unwrap_or_default()
     }
 
+    /// Test if the list is empty.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nondestructive::yaml;
+    ///
+    /// let doc = yaml::parse(
+    ///     r#"
+    ///     - one
+    ///     - two
+    ///     - three
+    ///     "#,
+    /// )?;
+    ///
+    /// let root = doc.root().as_list().ok_or("missing root list")?;
+    /// assert!(!root.is_empty());
+    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn is_empty(&self) -> bool {
+        self.raw().map(|list| list.items.is_empty()).unwrap_or(true)
+    }
+
     /// Get a value from the list.
     ///
     /// # Examples

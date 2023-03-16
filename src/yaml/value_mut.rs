@@ -1,7 +1,6 @@
 use crate::slab::Pointer;
-use crate::yaml::raw::{Raw, RawNumber};
-use crate::yaml::raw::{RawString, RawTable};
-use crate::yaml::{Document, NullKind, StringKind, Table, Value};
+use crate::yaml::raw::{Raw, RawList, RawNumber, RawString, RawTable};
+use crate::yaml::{Document, List, NullKind, StringKind, Table, Value};
 
 /// A mutable value inside of a document.
 pub struct ValueMut<'a> {
@@ -20,7 +19,7 @@ impl<'a> ValueMut<'a> {
         self.doc.tree.get(&self.pointer)
     }
 
-    /// Get a mutable value as an immutable [Value].
+    /// Coerce a mutable value as an immutable [Value].
     ///
     /// This is useful to be able to directly use methods only available on
     /// [Value].
@@ -53,8 +52,8 @@ impl<'a> ValueMut<'a> {
         Value::new(self.doc, self.pointer)
     }
 
-    /// Convert a mutable value as an immutable [Value] with the lifetime of the
-    /// mutable reference.
+    /// Coerce a mutable value into an immutable [Value] with the lifetime of
+    /// the current reference.
     ///
     /// This is useful to be able to directly use methods only available on
     /// [Value].
@@ -87,7 +86,7 @@ impl<'a> ValueMut<'a> {
         Value::new(self.doc, self.pointer)
     }
 
-    /// Get the value as a mutable table.
+    /// Convert the value into a mutable [Table].
     ///
     /// # Examples
     ///
@@ -106,7 +105,7 @@ impl<'a> ValueMut<'a> {
     /// let mut root = root.as_table_mut().ok_or("missing root table")?;
     /// root.get_mut("number2").ok_or("missing inner table")?.set_u32(30);
     ///
-    /// assert_eq! {
+    /// assert_eq!(
     /// doc.to_string(),
     /// r#"
     ///   number1: 10
@@ -114,8 +113,7 @@ impl<'a> ValueMut<'a> {
     ///   table:
     ///     inner: 400
     ///   string3: "I am a quoted string!"
-    /// "#
-    /// };
+    /// "#);
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     pub fn as_table_mut(&mut self) -> Option<TableMut<'_>> {
@@ -125,10 +123,8 @@ impl<'a> ValueMut<'a> {
         }
     }
 
-    /// Convert the value into a mutable table with the same lifetime as the one
-    /// associated with this [ValueMut].
-    ///
-    /// This is useful when dealing with inline values.
+    /// Convert the value into a mutable [Table] with the same lifetime as the
+    /// one associated with this value.
     ///
     /// # Examples
     ///
@@ -147,7 +143,7 @@ impl<'a> ValueMut<'a> {
     /// root.get_mut("number2").ok_or("missing inner table")?.set_u32(30);
     /// root.get_mut("string3").ok_or("missing inner table")?.set_string("i-am-a-bare-string");
     ///
-    /// assert_eq! {
+    /// assert_eq!(
     /// doc.to_string(),
     /// r#"
     ///   number1: 10
@@ -155,13 +151,12 @@ impl<'a> ValueMut<'a> {
     ///   table:
     ///     inner: 400
     ///   string3: i-am-a-bare-string
-    /// "#
-    /// };
+    /// "#);
     ///
     /// let mut root = doc.root_mut().into_table_mut().ok_or("missing root table")?;
     /// root.get_mut("string3").ok_or("missing inner table")?.set_string("It's \n a good day!");
     ///
-    /// assert_eq! {
+    /// assert_eq!(
     /// doc.to_string(),
     /// r#"
     ///   number1: 10
@@ -169,14 +164,84 @@ impl<'a> ValueMut<'a> {
     ///   table:
     ///     inner: 400
     ///   string3: "It's \n a good day!"
-    /// "#
-    /// };
+    /// "#);
     ///
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     pub fn into_table_mut(self) -> Option<TableMut<'a>> {
         match self.raw() {
             Some(Raw::Table(..)) => Some(TableMut::new(self.doc, self.pointer)),
+            _ => None,
+        }
+    }
+
+    /// Convert the value into a mutable [List].
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nondestructive::yaml;
+    ///
+    /// let mut doc = yaml::parse(r#"
+    ///   - 10
+    ///   - 20
+    ///   - inner: 400
+    ///   - "I am a quoted string!"
+    /// "#)?;
+    ///
+    /// let mut root = doc.root_mut();
+    /// let mut root = root.as_list_mut().ok_or("missing root list")?;
+    /// root.get_mut(1).ok_or("missing inner table")?.set_u32(30);
+    ///
+    /// assert_eq!(
+    /// doc.to_string(),
+    /// r#"
+    ///   - 10
+    ///   - 30
+    ///   - inner: 400
+    ///   - "I am a quoted string!"
+    /// "#);
+    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn as_list_mut(&mut self) -> Option<ListMut<'_>> {
+        match self.raw() {
+            Some(Raw::List(..)) => Some(ListMut::new(self.doc, self.pointer)),
+            _ => None,
+        }
+    }
+
+    /// Convert the value into a mutable [List] with the same lifetime as the
+    /// one associated with this value.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nondestructive::yaml;
+    ///
+    /// let mut doc = yaml::parse(r#"
+    ///   - 10
+    ///   - 20
+    ///   - inner: 400
+    ///   - "I am a quoted string!"
+    /// "#)?;
+    ///
+    /// let mut root = doc.root_mut();
+    /// let mut root = root.into_list_mut().ok_or("missing root list")?;
+    /// root.get_mut(1).ok_or("missing inner table")?.set_u32(30);
+    ///
+    /// assert_eq!(
+    /// doc.to_string(),
+    /// r#"
+    ///   - 10
+    ///   - 30
+    ///   - inner: 400
+    ///   - "I am a quoted string!"
+    /// "#);
+    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn into_list_mut(self) -> Option<ListMut<'a>> {
+        match self.raw() {
+            Some(Raw::List(..)) => Some(ListMut::new(self.doc, self.pointer)),
             _ => None,
         }
     }
@@ -215,9 +280,9 @@ macro_rules! set_number {
         /// ```
         /// use nondestructive::yaml;
         ///
-        /// let mut doc = yaml::parse("10")?;
+        /// let mut doc = yaml::parse("  10")?;
         #[doc = concat!("let value = doc.root_mut().", stringify!($name), "(", stringify!($lit), ");")]
-        #[doc = concat!("assert_eq!(doc.to_string(), \"", stringify!($lit), "\");")]
+        #[doc = concat!("assert_eq!(doc.to_string(), \"  ", stringify!($lit), "\");")]
         /// # Ok::<_, Box<dyn std::error::Error>>(())
         /// ```
         pub fn $name(&mut self, value: $ty) {
@@ -332,7 +397,7 @@ impl<'a> ValueMut<'a> {
     set_number!(set_i128, i128, "128-bit signed integer", -42);
 }
 
-/// Accessor for a table.
+/// Mutator for a table.
 ///
 /// # Examples
 ///
@@ -358,7 +423,7 @@ impl<'a> ValueMut<'a> {
 ///
 /// root.get_mut("number2").ok_or("missing inner table")?.set_u32(30);
 ///
-/// assert_eq! {
+/// assert_eq!(
 /// doc.to_string(),
 /// r#"
 ///   number1: 10
@@ -366,8 +431,7 @@ impl<'a> ValueMut<'a> {
 ///   table:
 ///     inner: 400
 ///   string3: "I am a quoted string!"
-/// "#
-/// };
+/// "#);
 /// # Ok::<_, Box<dyn std::error::Error>>(())
 /// ```
 pub struct TableMut<'a> {
@@ -385,27 +449,38 @@ macro_rules! insert_float {
         /// use nondestructive::yaml;
         ///
         /// let mut doc = yaml::parse(r#"
-        /// number1: 10
+        ///   number1: 10
         /// "#)?;
+        ///
         /// let mut value = doc.root_mut().into_table_mut().ok_or("not a table")?;
         #[doc = concat!("value.", stringify!($name), "(\"number2\", ", stringify!($lit), ");")]
-        #[doc = concat!("assert_eq!(doc.to_string(), \"\\nnumber1: 10\\nnumber2: ", stringify!($lit), "\\n\");")]
+        ///
+        /// assert_eq!(
+        /// doc.to_string(),
+        /// r#"
+        ///   number1: 10
+        #[doc = concat!("  number2: ", stringify!($lit))]
+        /// "#);
         /// # Ok::<_, Box<dyn std::error::Error>>(())
         /// ```
         pub fn $name(&mut self, key: &str, value: $ty) {
-            if !self.doc.tree.contains(&self.pointer, |m| matches!(m, Raw::Table(..))) {
+            if !self
+                .doc
+                .tree
+                .contains(&self.pointer, |m| matches!(m, Raw::Table(..)))
+            {
                 return;
             }
 
             let mut buffer = ryu::Buffer::new();
             let number = self.doc.strings.insert(buffer.format(value));
             let value = self.doc.tree.insert(Raw::Number(RawNumber::new(number)));
+            let separator = self.doc.strings.insert(" ");
+            let kind = StringKind::detect(key);
+            let key = self.doc.strings.insert(key);
+            let key = RawString::new(kind, key);
 
             if let Some(Raw::Table(table)) = self.doc.tree.get_mut(&self.pointer) {
-                let separator = self.doc.strings.insert(" ");
-                let kind = StringKind::detect(key);
-                let key = self.doc.strings.insert(key);
-                let key = RawString::new(kind, key);
                 table.insert(key, separator, value);
             }
         }
@@ -422,15 +497,26 @@ macro_rules! insert_number {
         /// use nondestructive::yaml;
         ///
         /// let mut doc = yaml::parse(r#"
-        /// number1: 10
+        ///   number1: 10
         /// "#)?;
         /// let mut value = doc.root_mut().into_table_mut().ok_or("not a table")?;
+        ///
         #[doc = concat!("value.", stringify!($name), "(\"number2\", ", stringify!($lit), ");")]
-        #[doc = concat!("assert_eq!(doc.to_string(), \"\\nnumber1: 10\\nnumber2: ", stringify!($lit), "\\n\");")]
+        ///
+        /// assert_eq!(
+        /// doc.to_string(),
+        /// r#"
+        ///   number1: 10
+        #[doc = concat!("  number2: ", stringify!($lit))]
+        /// "#);
         /// # Ok::<_, Box<dyn std::error::Error>>(())
         /// ```
         pub fn $name(&mut self, key: &str, value: $ty) {
-            if !self.doc.tree.contains(&self.pointer, |m| matches!(m, Raw::Table(..))) {
+            if !self
+                .doc
+                .tree
+                .contains(&self.pointer, |m| matches!(m, Raw::Table(..)))
+            {
                 return;
             }
 
@@ -462,7 +548,10 @@ impl<'a> TableMut<'a> {
         }
     }
 
-    /// Get a mutable table as an immutable [Table].
+    /// Coerce a mutable table as an immutable [Table].
+    ///
+    /// This is useful to be able to directly use methods only available on
+    /// [Table].
     ///
     /// # Examples
     ///
@@ -470,11 +559,11 @@ impl<'a> TableMut<'a> {
     /// use nondestructive::yaml;
     ///
     /// let mut doc = yaml::parse(r#"
-    /// number1: 10
-    /// number2: 20
-    /// table:
-    ///   inner: 400
-    /// string3: "I am a quoted string!"
+    ///   number1: 10
+    ///   number2: 20
+    ///   table:
+    ///     inner: 400
+    ///   string3: "I am a quoted string!"
     /// "#)?;
     ///
     /// let mut root = doc.root_mut();
@@ -493,7 +582,8 @@ impl<'a> TableMut<'a> {
         Table::new(self.doc, self.pointer)
     }
 
-    /// Get a mutable table as an immutable [Table].
+    /// Coerce a mutable table into an immutable [Table] with the lifetime of
+    /// the current reference.
     ///
     /// # Examples
     ///
@@ -501,11 +591,11 @@ impl<'a> TableMut<'a> {
     /// use nondestructive::yaml;
     ///
     /// let mut doc = yaml::parse(r#"
-    /// number1: 10
-    /// number2: 20
-    /// table:
-    ///   inner: 400
-    /// string3: "I am a quoted string!"
+    ///   number1: 10
+    ///   number2: 20
+    ///   table:
+    ///     inner: 400
+    ///   string3: "I am a quoted string!"
     /// "#)?;
     ///
     /// let mut root = doc.root_mut();
@@ -531,19 +621,26 @@ impl<'a> TableMut<'a> {
     /// use nondestructive::yaml;
     ///
     /// let mut doc = yaml::parse(r#"
-    /// number1: 10
-    /// number2: 20
-    /// table:
-    ///   inner: 400
-    /// string3: "I am a quoted string!"
+    ///   number1: 10
+    ///   number2: 20
+    ///   table:
+    ///     inner: 400
+    ///   string3: "I am a quoted string!"
     /// "#)?;
     ///
     /// let mut root = doc.root_mut();
     /// let mut root = root.as_table_mut().ok_or("missing root table")?;
     /// root.get_mut("number2").ok_or("missing inner table")?.set_u32(30);
     ///
-    /// assert_eq!(doc.to_string(), "\nnumber1: 10\nnumber2: 30\ntable:\n  inner: 400\nstring3: \"I am a quoted string!\"\n");
-    ///
+    /// assert_eq!(
+    /// doc.to_string(),
+    /// r#"
+    ///   number1: 10
+    ///   number2: 30
+    ///   table:
+    ///     inner: 400
+    ///   string3: "I am a quoted string!"
+    /// "#);
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     pub fn get_mut(&mut self, key: &str) -> Option<ValueMut<'_>> {
@@ -566,11 +663,18 @@ impl<'a> TableMut<'a> {
     /// use nondestructive::yaml;
     ///
     /// let mut doc = yaml::parse(r#"
-    /// number1: 10
+    ///   number1: 10
     /// "#)?;
+    ///
     /// let mut value = doc.root_mut().into_table_mut().ok_or("not a table")?;
     /// value.insert_string("string2", "hello");
-    /// assert_eq!(doc.to_string(), "\nnumber1: 10\nstring2: hello\n");
+    ///
+    /// assert_eq! (
+    /// doc.to_string(),
+    /// r#"
+    ///   number1: 10
+    ///   string2: hello
+    /// "#);
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     pub fn insert_string<S>(&mut self, key: &str, string: S)
@@ -607,11 +711,17 @@ impl<'a> TableMut<'a> {
     /// use nondestructive::yaml;
     ///
     /// let mut doc = yaml::parse(r#"
-    /// number1: 10
+    ///   number1: 10
     /// "#)?;
     /// let mut value = doc.root_mut().into_table_mut().ok_or("not a table")?;
     /// value.insert_bool("bool2", true);
-    /// assert_eq!(doc.to_string(), "\nnumber1: 10\nbool2: true\n");
+    ///
+    /// assert_eq! (
+    /// doc.to_string(),
+    /// r#"
+    ///   number1: 10
+    ///   bool2: true
+    /// "#);
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     pub fn insert_bool(&mut self, key: &str, value: bool) {
@@ -625,12 +735,12 @@ impl<'a> TableMut<'a> {
 
         let value = self.doc.insert_bool(value);
         let value = self.doc.tree.insert(value);
+        let separator = self.doc.strings.insert(" ");
+        let kind = StringKind::detect(key);
+        let key = self.doc.strings.insert(key);
+        let key = RawString::new(kind, key);
 
         if let Some(Raw::Table(table)) = self.doc.tree.get_mut(&self.pointer) {
-            let separator = self.doc.strings.insert(" ");
-            let kind = StringKind::detect(key);
-            let key = self.doc.strings.insert(key);
-            let key = RawString::new(kind, key);
             table.insert(key, separator, value);
         }
     }
@@ -647,4 +757,307 @@ impl<'a> TableMut<'a> {
     insert_number!(insert_i64, i64, "64-bit signed integer", -42);
     insert_number!(insert_u128, u128, "128-bit unsigned integer", 42);
     insert_number!(insert_i128, i128, "128-bit signed integer", -42);
+}
+
+/// Mutator for a list.
+pub struct ListMut<'a> {
+    doc: &'a mut Document,
+    pointer: Pointer,
+}
+
+macro_rules! push_float {
+    ($name:ident, $ty:ty, $string:literal, $lit:literal) => {
+        #[doc = concat!("Push the value as a ", $string, ".")]
+        ///
+        /// # Examples
+        ///
+        /// ```
+        /// use nondestructive::yaml;
+        ///
+        /// let mut doc = yaml::parse(r#"
+        /// - 10
+        /// "#)?;
+        ///
+        /// let mut value = doc.root_mut().into_list_mut().ok_or("not a list")?;
+        ///
+        #[doc = concat!("value.", stringify!($name), "(", stringify!($lit), ");")]
+        /// assert_eq!(
+        /// doc.to_string(),
+        /// r#"
+        /// - 10
+        #[doc = concat!("- ", $lit)]
+        /// "#);
+        /// # Ok::<_, Box<dyn std::error::Error>>(())
+        /// ```
+        pub fn $name(&mut self, value: $ty) {
+            if !self
+                .doc
+                .tree
+                .contains(&self.pointer, |m| matches!(m, Raw::List(..)))
+            {
+                return;
+            }
+
+            let mut buffer = ryu::Buffer::new();
+            let number = self.doc.strings.insert(buffer.format(value));
+            let value = self.doc.tree.insert(Raw::Number(RawNumber::new(number)));
+            let separator = self.doc.strings.insert(" ");
+
+            if let Some(Raw::List(raw)) = self.doc.tree.get_mut(&self.pointer) {
+                raw.push(separator, value);
+            }
+        }
+    };
+}
+
+macro_rules! push_number {
+    ($name:ident, $ty:ty, $string:literal, $lit:literal) => {
+        #[doc = concat!("Push the value as a ", $string, ".")]
+        ///
+        /// # Examples
+        ///
+        /// ```
+        /// use nondestructive::yaml;
+        ///
+        /// let mut doc = yaml::parse(r#"
+        /// - 10
+        /// "#)?;
+        /// let mut value = doc.root_mut().into_list_mut().ok_or("not a list")?;
+        ///
+        #[doc = concat!("value.", stringify!($name), "(", stringify!($lit), ");")]
+        ///
+        /// assert_eq!(
+        /// doc.to_string(),
+        /// r#"
+        /// - 10
+        #[doc = concat!("- ", stringify!($lit))]
+        /// "#);
+        /// # Ok::<_, Box<dyn std::error::Error>>(())
+        /// ```
+        pub fn $name(&mut self, value: $ty) {
+            if !self
+                .doc
+                .tree
+                .contains(&self.pointer, |m| matches!(m, Raw::List(..)))
+            {
+                return;
+            }
+
+            let mut buffer = itoa::Buffer::new();
+            let number = self.doc.strings.insert(buffer.format(value));
+            let value = self.doc.tree.insert(Raw::Number(RawNumber::new(number)));
+            let separator = self.doc.strings.insert(" ");
+
+            if let Some(Raw::List(raw)) = self.doc.tree.get_mut(&self.pointer) {
+                raw.push(separator, value);
+            }
+        }
+    };
+}
+
+impl<'a> ListMut<'a> {
+    pub(crate) fn new(doc: &'a mut Document, pointer: Pointer) -> Self {
+        Self { doc, pointer }
+    }
+
+    /// Get the raw element based on the value pointer.
+    pub(crate) fn raw(&self) -> Option<&RawList> {
+        match self.doc.tree.get(&self.pointer) {
+            Some(Raw::List(table)) => Some(table),
+            _ => None,
+        }
+    }
+
+    /// Coerce a mutable list as an immutable [List].
+    ///
+    /// This is useful to be able to directly use methods only available on
+    /// [List].
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nondestructive::yaml;
+    ///
+    /// let mut doc = yaml::parse(
+    /// r#"
+    /// - one
+    /// - two
+    /// - three
+    /// "#,
+    /// )?;
+    ///
+    /// let root = doc.root_mut().into_list_mut().ok_or("missing root list")?;
+    /// let root = root.as_ref();
+    ///
+    /// assert_eq!(root.get(0).and_then(|v| v.as_str()), Some("one"));
+    /// assert_eq!(root.get(1).and_then(|v| v.as_str()), Some("two"));
+    /// assert_eq!(root.get(2).and_then(|v| v.as_str()), Some("three"));
+    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn as_ref(&self) -> List<'_> {
+        List::new(self.doc, self.pointer)
+    }
+
+    /// Coerce a mutable list into an immutable [List] with the lifetime of the
+    /// current reference.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nondestructive::yaml;
+    ///
+    /// let mut doc = yaml::parse(
+    /// r#"
+    /// - one
+    /// - two
+    /// - three
+    /// "#,
+    /// )?;
+    ///
+    /// let root = doc.root_mut().into_list_mut().ok_or("missing root list")?.into_ref();
+    ///
+    /// assert_eq!(root.get(0).and_then(|v| v.as_str()), Some("one"));
+    /// assert_eq!(root.get(1).and_then(|v| v.as_str()), Some("two"));
+    /// assert_eq!(root.get(2).and_then(|v| v.as_str()), Some("three"));
+    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn into_ref(self) -> List<'a> {
+        List::new(self.doc, self.pointer)
+    }
+
+    /// Get a value mutably from the table.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nondestructive::yaml;
+    ///
+    /// let mut doc = yaml::parse(r#"
+    ///   - 10
+    ///   - 20
+    ///   - inner: 400
+    ///   - "I am a quoted string!"
+    /// "#)?;
+    ///
+    /// let mut root = doc.root_mut();
+    /// let mut root = root.as_list_mut().ok_or("missing root list")?;
+    /// root.get_mut(1).ok_or("missing inner table")?.set_u32(30);
+    ///
+    /// assert_eq!(
+    /// doc.to_string(),
+    /// r#"
+    ///   - 10
+    ///   - 30
+    ///   - inner: 400
+    ///   - "I am a quoted string!"
+    /// "#);
+    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn get_mut(&mut self, index: usize) -> Option<ValueMut<'_>> {
+        let raw = self.raw()?;
+
+        if let Some(item) = raw.items.get(index) {
+            return Some(ValueMut::new(self.doc, item.value));
+        }
+
+        None
+    }
+
+    /// Push a string.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nondestructive::yaml;
+    ///
+    /// let mut doc = yaml::parse(r#"
+    ///   - - 10
+    /// "#)?;
+    /// let mut value = doc.root_mut().into_list_mut().ok_or("not a list")?;
+    /// let mut value = value.get_mut(0).and_then(|v| v.into_list_mut()).expect("missing inner");
+    /// value.push_string("nice string");
+    ///
+    /// assert_eq!(
+    /// doc.to_string(),
+    /// r#"
+    ///   - - 10
+    ///     - nice string
+    /// "#);
+    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn push_string<S>(&mut self, string: S)
+    where
+        S: AsRef<str>,
+    {
+        if !self
+            .doc
+            .tree
+            .contains(&self.pointer, |m| matches!(m, Raw::List(..)))
+        {
+            return;
+        }
+
+        let kind = StringKind::detect(string.as_ref());
+        let string = self.doc.strings.insert(string.as_ref());
+        let string = Raw::String(RawString::new(kind, string));
+        let string = self.doc.tree.insert(string);
+        let separator = self.doc.strings.insert(" ");
+
+        if let Some(Raw::List(raw)) = self.doc.tree.get_mut(&self.pointer) {
+            raw.push(separator, string);
+        }
+    }
+
+    /// Push a bool.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nondestructive::yaml;
+    ///
+    /// let mut doc = yaml::parse(r#"
+    ///   - - 10
+    /// "#)?;
+    /// let mut value = doc.root_mut().into_list_mut().ok_or("not a list")?;
+    /// let mut value = value.get_mut(0).and_then(|v| v.into_list_mut()).expect("missing inner");
+    /// value.push_bool(false);
+    ///
+    /// assert_eq!(
+    /// doc.to_string(),
+    /// r#"
+    ///   - - 10
+    ///     - false
+    /// "#);
+    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn push_bool(&mut self, value: bool) {
+        if !self
+            .doc
+            .tree
+            .contains(&self.pointer, |m| matches!(m, Raw::List(..)))
+        {
+            return;
+        }
+
+        let value = self.doc.insert_bool(value);
+        let value = self.doc.tree.insert(value);
+        let separator = self.doc.strings.insert(" ");
+
+        if let Some(Raw::List(table)) = self.doc.tree.get_mut(&self.pointer) {
+            table.push(separator, value);
+        }
+    }
+
+    push_float!(push_f32, f32, "32-bit float", 10.42);
+    push_float!(push_f64, f64, "64-bit float", 10.42);
+    push_number!(push_u8, u8, "8-bit unsigned integer", 42);
+    push_number!(push_i8, i8, "8-bit signed integer", -42);
+    push_number!(push_u16, u16, "16-bit unsigned integer", 42);
+    push_number!(push_i16, i16, "16-bit signed integer", -42);
+    push_number!(push_u32, u32, "32-bit unsigned integer", 42);
+    push_number!(push_i32, i32, "32-bit signed integer", -42);
+    push_number!(push_u64, u64, "64-bit unsigned integer", 42);
+    push_number!(push_i64, i64, "64-bit signed integer", -42);
+    push_number!(push_u128, u128, "128-bit unsigned integer", 42);
+    push_number!(push_i128, i128, "128-bit signed integer", -42);
 }
