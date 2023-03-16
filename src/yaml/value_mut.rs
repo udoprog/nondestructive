@@ -619,6 +619,47 @@ impl<'a> TableMut<'a> {
         None
     }
 
+    /// Insert a new null value and return a [ValueMut] to the newly inserted
+    /// value.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nondestructive::yaml;
+    ///
+    /// let mut doc = yaml::parse(
+    ///     r#"
+    ///     one: 1
+    ///     two: 2
+    ///     "#,
+    /// )?;
+    ///
+    /// let mut root = doc.root_mut().into_table_mut().ok_or("missing root table")?;
+    /// root.insert("three").set_u32(3);
+    ///
+    /// assert_eq! {
+    ///     doc.to_string(),
+    ///     r#"
+    ///     one: 1
+    ///     two: 2
+    ///     three: 3
+    ///     "#
+    /// };
+    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn insert(&mut self, key: &str) -> ValueMut<'_> {
+        let kind = StringKind::detect(key);
+        let key = self.strings.insert(key);
+        let key = RawString::new(kind, key);
+        let separator = self.strings.insert(" ");
+        let index = self
+            .raw
+            .insert(self.layout, key, separator, RawKind::Null(NullKind::Empty));
+        // SAFETY: value was just inserted.
+        let raw = unsafe { self.raw.items.get_unchecked_mut(index) };
+        ValueMut::new(self.strings, &mut raw.value.kind, &raw.value.layout)
+    }
+
     /// Insert a string.
     ///
     /// # Examples
@@ -878,6 +919,43 @@ impl<'a> ListMut<'a> {
         }
 
         None
+    }
+
+    /// Push a new null value and return a [ValueMut] to the newly pushed value.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nondestructive::yaml;
+    ///
+    /// let mut doc = yaml::parse(
+    ///     r#"
+    ///     - one
+    ///     - two
+    ///     "#,
+    /// )?;
+    ///
+    /// let mut root = doc.root_mut().into_list_mut().ok_or("missing root list")?;
+    /// root.push().set_bool(true);
+    ///
+    /// assert_eq! {
+    ///     doc.to_string(),
+    ///     r#"
+    ///     - one
+    ///     - two
+    ///     - true
+    ///     "#
+    /// };
+    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn push(&mut self) -> ValueMut<'_> {
+        let separator = self.strings.insert(" ");
+        let index = self.raw.items.len();
+        self.raw
+            .push(self.layout, separator, RawKind::Null(NullKind::Empty));
+        // SAFETY: value was just pushed.
+        let raw = unsafe { self.raw.items.get_unchecked_mut(index) };
+        ValueMut::new(self.strings, &mut raw.value.kind, &raw.value.layout)
     }
 
     /// Push a string.

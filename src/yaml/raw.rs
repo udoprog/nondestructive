@@ -7,7 +7,7 @@ use crate::yaml::{NullKind, StringKind};
 
 #[derive(Debug, Clone)]
 pub(crate) struct Layout {
-    indentation: StringId,
+    pub(crate) indent: StringId,
 }
 
 #[derive(Debug, Clone)]
@@ -17,9 +17,9 @@ pub(crate) struct Raw {
 }
 
 impl Raw {
-    pub(crate) fn new(kind: RawKind, indentation: StringId) -> Self {
+    pub(crate) fn new(kind: RawKind, indent: StringId) -> Self {
         Self {
-            layout: Layout { indentation },
+            layout: Layout { indent },
             kind,
         }
     }
@@ -220,16 +220,12 @@ pub(crate) struct RawList {
 impl RawList {
     /// Push a value on the list.
     pub(crate) fn push(&mut self, layout: &Layout, separator: StringId, value: RawKind) {
-        let prefix = if !self.items.is_empty() {
-            Some(layout.indentation)
-        } else {
-            None
-        };
+        let prefix = (!self.items.is_empty()).then_some(layout.indent);
 
         self.items.push(RawListItem {
             prefix,
             separator,
-            value: Box::new(Raw::new(value, layout.indentation)),
+            value: Box::new(Raw::new(value, layout.indent)),
         });
     }
 }
@@ -257,25 +253,28 @@ impl RawTable {
         key: RawString,
         separator: StringId,
         value: RawKind,
-    ) {
-        if let Some(existing) = self.items.iter_mut().find(|c| c.key.string == key.string) {
-            existing.separator = separator;
-            existing.value.kind = value;
-            return;
+    ) -> usize {
+        if let Some(index) = self
+            .items
+            .iter_mut()
+            .position(|c| c.key.string == key.string)
+        {
+            let item = &mut self.items[index];
+            item.separator = separator;
+            item.value.kind = value;
+            return index;
         }
 
-        let prefix = if !self.items.is_empty() {
-            Some(layout.indentation)
-        } else {
-            None
-        };
+        let prefix = (!self.items.is_empty()).then_some(layout.indent);
 
+        let len = self.items.len();
         self.items.push(RawTableItem {
             prefix,
             key,
             separator,
-            value: Box::new(Raw::new(value, layout.indentation)),
+            value: Box::new(Raw::new(value, layout.indent)),
         });
+        len
     }
 }
 
