@@ -60,7 +60,7 @@ impl<'a> Parser<'a> {
     }
 
     /// Peek the next value.
-    pub(crate) fn peek(&self) -> u8 {
+    fn peek(&self) -> u8 {
         let Some(&b) = self.input.get(self.position) else {
             return 0;
         };
@@ -69,7 +69,7 @@ impl<'a> Parser<'a> {
     }
 
     /// Peek the next next value.
-    pub(crate) fn peek2(&self) -> (u8, u8) {
+    fn peek2(&self) -> (u8, u8) {
         let b0 = self.peek();
 
         let Some(&b) = self.input.get(self.position.wrapping_add(1)) else {
@@ -80,29 +80,29 @@ impl<'a> Parser<'a> {
     }
 
     /// Insert a value into the tree.
-    pub(crate) fn insert(&mut self, raw: Raw) -> Pointer {
+    fn insert(&mut self, raw: Raw) -> Pointer {
         self.tree.insert(raw)
     }
 
     /// Bump a single byte of input.
-    pub(crate) fn bump(&mut self, n: usize) {
+    fn bump(&mut self, n: usize) {
         self.position = self.position.wrapping_add(n).min(self.input.len());
     }
 
     /// Get the current span.
-    pub(crate) fn span(&self, len: usize) -> Range<usize> {
+    fn span(&self, len: usize) -> Range<usize> {
         let end = self.position.wrapping_add(len);
         self.position..end
     }
 
     /// Get a string from the given starting position to current cursor
     /// location.
-    pub(crate) fn string(&self, start: usize) -> &'a [u8] {
+    fn string(&self, start: usize) -> &'a [u8] {
         self.input.get(start..self.position).unwrap_or_default()
     }
 
     /// Consume whitespace.
-    pub(crate) fn ws(&mut self) -> StringId {
+    fn ws(&mut self) -> StringId {
         let start = self.position;
 
         while self.peek().is_ascii_whitespace() {
@@ -113,7 +113,7 @@ impl<'a> Parser<'a> {
     }
 
     /// Consume a single number.
-    pub(crate) fn number(&mut self) -> Result<Raw> {
+    fn number(&mut self) -> Result<Raw> {
         let start = self.position;
 
         if matches!(self.peek(), b'-') {
@@ -128,20 +128,39 @@ impl<'a> Parser<'a> {
         Ok(Raw::Number(RawNumber::new(string)))
     }
 
-    /// Read an identifier.
-    pub(crate) fn id(&mut self) -> Result<RawString> {
+    /// Read a string from a line.
+    fn eol(&mut self, start: usize) -> Result<Raw> {
+        while !matches!(self.peek(), b'\n' | b'\0') {
+            self.bump(1);
+        }
+
+        let string = self.strings.insert(self.string(start));
+        Ok(Raw::String(RawString::new(StringKind::Bare, string)))
+    }
+
+    /// Try to read an identifier.
+    fn id(&mut self) -> Option<usize> {
+        if !matches!(self.peek(), id_first!()) {
+            return None;
+        }
+
+        Some(self.id_remainder())
+    }
+
+    /// Read the remainder of an identifier.
+    fn id_remainder(&mut self) -> usize {
         let start = self.position;
+
+        self.bump(1);
 
         while matches!(self.peek(), id_remainder!()) {
             self.bump(1);
         }
 
-        let string = self.strings.insert(self.string(start));
-        Ok(RawString::new(StringKind::Bare, string))
+        start
     }
-
     /// Read a double-quoted string.
-    pub(crate) fn single_quoted(&mut self) -> Result<Raw> {
+    fn single_quoted(&mut self) -> Result<Raw> {
         self.bump(1);
         let start = self.position;
 
@@ -168,11 +187,11 @@ impl<'a> Parser<'a> {
     }
 
     /// Read a double-quoted string.
-    pub(crate) fn double_quoted(&mut self) -> Result<Raw> {
+    fn double_quoted(&mut self) -> Result<Raw> {
         self.bump(1);
         let start = self.position;
 
-        while !matches!(self.peek(), b'"') {
+        while !matches!(self.peek(), b'"' | b'\0') {
             self.bump(1);
         }
 
@@ -185,11 +204,11 @@ impl<'a> Parser<'a> {
     }
 
     /// Parse a raw table.
-    pub(crate) fn table(
+    fn table(
         &mut self,
         indent: StringId,
         mut last_key: RawString,
-    ) -> Result<(RawTable, Option<StringId>)> {
+    ) -> Result<(Raw, Option<StringId>)> {
         let mut children = Vec::new();
         let mut last_suffix = None;
 
@@ -226,10 +245,20 @@ impl<'a> Parser<'a> {
             }
 
             last_suffix = Some(suffix);
-            last_key = self.id()?;
+
+            last_key = match self.id() {
+                Some(last) => {
+                    let string = self.string(last);
+                    let string = self.strings.insert(string);
+                    RawString::new(StringKind::Bare, string)
+                }
+                None => {
+                    break Some(suffix);
+                }
+            };
         };
 
-        Ok((RawTable { indent, children }, current_prefix))
+        Ok((Raw::Table(RawTable { indent, children }), current_prefix))
     }
 
     fn indent(&mut self, string: &StringId) -> Option<StringId> {
@@ -245,21 +274,22 @@ impl<'a> Parser<'a> {
     }
 
     /// Consume a single value.
-    pub(crate) fn value(&mut self, indent: Option<StringId>) -> Result<(Raw, Option<StringId>)> {
+    fn value(&mut self, indent: Option<StringId>) -> Result<(Raw, Option<StringId>)> {
         let kind = match self.peek() {
             number_first!() => self.number()?,
-            id_first!() => {
-                let id = self.id()?;
-
-                if let (Some(indent), b':') = (indent, self.peek()) {
-                    let (value, prefix) = self.table(indent, id)?;
-                    return Ok((Raw::Table(value), prefix));
-                } else {
-                    Raw::String(id)
-                }
-            }
             b'"' => self.double_quoted()?,
             b'\'' => self.single_quoted()?,
+            id_first!() => {
+                let start = self.id_remainder();
+
+                let (Some(indent), b':') = (indent, self.peek()) else {
+                    return Ok((self.eol(start)?, None));
+                };
+
+                let string = self.strings.insert(self.string(start));
+                let string = RawString::new(StringKind::Bare, string);
+                return self.table(indent, string);
+            }
             _ => return Err(Error::new(self.span(1), ErrorKind::ValueError)),
         };
 

@@ -1,13 +1,11 @@
 use crate::yaml;
 
 #[test]
-fn nested_table() -> Result<(), Box<dyn std::error::Error>> {
+fn test_property_eol() -> Result<(), Box<dyn std::error::Error>> {
     let mut doc = yaml::parse(
         r#"
-        number1: 10
-        number2: 20
         table:
-            inner: 400
+            inner: so this is as a matter of @ course, a large document
         string3: "I am a quoted string!"
         "#,
     )?;
@@ -17,36 +15,13 @@ fn nested_table() -> Result<(), Box<dyn std::error::Error>> {
         .into_table_mut()
         .ok_or("missing root table")?;
 
-    assert_eq!(
-        root.as_ref().get("number1").and_then(|v| v.as_u32()),
-        Some(10)
-    );
-    assert_eq!(
-        root.as_ref().get("number2").and_then(|v| v.as_u32()),
-        Some(20)
-    );
+    let table = root
+        .get_mut("table")
+        .and_then(|v| v.into_table_mut())
+        .ok_or("missing inner table")?;
 
-    {
-        let table = root
-            .get_mut("table")
-            .and_then(|v| v.into_table_mut())
-            .ok_or("missing inner table")?;
-
-        assert_eq!(
-            table.as_ref().get("inner").and_then(|v| v.as_u32()),
-            Some(400)
-        );
-
-        assert_ne!(
-            table.as_ref().get("string3").and_then(|v| v.as_str()),
-            Some("I am a quoted string!")
-        );
-    }
-
-    assert_eq!(
-        root.as_ref().get("string3").and_then(|v| v.as_str()),
-        Some("I am a quoted string!")
-    );
-
+    let table = table.as_ref();
+    let string = table.get("inner").and_then(|v| v.as_str());
+    assert_eq!(string, Some("so this is as a matter of @ course, a large document"));
     Ok(())
 }

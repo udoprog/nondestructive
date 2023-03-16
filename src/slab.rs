@@ -22,6 +22,20 @@ impl<T> Slab<T> {
         self.data.get(index)
     }
 
+    /// Test if slab contains the given pointer.
+    pub(crate) fn contains<F>(&self, pointer: &Pointer, test: F) -> bool
+    where
+        F: FnOnce(&T) -> bool,
+    {
+        let Pointer(index) = *pointer;
+
+        let Some(data) = self.data.get(index) else {
+            return false;
+        };
+
+        test(data)
+    }
+
     /// Get a value mutably from the tree.
     pub(crate) fn get_mut(&mut self, pointer: &Pointer) -> Option<&mut T> {
         let Pointer(index) = *pointer;

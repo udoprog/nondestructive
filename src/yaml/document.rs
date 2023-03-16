@@ -2,8 +2,8 @@ use core::fmt;
 
 use crate::slab::{Pointer, Slab};
 use crate::strings::{StringId, Strings};
-use crate::yaml::raw::Raw;
-use crate::yaml::{Value, ValueMut};
+use crate::yaml::raw::{Raw, RawString};
+use crate::yaml::{StringKind, Value, ValueMut};
 
 /// A whitespace preserving YAML document.
 #[derive(Clone)]
@@ -64,6 +64,15 @@ impl Document {
     /// ```
     pub fn root_mut(&mut self) -> ValueMut<'_> {
         ValueMut::new(self, self.root)
+    }
+
+    /// Insert a boolean value.
+    pub(crate) fn insert_bool(&mut self, value: bool) -> Raw {
+        const TRUE: &[u8] = b"true";
+        const FALSE: &[u8] = b"false";
+
+        let string = self.strings.insert(if value { TRUE } else { FALSE });
+        Raw::String(RawString::new(StringKind::Bare, string))
     }
 }
 

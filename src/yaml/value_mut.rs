@@ -305,16 +305,13 @@ impl<'a> ValueMut<'a> {
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     pub fn set_bool(&mut self, value: bool) {
-        const TRUE: &[u8] = b"true";
-        const FALSE: &[u8] = b"false";
+        let value = self.doc.insert_bool(value);
 
         let Some(raw) = self.doc.tree.get_mut(&self.pointer) else {
             return;
         };
 
-        let string = self.doc.strings.insert(if value { TRUE } else { FALSE });
-        let string = RawString::new(StringKind::Bare, string);
-        *raw = Raw::String(string);
+        *raw = value;
     }
 
     set_float!(set_f32, f32, "32-bit float", 10.42);
@@ -392,6 +389,10 @@ macro_rules! insert_float {
         /// # Ok::<_, Box<dyn std::error::Error>>(())
         /// ```
         pub fn $name(&mut self, key: &str, value: $ty) {
+            if !self.doc.tree.contains(&self.pointer, |m| matches!(m, Raw::Table(..))) {
+                return;
+            }
+
             let mut buffer = ryu::Buffer::new();
             let number = self.doc.strings.insert(buffer.format(value));
             let value = self.doc.tree.insert(Raw::Number(RawNumber::new(number)));
@@ -425,6 +426,10 @@ macro_rules! insert_number {
         /// # Ok::<_, Box<dyn std::error::Error>>(())
         /// ```
         pub fn $name(&mut self, key: &str, value: $ty) {
+            if !self.doc.tree.contains(&self.pointer, |m| matches!(m, Raw::Table(..))) {
+                return;
+            }
+
             let mut buffer = itoa::Buffer::new();
             let number = self.doc.strings.insert(buffer.format(value));
             let value = self.doc.tree.insert(Raw::Number(RawNumber::new(number)));
@@ -547,6 +552,83 @@ impl<'a> TableMut<'a> {
         }
 
         None
+    }
+
+    /// Insert a string.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nondestructive::yaml;
+    ///
+    /// let mut doc = yaml::parse(r#"
+    /// number1: 10
+    /// "#)?;
+    /// let mut value = doc.root_mut().into_table_mut().ok_or("not a table")?;
+    /// value.insert_string("string2", "hello");
+    /// assert_eq!(doc.to_string(), "\nnumber1: 10\nstring2: hello\n");
+    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn insert_string<S>(&mut self, key: &str, string: S)
+    where
+        S: AsRef<str>,
+    {
+        if !self
+            .doc
+            .tree
+            .contains(&self.pointer, |m| matches!(m, Raw::Table(..)))
+        {
+            return;
+        }
+
+        let kind = StringKind::detect(string.as_ref());
+        let string = self.doc.strings.insert(string.as_ref());
+        let string = Raw::String(RawString::new(kind, string));
+        let string = self.doc.tree.insert(string);
+
+        if let Some(Raw::Table(table)) = self.doc.tree.get_mut(&self.pointer) {
+            let separator = self.doc.strings.insert(" ");
+            let kind = StringKind::detect(key);
+            let key = self.doc.strings.insert(key);
+            let key = RawString::new(kind, key);
+            table.insert(key, separator, string);
+        }
+    }
+
+    /// Insert a bool.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nondestructive::yaml;
+    ///
+    /// let mut doc = yaml::parse(r#"
+    /// number1: 10
+    /// "#)?;
+    /// let mut value = doc.root_mut().into_table_mut().ok_or("not a table")?;
+    /// value.insert_bool("bool2", true);
+    /// assert_eq!(doc.to_string(), "\nnumber1: 10\nbool2: true\n");
+    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn insert_bool(&mut self, key: &str, value: bool) {
+        if !self
+            .doc
+            .tree
+            .contains(&self.pointer, |m| matches!(m, Raw::Table(..)))
+        {
+            return;
+        }
+
+        let value = self.doc.insert_bool(value);
+        let value = self.doc.tree.insert(value);
+
+        if let Some(Raw::Table(table)) = self.doc.tree.get_mut(&self.pointer) {
+            let separator = self.doc.strings.insert(" ");
+            let kind = StringKind::detect(key);
+            let key = self.doc.strings.insert(key);
+            let key = RawString::new(kind, key);
+            table.insert(key, separator, value);
+        }
     }
 
     insert_float!(insert_f32, f32, "32-bit float", 10.42);
