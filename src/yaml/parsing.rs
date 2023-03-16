@@ -2,7 +2,6 @@ use std::ops::Range;
 
 use bstr::ByteSlice;
 
-use crate::slab::{Pointer, Slab};
 use crate::strings::{StringId, Strings};
 use crate::yaml::error::{Error, ErrorKind};
 use crate::yaml::raw::{Raw, RawListItem, RawNumber, RawString, RawTable, RawTableItem};
@@ -38,7 +37,6 @@ macro_rules! number_remainder {
 pub struct Parser<'a> {
     scratch: Vec<u8>,
     strings: Strings,
-    tree: Slab<Raw>,
     input: &'a [u8],
     position: usize,
 }
@@ -49,7 +47,6 @@ impl<'a> Parser<'a> {
         Self {
             scratch: Vec::new(),
             strings: Strings::default(),
-            tree: Slab::default(),
             input,
             position: 0,
         }
@@ -73,11 +70,6 @@ impl<'a> Parser<'a> {
         };
 
         (b0, b)
-    }
-
-    /// Insert a value into the tree.
-    fn insert(&mut self, raw: Raw) -> Pointer {
-        self.tree.insert(raw)
     }
 
     /// Bump a single byte of input.
@@ -191,7 +183,6 @@ impl<'a> Parser<'a> {
             };
 
             let (value, ws) = self.value(new_indentation)?;
-            let value = self.tree.insert(value);
 
             let ws = match ws {
                 Some(suffix) => suffix,
@@ -201,7 +192,7 @@ impl<'a> Parser<'a> {
             items.push(RawListItem {
                 prefix: previous.take(),
                 separator,
-                value,
+                value: Box::new(value),
             });
 
             let current_indentation = self.indentation(&ws);
@@ -261,7 +252,6 @@ impl<'a> Parser<'a> {
             };
 
             let (value, ws) = self.value(new_indentation)?;
-            let value = self.tree.insert(value);
 
             let ws = match ws {
                 Some(ws) => ws,
@@ -272,7 +262,7 @@ impl<'a> Parser<'a> {
                 prefix: previous.take(),
                 key,
                 separator,
-                value,
+                value: Box::new(value),
             });
 
             let current_indentation = self.indentation(&ws);
@@ -354,8 +344,7 @@ impl<'a> Parser<'a> {
             None => self.ws().0,
         };
 
-        let root = self.insert(root);
-        Ok(Document::new(prefix, suffix, root, self.strings, self.tree))
+        Ok(Document::new(prefix, suffix, root, self.strings))
     }
 
     /// Parse next table key.

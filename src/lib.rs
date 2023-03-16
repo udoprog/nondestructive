@@ -41,8 +41,5 @@
 //! # Ok::<_, Box<dyn std::error::Error>>(())
 //! ```
 
-pub mod yaml;
-
 mod strings;
-
-mod slab;
+pub mod yaml;

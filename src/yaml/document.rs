@@ -1,35 +1,26 @@
 use core::fmt;
 
-use crate::slab::{Pointer, Slab};
 use crate::strings::{StringId, Strings};
-use crate::yaml::raw::{Raw, RawString};
-use crate::yaml::{StringKind, Value, ValueMut};
+use crate::yaml::raw::Raw;
+use crate::yaml::{Value, ValueMut};
 
 /// A whitespace preserving YAML document.
 #[derive(Clone)]
 pub struct Document {
     prefix: StringId,
     suffix: StringId,
-    root: Pointer,
+    root: Raw,
     pub(crate) strings: Strings,
-    pub(crate) tree: Slab<Raw>,
 }
 
 impl Document {
     /// Construct a new document.
-    pub(crate) fn new(
-        prefix: StringId,
-        suffix: StringId,
-        root: Pointer,
-        strings: Strings,
-        tree: Slab<Raw>,
-    ) -> Self {
+    pub(crate) fn new(prefix: StringId, suffix: StringId, root: Raw, strings: Strings) -> Self {
         Self {
             prefix,
             suffix,
             root,
             strings,
-            tree,
         }
     }
 
@@ -46,7 +37,7 @@ impl Document {
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     pub fn root(&self) -> Value<'_> {
-        Value::new(self, self.root)
+        Value::new(&self.strings, &self.root)
     }
 
     /// Get the root value of a document.
@@ -63,27 +54,14 @@ impl Document {
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     pub fn root_mut(&mut self) -> ValueMut<'_> {
-        ValueMut::new(self, self.root)
-    }
-
-    /// Insert a boolean value.
-    pub(crate) fn insert_bool(&mut self, value: bool) -> Raw {
-        const TRUE: &[u8] = b"true";
-        const FALSE: &[u8] = b"false";
-
-        let string = self.strings.insert(if value { TRUE } else { FALSE });
-        Raw::String(RawString::new(StringKind::Bare, string))
+        ValueMut::new(&mut self.strings, &mut self.root)
     }
 }
 
 impl fmt::Display for Document {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.strings.get(&self.prefix).fmt(f)?;
-
-        if let Some(raw) = self.tree.get(&self.root) {
-            raw.display(self, f)?;
-        }
-
+        self.root.display(&self.strings, f)?;
         self.strings.get(&self.suffix).fmt(f)?;
         Ok(())
     }

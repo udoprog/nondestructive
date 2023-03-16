@@ -1,22 +1,19 @@
-use crate::slab::Pointer;
+use crate::strings::Strings;
 use crate::yaml::raw::{Raw, RawList, RawNumber, RawString, RawTable};
-use crate::yaml::{Document, List, NullKind, StringKind, Table, Value};
+use crate::yaml::{List, NullKind, StringKind, Table, Value};
+
+use super::raw::insert_bool;
 
 /// A mutable value inside of a document.
 pub struct ValueMut<'a> {
-    doc: &'a mut Document,
-    pointer: Pointer,
+    strings: &'a mut Strings,
+    raw: &'a mut Raw,
 }
 
 impl<'a> ValueMut<'a> {
     /// Construct a new mutable value.
-    pub(crate) fn new(doc: &'a mut Document, pointer: Pointer) -> Self {
-        Self { doc, pointer }
-    }
-
-    /// Get a raw element based on the current pointer.
-    pub(crate) fn raw(&self) -> Option<&Raw> {
-        self.doc.tree.get(&self.pointer)
+    pub(crate) fn new(strings: &'a mut Strings, raw: &'a mut Raw) -> Self {
+        Self { strings, raw }
     }
 
     /// Coerce a mutable value as an immutable [Value].
@@ -49,7 +46,7 @@ impl<'a> ValueMut<'a> {
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     pub fn as_ref(&self) -> Value<'_> {
-        Value::new(self.doc, self.pointer)
+        Value::new(self.strings, self.raw)
     }
 
     /// Coerce a mutable value into an immutable [Value] with the lifetime of
@@ -83,7 +80,7 @@ impl<'a> ValueMut<'a> {
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     pub fn into_ref(self) -> Value<'a> {
-        Value::new(self.doc, self.pointer)
+        Value::new(self.strings, self.raw)
     }
 
     /// Convert the value into a mutable [Table].
@@ -117,8 +114,8 @@ impl<'a> ValueMut<'a> {
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     pub fn as_table_mut(&mut self) -> Option<TableMut<'_>> {
-        match self.raw() {
-            Some(Raw::Table(..)) => Some(TableMut::new(self.doc, self.pointer)),
+        match self.raw {
+            Raw::Table(raw) => Some(TableMut::new(self.strings, raw)),
             _ => None,
         }
     }
@@ -169,8 +166,8 @@ impl<'a> ValueMut<'a> {
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     pub fn into_table_mut(self) -> Option<TableMut<'a>> {
-        match self.raw() {
-            Some(Raw::Table(..)) => Some(TableMut::new(self.doc, self.pointer)),
+        match self.raw {
+            Raw::Table(raw) => Some(TableMut::new(self.strings, raw)),
             _ => None,
         }
     }
@@ -204,8 +201,8 @@ impl<'a> ValueMut<'a> {
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     pub fn as_list_mut(&mut self) -> Option<ListMut<'_>> {
-        match self.raw() {
-            Some(Raw::List(..)) => Some(ListMut::new(self.doc, self.pointer)),
+        match self.raw {
+            Raw::List(raw) => Some(ListMut::new(self.strings, raw)),
             _ => None,
         }
     }
@@ -240,8 +237,8 @@ impl<'a> ValueMut<'a> {
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     pub fn into_list_mut(self) -> Option<ListMut<'a>> {
-        match self.raw() {
-            Some(Raw::List(..)) => Some(ListMut::new(self.doc, self.pointer)),
+        match self.raw {
+            Raw::List(raw) => Some(ListMut::new(self.strings, raw)),
             _ => None,
         }
     }
@@ -262,11 +259,9 @@ macro_rules! set_float {
         /// # Ok::<_, Box<dyn std::error::Error>>(())
         /// ```
         pub fn $name(&mut self, value: $ty) {
-            if let Some(raw) = self.doc.tree.get_mut(&self.pointer) {
-                let mut buffer = ryu::Buffer::new();
-                let string = self.doc.strings.insert(buffer.format(value));
-                *raw = Raw::Number(RawNumber::new(string));
-            }
+            let mut buffer = ryu::Buffer::new();
+            let string = self.strings.insert(buffer.format(value));
+            *self.raw = Raw::Number(RawNumber::new(string));
         }
     };
 }
@@ -286,11 +281,9 @@ macro_rules! set_number {
         /// # Ok::<_, Box<dyn std::error::Error>>(())
         /// ```
         pub fn $name(&mut self, value: $ty) {
-            if let Some(raw) = self.doc.tree.get_mut(&self.pointer) {
-                let mut buffer = itoa::Buffer::new();
-                let string = self.doc.strings.insert(buffer.format(value));
-                *raw = Raw::Number(RawNumber::new(string));
-            }
+            let mut buffer = itoa::Buffer::new();
+            let string = self.strings.insert(buffer.format(value));
+            *self.raw = Raw::Number(RawNumber::new(string));
         }
     };
 }
@@ -318,9 +311,7 @@ impl<'a> ValueMut<'a> {
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     pub fn set_null(&mut self, kind: NullKind) {
-        if let Some(raw) = self.doc.tree.get_mut(&self.pointer) {
-            *raw = Raw::Null(kind);
-        }
+        *self.raw = Raw::Null(kind);
     }
 
     /// Set the value as a string.
@@ -351,14 +342,10 @@ impl<'a> ValueMut<'a> {
     where
         S: AsRef<str>,
     {
-        let Some(raw) = self.doc.tree.get_mut(&self.pointer) else {
-            return;
-        };
-
         let kind = StringKind::detect(string.as_ref());
-        let string = self.doc.strings.insert(string.as_ref());
+        let string = self.strings.insert(string.as_ref());
         let string = RawString::new(kind, string);
-        *raw = Raw::String(string);
+        *self.raw = Raw::String(string);
     }
 
     /// Set the value as a boolean.
@@ -374,13 +361,8 @@ impl<'a> ValueMut<'a> {
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     pub fn set_bool(&mut self, value: bool) {
-        let value = self.doc.insert_bool(value);
-
-        let Some(raw) = self.doc.tree.get_mut(&self.pointer) else {
-            return;
-        };
-
-        *raw = value;
+        let value = insert_bool(self.strings, value);
+        *self.raw = value;
     }
 
     set_float!(set_f32, f32, "32-bit float", 10.42);
@@ -435,8 +417,8 @@ impl<'a> ValueMut<'a> {
 /// # Ok::<_, Box<dyn std::error::Error>>(())
 /// ```
 pub struct TableMut<'a> {
-    doc: &'a mut Document,
-    pointer: Pointer,
+    strings: &'a mut Strings,
+    raw: &'a mut RawTable,
 }
 
 macro_rules! insert_float {
@@ -464,25 +446,14 @@ macro_rules! insert_float {
         /// # Ok::<_, Box<dyn std::error::Error>>(())
         /// ```
         pub fn $name(&mut self, key: &str, value: $ty) {
-            if !self
-                .doc
-                .tree
-                .contains(&self.pointer, |m| matches!(m, Raw::Table(..)))
-            {
-                return;
-            }
-
             let mut buffer = ryu::Buffer::new();
-            let number = self.doc.strings.insert(buffer.format(value));
-            let value = self.doc.tree.insert(Raw::Number(RawNumber::new(number)));
-            let separator = self.doc.strings.insert(" ");
+            let number = self.strings.insert(buffer.format(value));
+            let value = Raw::Number(RawNumber::new(number));
+            let separator = self.strings.insert(" ");
             let kind = StringKind::detect(key);
-            let key = self.doc.strings.insert(key);
+            let key = self.strings.insert(key);
             let key = RawString::new(kind, key);
-
-            if let Some(Raw::Table(table)) = self.doc.tree.get_mut(&self.pointer) {
-                table.insert(key, separator, value);
-            }
+            self.raw.insert(key, separator, value);
         }
     };
 }
@@ -512,40 +483,21 @@ macro_rules! insert_number {
         /// # Ok::<_, Box<dyn std::error::Error>>(())
         /// ```
         pub fn $name(&mut self, key: &str, value: $ty) {
-            if !self
-                .doc
-                .tree
-                .contains(&self.pointer, |m| matches!(m, Raw::Table(..)))
-            {
-                return;
-            }
-
             let mut buffer = itoa::Buffer::new();
-            let number = self.doc.strings.insert(buffer.format(value));
-            let value = self.doc.tree.insert(Raw::Number(RawNumber::new(number)));
-
-            if let Some(Raw::Table(table)) = self.doc.tree.get_mut(&self.pointer) {
-                let separator = self.doc.strings.insert(" ");
-                let kind = StringKind::detect(key);
-                let key = self.doc.strings.insert(key);
-                let key = RawString::new(kind, key);
-                table.insert(key, separator, value);
-            }
+            let number = self.strings.insert(buffer.format(value));
+            let value = Raw::Number(RawNumber::new(number));
+            let separator = self.strings.insert(" ");
+            let kind = StringKind::detect(key);
+            let key = self.strings.insert(key);
+            let key = RawString::new(kind, key);
+            self.raw.insert(key, separator, value);
         }
     };
 }
 
 impl<'a> TableMut<'a> {
-    pub(crate) fn new(doc: &'a mut Document, pointer: Pointer) -> Self {
-        Self { doc, pointer }
-    }
-
-    /// Get the raw element based on the value pointer.
-    pub(crate) fn raw(&self) -> Option<&RawTable> {
-        match self.doc.tree.get(&self.pointer) {
-            Some(Raw::Table(table)) => Some(table),
-            _ => None,
-        }
+    pub(crate) fn new(strings: &'a mut Strings, raw: &'a mut RawTable) -> Self {
+        Self { strings, raw }
     }
 
     /// Coerce a mutable table as an immutable [Table].
@@ -579,7 +531,7 @@ impl<'a> TableMut<'a> {
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     pub fn as_ref(&self) -> Table<'_> {
-        Table::new(self.doc, self.pointer)
+        Table::new(self.strings, self.raw)
     }
 
     /// Coerce a mutable table into an immutable [Table] with the lifetime of
@@ -610,7 +562,7 @@ impl<'a> TableMut<'a> {
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     pub fn into_ref(self) -> Table<'a> {
-        Table::new(self.doc, self.pointer)
+        Table::new(self.strings, self.raw)
     }
 
     /// Get a value mutably from the table.
@@ -644,11 +596,9 @@ impl<'a> TableMut<'a> {
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     pub fn get_mut(&mut self, key: &str) -> Option<ValueMut<'_>> {
-        let raw = self.raw()?;
-
-        for e in &raw.items {
-            if self.doc.strings.get(&e.key.string) == key {
-                return Some(ValueMut::new(self.doc, e.value));
+        for e in &mut self.raw.items {
+            if self.strings.get(&e.key.string) == key {
+                return Some(ValueMut::new(self.strings, &mut e.value));
             }
         }
 
@@ -681,26 +631,14 @@ impl<'a> TableMut<'a> {
     where
         S: AsRef<str>,
     {
-        if !self
-            .doc
-            .tree
-            .contains(&self.pointer, |m| matches!(m, Raw::Table(..)))
-        {
-            return;
-        }
-
         let kind = StringKind::detect(string.as_ref());
-        let string = self.doc.strings.insert(string.as_ref());
+        let string = self.strings.insert(string.as_ref());
         let string = Raw::String(RawString::new(kind, string));
-        let string = self.doc.tree.insert(string);
-
-        if let Some(Raw::Table(table)) = self.doc.tree.get_mut(&self.pointer) {
-            let separator = self.doc.strings.insert(" ");
-            let kind = StringKind::detect(key);
-            let key = self.doc.strings.insert(key);
-            let key = RawString::new(kind, key);
-            table.insert(key, separator, string);
-        }
+        let separator = self.strings.insert(" ");
+        let kind = StringKind::detect(key);
+        let key = self.strings.insert(key);
+        let key = RawString::new(kind, key);
+        self.raw.insert(key, separator, string);
     }
 
     /// Insert a bool.
@@ -725,24 +663,12 @@ impl<'a> TableMut<'a> {
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     pub fn insert_bool(&mut self, key: &str, value: bool) {
-        if !self
-            .doc
-            .tree
-            .contains(&self.pointer, |m| matches!(m, Raw::Table(..)))
-        {
-            return;
-        }
-
-        let value = self.doc.insert_bool(value);
-        let value = self.doc.tree.insert(value);
-        let separator = self.doc.strings.insert(" ");
+        let value = insert_bool(self.strings, value);
+        let separator = self.strings.insert(" ");
         let kind = StringKind::detect(key);
-        let key = self.doc.strings.insert(key);
+        let key = self.strings.insert(key);
         let key = RawString::new(kind, key);
-
-        if let Some(Raw::Table(table)) = self.doc.tree.get_mut(&self.pointer) {
-            table.insert(key, separator, value);
-        }
+        self.raw.insert(key, separator, value);
     }
 
     insert_float!(insert_f32, f32, "32-bit float", 10.42);
@@ -761,8 +687,8 @@ impl<'a> TableMut<'a> {
 
 /// Mutator for a list.
 pub struct ListMut<'a> {
-    doc: &'a mut Document,
-    pointer: Pointer,
+    strings: &'a mut Strings,
+    raw: &'a mut RawList,
 }
 
 macro_rules! push_float {
@@ -790,22 +716,11 @@ macro_rules! push_float {
         /// # Ok::<_, Box<dyn std::error::Error>>(())
         /// ```
         pub fn $name(&mut self, value: $ty) {
-            if !self
-                .doc
-                .tree
-                .contains(&self.pointer, |m| matches!(m, Raw::List(..)))
-            {
-                return;
-            }
-
             let mut buffer = ryu::Buffer::new();
-            let number = self.doc.strings.insert(buffer.format(value));
-            let value = self.doc.tree.insert(Raw::Number(RawNumber::new(number)));
-            let separator = self.doc.strings.insert(" ");
-
-            if let Some(Raw::List(raw)) = self.doc.tree.get_mut(&self.pointer) {
-                raw.push(separator, value);
-            }
+            let number = self.strings.insert(buffer.format(value));
+            let value = Raw::Number(RawNumber::new(number));
+            let separator = self.strings.insert(" ");
+            self.raw.push(separator, value);
         }
     };
 }
@@ -835,37 +750,18 @@ macro_rules! push_number {
         /// # Ok::<_, Box<dyn std::error::Error>>(())
         /// ```
         pub fn $name(&mut self, value: $ty) {
-            if !self
-                .doc
-                .tree
-                .contains(&self.pointer, |m| matches!(m, Raw::List(..)))
-            {
-                return;
-            }
-
             let mut buffer = itoa::Buffer::new();
-            let number = self.doc.strings.insert(buffer.format(value));
-            let value = self.doc.tree.insert(Raw::Number(RawNumber::new(number)));
-            let separator = self.doc.strings.insert(" ");
-
-            if let Some(Raw::List(raw)) = self.doc.tree.get_mut(&self.pointer) {
-                raw.push(separator, value);
-            }
+            let number = self.strings.insert(buffer.format(value));
+            let value = Raw::Number(RawNumber::new(number));
+            let separator = self.strings.insert(" ");
+            self.raw.push(separator, value);
         }
     };
 }
 
 impl<'a> ListMut<'a> {
-    pub(crate) fn new(doc: &'a mut Document, pointer: Pointer) -> Self {
-        Self { doc, pointer }
-    }
-
-    /// Get the raw element based on the value pointer.
-    pub(crate) fn raw(&self) -> Option<&RawList> {
-        match self.doc.tree.get(&self.pointer) {
-            Some(Raw::List(table)) => Some(table),
-            _ => None,
-        }
+    pub(crate) fn new(strings: &'a mut Strings, raw: &'a mut RawList) -> Self {
+        Self { strings, raw }
     }
 
     /// Coerce a mutable list as an immutable [List].
@@ -895,7 +791,7 @@ impl<'a> ListMut<'a> {
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     pub fn as_ref(&self) -> List<'_> {
-        List::new(self.doc, self.pointer)
+        List::new(self.strings, self.raw)
     }
 
     /// Coerce a mutable list into an immutable [List] with the lifetime of the
@@ -922,7 +818,7 @@ impl<'a> ListMut<'a> {
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     pub fn into_ref(self) -> List<'a> {
-        List::new(self.doc, self.pointer)
+        List::new(self.strings, self.raw)
     }
 
     /// Get a value mutably from the table.
@@ -954,10 +850,8 @@ impl<'a> ListMut<'a> {
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     pub fn get_mut(&mut self, index: usize) -> Option<ValueMut<'_>> {
-        let raw = self.raw()?;
-
-        if let Some(item) = raw.items.get(index) {
-            return Some(ValueMut::new(self.doc, item.value));
+        if let Some(item) = self.raw.items.get_mut(index) {
+            return Some(ValueMut::new(self.strings, &mut item.value));
         }
 
         None
@@ -989,23 +883,11 @@ impl<'a> ListMut<'a> {
     where
         S: AsRef<str>,
     {
-        if !self
-            .doc
-            .tree
-            .contains(&self.pointer, |m| matches!(m, Raw::List(..)))
-        {
-            return;
-        }
-
         let kind = StringKind::detect(string.as_ref());
-        let string = self.doc.strings.insert(string.as_ref());
+        let string = self.strings.insert(string.as_ref());
         let string = Raw::String(RawString::new(kind, string));
-        let string = self.doc.tree.insert(string);
-        let separator = self.doc.strings.insert(" ");
-
-        if let Some(Raw::List(raw)) = self.doc.tree.get_mut(&self.pointer) {
-            raw.push(separator, string);
-        }
+        let separator = self.strings.insert(" ");
+        self.raw.push(separator, string);
     }
 
     /// Push a bool.
@@ -1031,21 +913,9 @@ impl<'a> ListMut<'a> {
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     pub fn push_bool(&mut self, value: bool) {
-        if !self
-            .doc
-            .tree
-            .contains(&self.pointer, |m| matches!(m, Raw::List(..)))
-        {
-            return;
-        }
-
-        let value = self.doc.insert_bool(value);
-        let value = self.doc.tree.insert(value);
-        let separator = self.doc.strings.insert(" ");
-
-        if let Some(Raw::List(table)) = self.doc.tree.get_mut(&self.pointer) {
-            table.push(separator, value);
-        }
+        let value = insert_bool(self.strings, value);
+        let separator = self.strings.insert(" ");
+        self.raw.push(separator, value);
     }
 
     push_float!(push_f32, f32, "32-bit float", 10.42);

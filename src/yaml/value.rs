@@ -2,9 +2,8 @@ use core::fmt;
 
 use bstr::ByteSlice;
 
-use crate::slab::Pointer;
+use crate::strings::Strings;
 use crate::yaml::raw::{Raw, RawList, RawTable};
-use crate::yaml::Document;
 
 /// The kind of string value.
 #[derive(Debug, Clone, Copy)]
@@ -73,8 +72,8 @@ pub enum NullKind {
 /// # Ok::<_, Box<dyn std::error::Error>>(())
 /// ```
 pub struct Value<'a> {
-    doc: &'a Document,
-    pointer: Pointer,
+    strings: &'a Strings,
+    raw: &'a Raw,
 }
 
 macro_rules! as_number {
@@ -92,9 +91,9 @@ macro_rules! as_number {
         /// # Ok::<_, Box<dyn std::error::Error>>(())
         /// ```
         pub fn $name(&self) -> Option<$ty> {
-            match self.raw() {
-                Some(Raw::Number(raw)) => {
-                    let string = self.doc.strings.get(&raw.string);
+            match self.raw {
+                Raw::Number(raw) => {
+                    let string = self.strings.get(&raw.string);
                     lexical_core::parse(string).ok()
                 }
                 _ => None,
@@ -104,13 +103,8 @@ macro_rules! as_number {
 }
 
 impl<'a> Value<'a> {
-    pub(crate) fn new(doc: &'a Document, pointer: Pointer) -> Self {
-        Self { doc, pointer }
-    }
-
-    /// Get the raw element based on the value pointer.
-    pub(crate) fn raw(&self) -> Option<&Raw> {
-        self.doc.tree.get(&self.pointer)
+    pub(crate) fn new(strings: &'a Strings, raw: &'a Raw) -> Self {
+        Self { strings, raw }
     }
 
     /// Get the value as a string.
@@ -126,8 +120,8 @@ impl<'a> Value<'a> {
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     pub fn as_str(&self) -> Option<&'a str> {
-        match self.raw() {
-            Some(Raw::String(raw)) => self.doc.strings.get(&raw.string).to_str().ok(),
+        match self.raw {
+            Raw::String(raw) => self.strings.get(&raw.string).to_str().ok(),
             _ => None,
         }
     }
@@ -150,14 +144,12 @@ impl<'a> Value<'a> {
         const TRUE: &[u8] = b"true";
         const FALSE: &[u8] = b"false";
 
-        match self.raw() {
-            Some(Raw::String(raw)) => {
-                match (raw.kind, self.doc.strings.get(&raw.string).as_bytes()) {
-                    (StringKind::Bare, TRUE) => Some(true),
-                    (StringKind::Bare, FALSE) => Some(false),
-                    _ => None,
-                }
-            }
+        match self.raw {
+            Raw::String(raw) => match (raw.kind, self.strings.get(&raw.string).as_bytes()) {
+                (StringKind::Bare, TRUE) => Some(true),
+                (StringKind::Bare, FALSE) => Some(false),
+                _ => None,
+            },
             _ => None,
         }
     }
@@ -189,8 +181,8 @@ impl<'a> Value<'a> {
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     pub fn as_table(&self) -> Option<Table<'a>> {
-        match self.raw() {
-            Some(Raw::Table(..)) => Some(Table::new(self.doc, self.pointer)),
+        match self.raw {
+            Raw::Table(raw) => Some(Table::new(self.strings, raw)),
             _ => None,
         }
     }
@@ -218,8 +210,8 @@ impl<'a> Value<'a> {
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     pub fn as_list(&self) -> Option<List<'a>> {
-        match self.raw() {
-            Some(Raw::List(..)) => Some(List::new(self.doc, self.pointer)),
+        match self.raw {
+            Raw::List(raw) => Some(List::new(self.strings, raw)),
             _ => None,
         }
     }
@@ -240,11 +232,7 @@ impl<'a> Value<'a> {
 
 impl fmt::Display for Value<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let Some(raw) = self.raw() else {
-            return Ok(());
-        };
-
-        raw.display(self.doc, f)
+        self.raw.display(self.strings, f)
     }
 }
 
@@ -294,21 +282,13 @@ impl fmt::Debug for Value<'_> {
 /// # Ok::<_, Box<dyn std::error::Error>>(())
 /// ```
 pub struct Table<'a> {
-    doc: &'a Document,
-    pointer: Pointer,
+    strings: &'a Strings,
+    raw: &'a RawTable,
 }
 
 impl<'a> Table<'a> {
-    pub(crate) fn new(doc: &'a Document, pointer: Pointer) -> Self {
-        Self { doc, pointer }
-    }
-
-    /// Get the raw element based on the value pointer.
-    pub(crate) fn raw(&self) -> Option<&RawTable> {
-        match self.doc.tree.get(&self.pointer) {
-            Some(Raw::Table(table)) => Some(table),
-            _ => None,
-        }
+    pub(crate) fn new(strings: &'a Strings, raw: &'a RawTable) -> Self {
+        Self { strings, raw }
     }
 
     /// Get a value from the table.
@@ -338,11 +318,9 @@ impl<'a> Table<'a> {
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     pub fn get(&self, key: &str) -> Option<Value<'_>> {
-        let raw = self.raw()?;
-
-        for e in &raw.items {
-            if self.doc.strings.get(&e.key.string) == key {
-                return Some(Value::new(self.doc, e.value));
+        for e in &self.raw.items {
+            if self.strings.get(&e.key.string) == key {
+                return Some(Value::new(self.strings, &e.value));
             }
         }
 
@@ -413,21 +391,13 @@ impl<'a> Table<'a> {
 /// # Ok::<_, Box<dyn std::error::Error>>(())
 /// ```
 pub struct List<'a> {
-    doc: &'a Document,
-    pointer: Pointer,
+    strings: &'a Strings,
+    raw: &'a RawList,
 }
 
 impl<'a> List<'a> {
-    pub(crate) fn new(doc: &'a Document, pointer: Pointer) -> Self {
-        Self { doc, pointer }
-    }
-
-    /// Get the raw element based on the value pointer.
-    pub(crate) fn raw(&self) -> Option<&RawList> {
-        match self.doc.tree.get(&self.pointer) {
-            Some(Raw::List(table)) => Some(table),
-            _ => None,
-        }
+    pub(crate) fn new(strings: &'a Strings, raw: &'a RawList) -> Self {
+        Self { strings, raw }
     }
 
     /// Get the length of the list.
@@ -450,7 +420,7 @@ impl<'a> List<'a> {
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     pub fn len(&self) -> usize {
-        self.raw().map(|list| list.items.len()).unwrap_or_default()
+        self.raw.items.len()
     }
 
     /// Test if the list is empty.
@@ -473,7 +443,7 @@ impl<'a> List<'a> {
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     pub fn is_empty(&self) -> bool {
-        self.raw().map(|list| list.items.is_empty()).unwrap_or(true)
+        self.raw.items.is_empty()
     }
 
     /// Get a value from the list.
@@ -499,12 +469,7 @@ impl<'a> List<'a> {
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     pub fn get(&self, index: usize) -> Option<Value<'_>> {
-        let raw = self.raw()?;
-
-        if let Some(item) = raw.items.get(index) {
-            return Some(Value::new(self.doc, item.value));
-        }
-
-        None
+        let item = self.raw.items.get(index)?;
+        Some(Value::new(self.strings, &item.value))
     }
 }
