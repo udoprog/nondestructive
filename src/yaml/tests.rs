@@ -61,3 +61,49 @@ fn test_lists() -> Result<(), Box<dyn std::error::Error>> {
     assert_eq!(root.get(3).and_then(|v| v.as_str()), Some("six"));
     Ok(())
 }
+
+#[test]
+fn test_inline_list() -> Result<(), Box<dyn std::error::Error>> {
+    let doc = yaml::parse(
+        r#"
+        [one, two, 3,]
+        "#,
+    )?;
+
+    let root = doc.root().as_list().ok_or("missing root list")?;
+    assert_eq!(root.get(0).and_then(|v| v.as_str()), Some("one"));
+    assert_eq!(root.get(1).and_then(|v| v.as_str()), Some("two"));
+    assert_eq!(root.get(2).and_then(|v| v.as_u32()), Some(3));
+
+    assert_eq!(
+        doc.to_string(),
+        r#"
+        [one, two, 3,]
+        "#
+    );
+
+    Ok(())
+}
+
+#[test]
+fn test_inline_table() -> Result<(), Box<dyn std::error::Error>> {
+    let doc = yaml::parse(
+        r#"
+        {one: one, two: two, three: 3,}
+        "#,
+    )?;
+
+    let root = doc.root().as_table().ok_or("missing root list")?;
+    assert_eq!(root.get("one").and_then(|v| v.as_str()), Some("one"));
+    assert_eq!(root.get("two").and_then(|v| v.as_str()), Some("two"));
+    assert_eq!(root.get("three").and_then(|v| v.as_u32()), Some(3));
+
+    assert_eq!(
+        doc.to_string(),
+        r#"
+        {one: one, two: two, three: 3,}
+        "#
+    );
+
+    Ok(())
+}

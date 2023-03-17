@@ -79,7 +79,13 @@ impl Raw {
                 }
             }
             RawKind::Table(raw) => {
-                for item in &raw.items {
+                if let RawTableKind::Inline { .. } = &raw.kind {
+                    '{'.fmt(f)?;
+                }
+
+                let mut it = raw.items.iter().peekable();
+
+                while let Some(item) = it.next() {
                     if let Some(prefix) = &item.prefix {
                         strings.get(prefix).fmt(f)?;
                     }
@@ -88,17 +94,55 @@ impl Raw {
                     ':'.fmt(f)?;
                     strings.get(&item.separator).fmt(f)?;
                     item.value.display(strings, f)?;
+
+                    if it.peek().is_some() {
+                        if let RawTableKind::Inline { .. } = &raw.kind {
+                            ','.fmt(f)?;
+                        }
+                    }
+                }
+
+                if let RawTableKind::Inline { trailing, suffix } = &raw.kind {
+                    if *trailing {
+                        ','.fmt(f)?;
+                    }
+
+                    strings.get(suffix).fmt(f)?;
+                    '}'.fmt(f)?;
                 }
             }
             RawKind::List(raw) => {
-                for item in &raw.items {
+                if let RawListKind::Inline { .. } = &raw.kind {
+                    '['.fmt(f)?;
+                }
+
+                let mut it = raw.items.iter().peekable();
+
+                while let Some(item) = it.next() {
                     if let Some(prefix) = &item.prefix {
                         strings.get(prefix).fmt(f)?;
                     }
 
-                    '-'.fmt(f)?;
+                    if let RawListKind::Table = raw.kind {
+                        '-'.fmt(f)?;
+                    }
+
                     strings.get(&item.separator).fmt(f)?;
                     item.value.display(strings, f)?;
+
+                    if it.peek().is_some() {
+                        if let RawListKind::Inline { .. } = raw.kind {
+                            ','.fmt(f)?;
+                        }
+                    }
+                }
+
+                if let RawListKind::Inline { trailing, suffix } = &raw.kind {
+                    if *trailing {
+                        ','.fmt(f)?;
+                    }
+
+                    write!(f, "{}]", strings.get(suffix))?;
                 }
             }
         }
@@ -219,6 +263,30 @@ impl RawString {
     }
 }
 
+/// The kind of a raw list.
+#[derive(Debug, Clone)]
+pub(crate) enum RawListKind {
+    /// An expanded tabular YAML list.
+    ///
+    /// ```yaml
+    /// - one
+    /// - two
+    /// - three
+    /// ```
+    Table,
+    /// A compact inline YAML list.
+    ///
+    /// ```yaml
+    /// [one two three]
+    /// ```
+    Inline {
+        /// Trailing `,` separator.
+        trailing: bool,
+        /// The inner suffix, before the trailing `]`.
+        suffix: StringId,
+    },
+}
+
 /// An element in a YAML list.
 #[derive(Debug, Clone)]
 pub(crate) struct RawListItem {
@@ -230,6 +298,8 @@ pub(crate) struct RawListItem {
 /// A YAML list.
 #[derive(Debug, Clone)]
 pub(crate) struct RawList {
+    /// The kind of a raw list.
+    pub(crate) kind: RawListKind,
     /// Items in the list.
     pub(crate) items: Vec<RawListItem>,
 }
@@ -270,9 +340,33 @@ pub(crate) struct RawTableItem {
     pub(crate) value: Box<Raw>,
 }
 
+/// The kind of a raw table.
+#[derive(Debug, Clone)]
+pub(crate) enum RawTableKind {
+    /// An expanded tabular YAML table.
+    ///
+    /// ```yaml
+    /// one: 1
+    /// two: 2
+    /// ```
+    Table,
+    /// A compact inline YAML table.
+    ///
+    /// ```yaml
+    /// {one: 1, two: 2}
+    /// ```
+    Inline {
+        /// Trailing `,` separator.
+        trailing: bool,
+        /// The inner suffix, before the trailing `]`.
+        suffix: StringId,
+    },
+}
+
 /// A YAML table.
 #[derive(Debug, Clone)]
 pub(crate) struct RawTable {
+    pub(crate) kind: RawTableKind,
     pub(crate) items: Vec<RawTableItem>,
 }
 
