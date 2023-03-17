@@ -1,8 +1,8 @@
 use crate::strings::Strings;
-use crate::yaml::raw::{Layout, Raw, RawKind, RawList, RawNumber, RawString, RawTable};
-use crate::yaml::{List, NullKind, StringKind, Table, Value};
+use crate::yaml::raw::{Layout, Raw, RawKind, RawList, RawNumber, RawTable};
+use crate::yaml::{List, NullKind, Separator, Table, Value};
 
-use super::raw::insert_bool;
+use super::raw::{new_bool, new_string};
 
 /// A mutable value inside of a document.
 pub struct ValueMut<'a> {
@@ -339,14 +339,12 @@ impl<'a> ValueMut<'a> {
     /// assert_eq!(doc.to_string(), "  I am a string with \"quotes\"");
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
+    #[inline]
     pub fn set_string<S>(&mut self, string: S)
     where
         S: AsRef<str>,
     {
-        let kind = StringKind::detect(string.as_ref());
-        let string = self.strings.insert(string.as_ref());
-        let string = RawString::new(kind, string);
-        self.raw.kind = RawKind::String(string);
+        self.raw.kind = new_string(self.strings, string);
     }
 
     /// Set the value as a boolean.
@@ -362,7 +360,7 @@ impl<'a> ValueMut<'a> {
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     pub fn set_bool(&mut self, value: bool) {
-        let value = insert_bool(self.strings, value);
+        let value = new_bool(self.strings, value);
         self.raw.kind = value;
     }
 
@@ -451,11 +449,8 @@ macro_rules! insert_float {
             let mut buffer = ryu::Buffer::new();
             let number = self.strings.insert(buffer.format(value));
             let value = RawKind::Number(RawNumber::new(number));
-            let separator = self.strings.insert(" ");
-            let kind = StringKind::detect(key);
-            let key = self.strings.insert(key);
-            let key = RawString::new(kind, key);
-            self.raw.insert(self.layout, key, separator, value);
+            self.raw
+                .insert(self.strings, self.layout, key, Separator::Auto, value);
         }
     };
 }
@@ -488,11 +483,8 @@ macro_rules! insert_number {
             let mut buffer = itoa::Buffer::new();
             let number = self.strings.insert(buffer.format(value));
             let value = RawKind::Number(RawNumber::new(number));
-            let separator = self.strings.insert(" ");
-            let kind = StringKind::detect(key);
-            let key = self.strings.insert(key);
-            let key = RawString::new(kind, key);
-            self.raw.insert(self.layout, key, separator, value);
+            self.raw
+                .insert(self.strings, self.layout, key, Separator::Auto, value);
         }
     };
 }
@@ -614,6 +606,8 @@ impl<'a> TableMut<'a> {
     /// Insert a new null value and return a [ValueMut] to the newly inserted
     /// value.
     ///
+    /// This allows for setting a custom [Separator].
+    ///
     /// # Examples
     ///
     /// ```
@@ -627,26 +621,26 @@ impl<'a> TableMut<'a> {
     /// )?;
     ///
     /// let mut root = doc.root_mut().into_table_mut().ok_or("missing root table")?;
-    /// root.insert("three").set_u32(3);
+    /// root.insert("three", yaml::Separator::Custom("   ")).set_u32(3);
     ///
     /// assert_eq! {
     ///     doc.to_string(),
     ///     r#"
     ///     one: 1
     ///     two: 2
-    ///     three: 3
+    ///     three:   3
     ///     "#
     /// };
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
-    pub fn insert(&mut self, key: &str) -> ValueMut<'_> {
-        let kind = StringKind::detect(key);
-        let key = self.strings.insert(key);
-        let key = RawString::new(kind, key);
-        let separator = self.strings.insert(" ");
-        let index = self
-            .raw
-            .insert(self.layout, key, separator, RawKind::Null(NullKind::Empty));
+    pub fn insert(&mut self, key: &str, separator: Separator<'_>) -> ValueMut<'_> {
+        let index = self.raw.insert(
+            self.strings,
+            self.layout,
+            key,
+            separator,
+            RawKind::Null(NullKind::Empty),
+        );
         // SAFETY: value was just inserted.
         let raw = unsafe { self.raw.items.get_unchecked_mut(index) };
         ValueMut::new(self.strings, &mut raw.value)
@@ -660,7 +654,7 @@ impl<'a> TableMut<'a> {
     /// use nondestructive::yaml;
     ///
     /// let mut doc = yaml::parse(r#"
-    ///   number1: 10
+    ///   number1:  10
     /// "#)?;
     ///
     /// let mut value = doc.root_mut().into_table_mut().ok_or("not a table")?;
@@ -669,8 +663,8 @@ impl<'a> TableMut<'a> {
     /// assert_eq! (
     /// doc.to_string(),
     /// r#"
-    ///   number1: 10
-    ///   string2: hello
+    ///   number1:  10
+    ///   string2:  hello
     /// "#);
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
@@ -678,14 +672,9 @@ impl<'a> TableMut<'a> {
     where
         S: AsRef<str>,
     {
-        let kind = StringKind::detect(string.as_ref());
-        let string = self.strings.insert(string.as_ref());
-        let string = RawKind::String(RawString::new(kind, string));
-        let separator = self.strings.insert(" ");
-        let kind = StringKind::detect(key);
-        let key = self.strings.insert(key);
-        let key = RawString::new(kind, key);
-        self.raw.insert(self.layout, key, separator, string);
+        let string = new_string(self.strings, string);
+        self.raw
+            .insert(self.strings, self.layout, key, Separator::Auto, string);
     }
 
     /// Insert a bool.
@@ -710,12 +699,9 @@ impl<'a> TableMut<'a> {
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     pub fn insert_bool(&mut self, key: &str, value: bool) {
-        let value = insert_bool(self.strings, value);
-        let separator = self.strings.insert(" ");
-        let kind = StringKind::detect(key);
-        let key = self.strings.insert(key);
-        let key = RawString::new(kind, key);
-        self.raw.insert(self.layout, key, separator, value);
+        let value = new_bool(self.strings, value);
+        self.raw
+            .insert(self.strings, self.layout, key, Separator::Auto, value);
     }
 
     insert_float!(insert_f32, f32, "32-bit float", 10.42);
@@ -767,8 +753,8 @@ macro_rules! push_float {
             let mut buffer = ryu::Buffer::new();
             let number = self.strings.insert(buffer.format(value));
             let value = RawKind::Number(RawNumber::new(number));
-            let separator = self.strings.insert(" ");
-            self.raw.push(self.layout, separator, value);
+            self.raw
+                .push(self.strings, self.layout, Separator::Auto, value);
         }
     };
 }
@@ -801,8 +787,8 @@ macro_rules! push_number {
             let mut buffer = itoa::Buffer::new();
             let number = self.strings.insert(buffer.format(value));
             let value = RawKind::Number(RawNumber::new(number));
-            let separator = self.strings.insert(" ");
-            self.raw.push(self.layout, separator, value);
+            self.raw
+                .push(self.strings, self.layout, Separator::Auto, value);
         }
     };
 }
@@ -911,6 +897,8 @@ impl<'a> ListMut<'a> {
 
     /// Push a new null value and return a [ValueMut] to the newly pushed value.
     ///
+    /// This allows for setting a custom [Separator].
+    ///
     /// # Examples
     ///
     /// ```
@@ -924,23 +912,26 @@ impl<'a> ListMut<'a> {
     /// )?;
     ///
     /// let mut root = doc.root_mut().into_list_mut().ok_or("missing root list")?;
-    /// root.push().set_bool(true);
+    /// root.push(yaml::Separator::Custom("   ")).set_bool(true);
     ///
     /// assert_eq! {
     ///     doc.to_string(),
     ///     r#"
     ///     - one
     ///     - two
-    ///     - true
+    ///     -   true
     ///     "#
     /// };
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
-    pub fn push(&mut self) -> ValueMut<'_> {
-        let separator = self.strings.insert(" ");
+    pub fn push(&mut self, separator: Separator<'_>) -> ValueMut<'_> {
         let index = self.raw.items.len();
-        self.raw
-            .push(self.layout, separator, RawKind::Null(NullKind::Empty));
+        self.raw.push(
+            self.strings,
+            self.layout,
+            separator,
+            RawKind::Null(NullKind::Empty),
+        );
         // SAFETY: value was just pushed.
         let raw = unsafe { self.raw.items.get_unchecked_mut(index) };
         ValueMut::new(self.strings, &mut raw.value)
@@ -972,11 +963,9 @@ impl<'a> ListMut<'a> {
     where
         S: AsRef<str>,
     {
-        let kind = StringKind::detect(string.as_ref());
-        let string = self.strings.insert(string.as_ref());
-        let string = RawKind::String(RawString::new(kind, string));
-        let separator = self.strings.insert(" ");
-        self.raw.push(self.layout, separator, string);
+        let string = new_string(self.strings, string);
+        self.raw
+            .push(self.strings, self.layout, Separator::Auto, string);
     }
 
     /// Push a bool.
@@ -1002,9 +991,9 @@ impl<'a> ListMut<'a> {
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     pub fn push_bool(&mut self, value: bool) {
-        let value = insert_bool(self.strings, value);
-        let separator = self.strings.insert(" ");
-        self.raw.push(self.layout, separator, value);
+        let value = new_bool(self.strings, value);
+        self.raw
+            .push(self.strings, self.layout, Separator::Auto, value);
     }
 
     push_float!(push_f32, f32, "32-bit float", 10.42);

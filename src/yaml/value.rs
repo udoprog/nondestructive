@@ -17,6 +17,23 @@ pub enum StringKind {
     DoubleQuoted,
 }
 
+/// Separator to use when separating the value from its key or list marker.
+///
+/// ```yaml
+/// -   hello
+/// - world
+/// ```
+#[derive(Debug, Clone, Copy)]
+pub enum Separator<'a> {
+    /// Automatically figure out which separator to use based on the last
+    /// element in the collection.
+    ///
+    /// If this does not exist, a default separator of `" "` will be used.
+    Auto,
+    /// A custom separator.
+    Custom(&'a str),
+}
+
 impl StringKind {
     /// Detect the appropriate kind to use for the given string.
     pub(crate) fn detect(string: &str) -> StringKind {

@@ -3,7 +3,26 @@ use std::fmt::{self, Write};
 use bstr::ByteSlice;
 
 use crate::strings::{StringId, Strings};
-use crate::yaml::{NullKind, StringKind};
+use crate::yaml::{NullKind, Separator, StringKind};
+
+/// Construct a raw kind associated with booleans.
+pub(crate) fn new_bool(strings: &mut Strings, value: bool) -> RawKind {
+    const TRUE: &[u8] = b"true";
+    const FALSE: &[u8] = b"false";
+
+    let string = strings.insert(if value { TRUE } else { FALSE });
+    RawKind::String(RawString::new(StringKind::Bare, string))
+}
+
+/// Construct a raw kind associated with a string.
+pub(crate) fn new_string<S>(strings: &mut Strings, string: S) -> RawKind
+where
+    S: AsRef<str>,
+{
+    let kind = StringKind::detect(string.as_ref());
+    let string = strings.insert(string.as_ref());
+    RawKind::String(RawString::new(kind, string))
+}
 
 #[derive(Debug, Clone)]
 pub(crate) struct Layout {
@@ -217,7 +236,21 @@ pub(crate) struct RawList {
 
 impl RawList {
     /// Push a value on the list.
-    pub(crate) fn push(&mut self, layout: &Layout, separator: StringId, value: RawKind) {
+    pub(crate) fn push(
+        &mut self,
+        strings: &mut Strings,
+        layout: &Layout,
+        separator: Separator,
+        value: RawKind,
+    ) {
+        let separator = match separator {
+            Separator::Auto => match self.items.last() {
+                Some(last) => last.separator,
+                None => strings.insert(" "),
+            },
+            Separator::Custom(separator) => strings.insert(separator),
+        };
+
         let prefix = (!self.items.is_empty()).then_some(layout.indent);
 
         self.items.push(RawListItem {
@@ -247,21 +280,29 @@ impl RawTable {
     /// Insert a value into the table.
     pub(crate) fn insert(
         &mut self,
+        strings: &mut Strings,
         layout: &Layout,
-        key: RawString,
-        separator: StringId,
+        key: &str,
+        separator: Separator<'_>,
         value: RawKind,
     ) -> usize {
-        if let Some(index) = self
-            .items
-            .iter_mut()
-            .position(|c| c.key.string == key.string)
-        {
+        let key = strings.insert(key);
+
+        if let Some(index) = self.items.iter_mut().position(|c| c.key.string == key) {
             let item = &mut self.items[index];
-            item.separator = separator;
             item.value.kind = value;
             return index;
         }
+
+        let key = RawString::new(StringKind::Bare, key);
+
+        let separator = match separator {
+            Separator::Auto => match self.items.last() {
+                Some(last) => last.separator,
+                None => strings.insert(" "),
+            },
+            Separator::Custom(separator) => strings.insert(separator),
+        };
 
         let prefix = (!self.items.is_empty()).then_some(layout.indent);
 
@@ -274,13 +315,4 @@ impl RawTable {
         });
         len
     }
-}
-
-/// Insert a boolean value.
-pub(crate) fn insert_bool(strings: &mut Strings, value: bool) -> RawKind {
-    const TRUE: &[u8] = b"true";
-    const FALSE: &[u8] = b"false";
-
-    let string = strings.insert(if value { TRUE } else { FALSE });
-    RawKind::String(RawString::new(StringKind::Bare, string))
 }
