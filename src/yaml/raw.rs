@@ -19,32 +19,15 @@ pub(crate) struct Raw {
 impl Raw {
     pub(crate) fn new(kind: RawKind, indent: StringId) -> Self {
         Self {
-            layout: Layout { indent },
             kind,
+            layout: Layout { indent },
         }
     }
-}
 
-/// A raw value.
-#[derive(Debug, Clone)]
-pub(crate) enum RawKind {
-    /// A null value.
-    Null(NullKind),
-    /// A single number.
-    Number(RawNumber),
-    /// A string.
-    String(RawString),
-    /// A table.
-    Table(RawTable),
-    /// A list.
-    List(RawList),
-}
-
-impl RawKind {
     pub(crate) fn display(&self, strings: &Strings, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use std::fmt::Display;
 
-        match self {
+        match &self.kind {
             RawKind::Null(raw) => {
                 match raw {
                     NullKind::Keyword => {
@@ -85,7 +68,7 @@ impl RawKind {
                     strings.get(&item.key.string).fmt(f)?;
                     ':'.fmt(f)?;
                     strings.get(&item.separator).fmt(f)?;
-                    item.value.kind.display(strings, f)?;
+                    item.value.display(strings, f)?;
                 }
             }
             RawKind::List(raw) => {
@@ -96,7 +79,7 @@ impl RawKind {
 
                     '-'.fmt(f)?;
                     strings.get(&item.separator).fmt(f)?;
-                    item.value.kind.display(strings, f)?;
+                    item.value.display(strings, f)?;
                 }
             }
         }
@@ -173,6 +156,21 @@ fn escape_double_quoted(string: &bstr::BStr, f: &mut fmt::Formatter) -> Result<(
 
     f.write_char('"')?;
     Ok(())
+}
+
+/// A raw value.
+#[derive(Debug, Clone)]
+pub(crate) enum RawKind {
+    /// A null value.
+    Null(NullKind),
+    /// A single number.
+    Number(RawNumber),
+    /// A string.
+    String(RawString),
+    /// A table.
+    Table(RawTable),
+    /// A list.
+    List(RawList),
 }
 
 /// A YAML number.

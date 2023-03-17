@@ -162,6 +162,11 @@ impl<'a> Parser<'a> {
         )))
     }
 
+    /// Parse an inline list.
+    fn inline_list(&mut self) -> Result<RawKind> {
+        todo!()
+    }
+
     /// Parse a list.
     fn list(&mut self, indentation: StringId) -> Result<(RawKind, StringId)> {
         let mut items = Vec::new();
@@ -182,7 +187,7 @@ impl<'a> Parser<'a> {
                 new_indentation
             };
 
-            let (value, ws) = self.value(new_indentation)?;
+            let (value, ws) = self.value(new_indentation, false)?;
 
             let ws = match ws {
                 Some(suffix) => suffix,
@@ -251,7 +256,7 @@ impl<'a> Parser<'a> {
                 new_indentation
             };
 
-            let (value, ws) = self.value(new_indentation)?;
+            let (value, ws) = self.value(new_indentation, false)?;
 
             let ws = match ws {
                 Some(ws) => ws,
@@ -294,21 +299,25 @@ impl<'a> Parser<'a> {
     }
 
     /// Consume a single value.
-    fn value(&mut self, indentation: StringId) -> Result<(Raw, Option<StringId>)> {
+    fn value(&mut self, indentation: StringId, inline: bool) -> Result<(Raw, Option<StringId>)> {
         let kind = match self.peek2() {
-            (b'-', b) if b.is_ascii_whitespace() => {
+            (b'-', b) if !inline && b.is_ascii_whitespace() => {
                 let (value, ws) = self.list(indentation)?;
                 return Ok((Raw::new(value, indentation), Some(ws)));
             }
             (number_first!(), _) => self.number()?,
             (b'"', _) => self.double_quoted()?,
             (b'\'', _) => self.single_quoted()?,
+            (b'[', _) => {
+                let value = self.inline_list()?;
+                return Ok((Raw::new(value, indentation), None));
+            }
             (b, _) if b.is_ascii_graphic() => {
                 let start = self.position;
 
                 loop {
                     match self.peek() {
-                        b':' => {
+                        b':' if !inline => {
                             let string = self.strings.insert(self.string(start));
                             let string = RawString::new(StringKind::Bare, string);
                             let (value, ws) = self.table(indentation, string)?;
@@ -337,7 +346,7 @@ impl<'a> Parser<'a> {
     pub(crate) fn parse(mut self) -> Result<Document> {
         let (prefix, _) = self.ws();
         let indent = self.indentation(&prefix);
-        let (root, suffix) = self.value(indent)?;
+        let (root, suffix) = self.value(indent, false)?;
 
         let suffix = match suffix {
             Some(suffix) => suffix,
