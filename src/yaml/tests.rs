@@ -115,5 +115,6 @@ fn test_actions() -> Result<()> {
     const ACTION: &str = include_str!("tests/actions.yaml");
     let doc = yaml::parse(ACTION)?;
     // assert_eq!(doc.to_string(), ACTION);
+    // std::fs::write("src/yaml/tests/actions.yaml", doc.to_string());
     Ok(())
 }
