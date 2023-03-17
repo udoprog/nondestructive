@@ -3,7 +3,7 @@ use std::fmt::{self, Write};
 use bstr::ByteSlice;
 
 use crate::strings::{StringId, Strings};
-use crate::yaml::{NullKind, Separator, StringKind};
+use crate::yaml::{NullKind, Separator};
 
 /// Construct a raw kind associated with booleans.
 pub(crate) fn new_bool(strings: &mut Strings, value: bool) -> RawKind {
@@ -11,7 +11,7 @@ pub(crate) fn new_bool(strings: &mut Strings, value: bool) -> RawKind {
     const FALSE: &[u8] = b"false";
 
     let string = strings.insert(if value { TRUE } else { FALSE });
-    RawKind::String(RawString::new(StringKind::Bare, string))
+    RawKind::String(RawString::new(RawStringKind::Bare, string))
 }
 
 /// Construct a raw kind associated with a string.
@@ -19,7 +19,7 @@ pub(crate) fn new_string<S>(strings: &mut Strings, string: S) -> RawKind
 where
     S: AsRef<str>,
 {
-    let kind = StringKind::detect(string.as_ref());
+    let kind = RawStringKind::detect(string.as_ref());
     let string = strings.insert(string.as_ref());
     RawKind::String(RawString::new(kind, string))
 }
@@ -99,16 +99,56 @@ impl RawNumber {
     }
 }
 
+/// The kind of string value.
+#[derive(Debug, Clone, Copy)]
+#[non_exhaustive]
+pub(crate) enum RawStringKind {
+    /// A bare string without quotes, such as `hello-world`.
+    Bare,
+    /// A single-quoted string.
+    SingleQuoted,
+    /// A double-quoted string.
+    DoubleQuoted,
+    /// An escaped string, where the string id points to the original string.
+    Original(StringId),
+}
+
+impl RawStringKind {
+    /// Detect the appropriate kind to use for the given string.
+    pub(crate) fn detect(string: &str) -> RawStringKind {
+        let mut kind = RawStringKind::Bare;
+
+        for c in string.chars() {
+            match c {
+                '\'' => {
+                    return RawStringKind::DoubleQuoted;
+                }
+                ':' => {
+                    kind = RawStringKind::SingleQuoted;
+                }
+                b if b.is_control() => {
+                    return RawStringKind::DoubleQuoted;
+                }
+                _ => {}
+            }
+        }
+
+        kind
+    }
+}
+
 /// A YAML string.
 #[derive(Debug, Clone)]
 pub(crate) struct RawString {
-    pub(crate) kind: StringKind,
+    /// The kind of the string.
+    pub(crate) kind: RawStringKind,
+    /// The content of the string.
     pub(crate) string: StringId,
 }
 
 impl RawString {
     /// A simple number.
-    pub(crate) fn new(kind: StringKind, string: StringId) -> Self {
+    pub(crate) fn new(kind: RawStringKind, string: StringId) -> Self {
         Self { kind, string }
     }
 
@@ -189,16 +229,21 @@ impl RawString {
             Ok(())
         }
 
-        let string = strings.get(&self.string);
-
         match &self.kind {
-            StringKind::Bare => {
+            RawStringKind::Original(original) => {
+                let string = strings.get(original);
                 write!(f, "{string}")?;
             }
-            StringKind::DoubleQuoted => {
+            RawStringKind::Bare => {
+                let string = strings.get(&self.string);
+                write!(f, "{string}")?;
+            }
+            RawStringKind::DoubleQuoted => {
+                let string = strings.get(&self.string);
                 escape_double_quoted(string, f)?;
             }
-            StringKind::SingleQuoted => {
+            RawStringKind::SingleQuoted => {
+                let string = strings.get(&self.string);
                 escape_single_quoted(string, f)?;
             }
         }
@@ -262,7 +307,7 @@ impl RawList {
                 Some(last) => last.separator,
                 None => strings.insert(" "),
             },
-            Separator::Custom(separator) => strings.insert(separator),
+            Separator::Custom(string) => strings.insert(string),
         };
 
         let prefix = (!self.items.is_empty()).then_some(layout.indent);
@@ -373,7 +418,7 @@ impl RawTable {
             return index;
         }
 
-        let key = RawString::new(StringKind::Bare, key);
+        let key = RawString::new(RawStringKind::Bare, key);
 
         let separator = match separator {
             Separator::Auto => match self.items.last() {

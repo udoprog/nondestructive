@@ -10,17 +10,6 @@ use twox_hash::xxh3::{Hash128, HasherExt};
 #[repr(transparent)]
 pub(crate) struct StringId(u128);
 
-impl StringId {
-    pub(crate) const EMPTY: Self = Self(0);
-}
-
-impl Default for StringId {
-    #[inline]
-    fn default() -> Self {
-        Self::EMPTY
-    }
-}
-
 impl fmt::Display for StringId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{:016x}", self.0)

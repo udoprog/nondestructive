@@ -3,19 +3,8 @@ use core::fmt;
 use bstr::ByteSlice;
 
 use crate::strings::Strings;
-use crate::yaml::raw::{Raw, RawKind, RawList, RawTable};
-
-/// The kind of string value.
-#[derive(Debug, Clone, Copy)]
-#[non_exhaustive]
-pub enum StringKind {
-    /// A bare string without quotes, such as `hello-world`.
-    Bare,
-    /// A single-quoted string.
-    SingleQuoted,
-    /// A double-quoted string.
-    DoubleQuoted,
-}
+use crate::yaml::raw::{Raw, RawKind, RawStringKind};
+use crate::yaml::{List, Table};
 
 /// Separator to use when separating the value from its key or list marker.
 ///
@@ -24,6 +13,7 @@ pub enum StringKind {
 /// - world
 /// ```
 #[derive(Debug, Clone, Copy)]
+#[non_exhaustive]
 pub enum Separator<'a> {
     /// Automatically figure out which separator to use based on the last
     /// element in the collection.
@@ -31,31 +21,14 @@ pub enum Separator<'a> {
     /// If this does not exist, a default separator of `" "` will be used.
     Auto,
     /// A custom separator.
+    ///
+    /// # Legal separators
+    ///
+    /// The only legal separator in YAML is spaces, but this can technically
+    /// contain anything and will be literally embedded in the generated YAML.
+    /// It is up to the caller to ensure nothing but spaces is used or suffer
+    /// the consequences.
     Custom(&'a str),
-}
-
-impl StringKind {
-    /// Detect the appropriate kind to use for the given string.
-    pub(crate) fn detect(string: &str) -> StringKind {
-        let mut kind = StringKind::Bare;
-
-        for c in string.chars() {
-            match c {
-                '\'' => {
-                    return StringKind::DoubleQuoted;
-                }
-                ':' => {
-                    kind = StringKind::SingleQuoted;
-                }
-                b if b.is_control() => {
-                    return StringKind::DoubleQuoted;
-                }
-                _ => {}
-            }
-        }
-
-        kind
-    }
 }
 
 /// The kind of a null value.
@@ -103,6 +76,9 @@ impl NullKind {
 ///
 /// let doc = yaml::parse("'a single-quoted string'")?;
 /// assert_eq!(doc.root().as_str(), Some("a single-quoted string"));
+///
+/// let doc = yaml::parse("'It''s a bargain!'")?;
+/// assert_eq!(doc.root().as_str(), Some("It's a bargain!"));
 ///
 /// # Ok::<_, Box<dyn std::error::Error>>(())
 /// ```
@@ -152,8 +128,19 @@ impl<'a> Value<'a> {
     /// use nondestructive::yaml;
     ///
     /// let doc = yaml::parse("string")?;
-    /// let value = doc.root().as_str();
-    /// assert_eq!(value, Some("string"));
+    /// assert_eq!(doc.root().as_str(), Some("string"));
+    ///
+    /// let doc = yaml::parse(r#"
+    /// - It's the same string!
+    /// - "It's the same string!"
+    /// - 'It''s the same string!'
+    /// "#)?;
+    ///
+    /// let array = doc.root().as_list().ok_or("expected list")?;
+    ///
+    /// for item in array {
+    ///     assert_eq!(item.as_str(), Some("It's the same string!"));
+    /// }
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     #[must_use]
@@ -187,8 +174,8 @@ impl<'a> Value<'a> {
 
         match &self.raw.kind {
             RawKind::String(raw) => match (raw.kind, self.strings.get(&raw.string).as_bytes()) {
-                (StringKind::Bare, TRUE) => Some(true),
-                (StringKind::Bare, FALSE) => Some(false),
+                (RawStringKind::Bare, TRUE) => Some(true),
+                (RawStringKind::Bare, FALSE) => Some(false),
                 _ => None,
             },
             _ => None,
@@ -284,260 +271,15 @@ impl fmt::Display for Value<'_> {
 
 impl fmt::Debug for Value<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        struct Display<T>(T);
+        struct Display<'a, 'b>(&'a Value<'b>);
 
-        impl<T> fmt::Debug for Display<T>
-        where
-            T: fmt::Display,
-        {
+        impl fmt::Debug for Display<'_, '_> {
+            #[inline]
             fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                fmt::Display::fmt(&self.0, f)
+                self.0.raw.display(self.0.strings, f)
             }
         }
 
-        f.debug_struct("Value")
-            .field("value", &Display(self))
-            .finish_non_exhaustive()
-    }
-}
-
-/// Accessor for a table.
-///
-/// # Examples
-///
-/// ```
-/// use nondestructive::yaml;
-///
-/// let doc = yaml::parse(r#"
-/// number1: 10
-/// number2: 20
-/// table:
-///   inner: 400
-/// string3: "I am a quoted string!"
-/// "#)?;
-///
-/// let root = doc.root().as_table().ok_or("missing root table")?;
-///
-/// assert_eq!(root.get("number1").and_then(|v| v.as_u32()), Some(10));
-/// assert_eq!(root.get("number2").and_then(|v| v.as_u32()), Some(20));
-///
-/// let table = root.get("table").and_then(|v| v.as_table()).ok_or("missing inner table")?;
-/// assert_eq!(table.get("inner").and_then(|v| v.as_u32()), Some(400));
-///
-/// assert_eq!(root.get("string3").and_then(|v| v.as_str()), Some("I am a quoted string!"));
-/// # Ok::<_, Box<dyn std::error::Error>>(())
-/// ```
-pub struct Table<'a> {
-    strings: &'a Strings,
-    raw: &'a RawTable,
-}
-
-impl<'a> Table<'a> {
-    pub(crate) fn new(strings: &'a Strings, raw: &'a RawTable) -> Self {
-        Self { strings, raw }
-    }
-
-    /// Get a value from the table.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use nondestructive::yaml;
-    ///
-    /// let doc = yaml::parse(r#"
-    /// number1: 10
-    /// number2: 20
-    /// table:
-    ///   inner: 400
-    /// string3: "I am a quoted string!"
-    /// "#)?;
-    ///
-    /// let root = doc.root().as_table().ok_or("missing root table")?;
-    ///
-    /// assert_eq!(root.get("number1").and_then(|v| v.as_u32()), Some(10));
-    /// assert_eq!(root.get("number2").and_then(|v| v.as_u32()), Some(20));
-    ///
-    /// let table = root.get("table").and_then(|v| v.as_table()).ok_or("missing inner table")?;
-    /// assert_eq!(table.get("inner").and_then(|v| v.as_u32()), Some(400));
-    ///
-    /// assert_eq!(root.get("string3").and_then(|v| v.as_str()), Some("I am a quoted string!"));
-    /// # Ok::<_, Box<dyn std::error::Error>>(())
-    /// ```
-    #[must_use]
-    #[inline]
-    pub fn get(&self, key: &str) -> Option<Value<'a>> {
-        for e in &self.raw.items {
-            if self.strings.get(&e.key.string) == key {
-                return Some(Value::new(self.strings, &e.value));
-            }
-        }
-
-        None
-    }
-}
-
-impl fmt::Display for Table<'_> {
-    #[inline]
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.raw.display(self.strings, f)
-    }
-}
-
-/// Accessor for a list.
-///
-/// # Examples
-///
-/// ```
-/// use nondestructive::yaml;
-///
-/// let doc = yaml::parse(
-///     r#"
-///     - one
-///     - two
-///     - three
-///     "#,
-/// )?;
-///
-/// let root = doc.root().as_list().ok_or("missing root list")?;
-///
-/// assert_eq!(root.get(0).and_then(|v| v.as_str()), Some("one"));
-/// assert_eq!(root.get(1).and_then(|v| v.as_str()), Some("two"));
-/// assert_eq!(root.get(2).and_then(|v| v.as_str()), Some("three"));
-/// # Ok::<_, Box<dyn std::error::Error>>(())
-/// ```
-///
-/// More complex example:
-///
-/// ```
-/// use nondestructive::yaml;
-///
-/// let doc = yaml::parse(
-///     r#"
-///     - one
-///     - two
-///     - - three
-///       - four: 2
-///         five: 1
-///     - six
-///     "#,
-/// )?;
-///
-/// let root = doc.root().as_list().ok_or("missing root list")?;
-///
-/// assert_eq!(root.get(0).and_then(|v| v.as_str()), Some("one"));
-/// assert_eq!(root.get(1).and_then(|v| v.as_str()), Some("two"));
-///
-/// let three = root
-///     .get(2)
-///     .and_then(|v| v.as_list())
-///     .ok_or("missing three")?;
-///
-/// assert_eq!(three.get(0).and_then(|v| v.as_str()), Some("three"));
-///
-/// let four = three
-///     .get(1)
-///     .and_then(|v| v.as_table())
-///     .ok_or("missing four")?;
-///
-/// assert_eq!(four.get("four").and_then(|v| v.as_u32()), Some(2));
-/// assert_eq!(four.get("five").and_then(|v| v.as_u32()), Some(1));
-///
-/// assert_eq!(root.get(3).and_then(|v| v.as_str()), Some("six"));
-/// # Ok::<_, Box<dyn std::error::Error>>(())
-/// ```
-pub struct List<'a> {
-    strings: &'a Strings,
-    raw: &'a RawList,
-}
-
-impl<'a> List<'a> {
-    pub(crate) fn new(strings: &'a Strings, raw: &'a RawList) -> Self {
-        Self { strings, raw }
-    }
-
-    /// Get the length of the list.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use nondestructive::yaml;
-    ///
-    /// let doc = yaml::parse(
-    ///     r#"
-    ///     - one
-    ///     - two
-    ///     - three
-    ///     "#,
-    /// )?;
-    ///
-    /// let root = doc.root().as_list().ok_or("missing root list")?;
-    /// assert_eq!(root.len(), 3);
-    /// # Ok::<_, Box<dyn std::error::Error>>(())
-    /// ```
-    #[must_use]
-    #[inline]
-    pub fn len(&self) -> usize {
-        self.raw.items.len()
-    }
-
-    /// Test if the list is empty.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use nondestructive::yaml;
-    ///
-    /// let doc = yaml::parse(
-    ///     r#"
-    ///     - one
-    ///     - two
-    ///     - three
-    ///     "#,
-    /// )?;
-    ///
-    /// let root = doc.root().as_list().ok_or("missing root list")?;
-    /// assert!(!root.is_empty());
-    /// # Ok::<_, Box<dyn std::error::Error>>(())
-    /// ```
-    #[must_use]
-    #[inline]
-    pub fn is_empty(&self) -> bool {
-        self.raw.items.is_empty()
-    }
-
-    /// Get a value from the list.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use nondestructive::yaml;
-    ///
-    /// let doc = yaml::parse(
-    ///     r#"
-    ///     - one
-    ///     - two
-    ///     - three
-    ///     "#,
-    /// )?;
-    ///
-    /// let root = doc.root().as_list().ok_or("missing root list")?;
-    ///
-    /// assert_eq!(root.get(0).and_then(|v| v.as_str()), Some("one"));
-    /// assert_eq!(root.get(1).and_then(|v| v.as_str()), Some("two"));
-    /// assert_eq!(root.get(2).and_then(|v| v.as_str()), Some("three"));
-    /// # Ok::<_, Box<dyn std::error::Error>>(())
-    /// ```
-    #[must_use]
-    #[inline]
-    pub fn get(&self, index: usize) -> Option<Value<'_>> {
-        let item = self.raw.items.get(index)?;
-        Some(Value::new(self.strings, &item.value))
-    }
-}
-
-impl fmt::Display for List<'_> {
-    #[inline]
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.raw.display(self.strings, f)
+        f.debug_tuple("Value").field(&Display(self)).finish()
     }
 }

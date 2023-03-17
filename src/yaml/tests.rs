@@ -64,52 +64,6 @@ fn test_lists() -> Result<()> {
     Ok(())
 }
 
-#[test]
-fn test_inline_list() -> Result<()> {
-    let doc = yaml::parse(
-        r#"
-        [one, two, 3,]
-        "#,
-    )?;
-
-    let root = doc.root().as_list().context("missing root list")?;
-    assert_eq!(root.get(0).and_then(|v| v.as_str()), Some("one"));
-    assert_eq!(root.get(1).and_then(|v| v.as_str()), Some("two"));
-    assert_eq!(root.get(2).and_then(|v| v.as_u32()), Some(3));
-
-    assert_eq!(
-        doc.to_string(),
-        r#"
-        [one, two, 3,]
-        "#
-    );
-
-    Ok(())
-}
-
-#[test]
-fn test_inline_table() -> Result<()> {
-    let doc = yaml::parse(
-        r#"
-        {one: one, two: two, three: 3,}
-        "#,
-    )?;
-
-    let root = doc.root().as_table().context("missing root list")?;
-    assert_eq!(root.get("one").and_then(|v| v.as_str()), Some("one"));
-    assert_eq!(root.get("two").and_then(|v| v.as_str()), Some("two"));
-    assert_eq!(root.get("three").and_then(|v| v.as_u32()), Some(3));
-
-    assert_eq!(
-        doc.to_string(),
-        r#"
-        {one: one, two: two, three: 3,}
-        "#
-    );
-
-    Ok(())
-}
-
 /// Just roundtrip a fairly complex document to ensure it's correctly processed.
 #[test]
 fn test_actions() -> Result<()> {

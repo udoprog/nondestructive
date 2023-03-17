@@ -5,10 +5,10 @@ use bstr::ByteSlice;
 use crate::strings::{StringId, Strings};
 use crate::yaml::error::{Error, ErrorKind};
 use crate::yaml::raw::{
-    Raw, RawKind, RawListItem, RawListKind, RawNumber, RawString, RawTable, RawTableItem,
-    RawTableKind,
+    Raw, RawKind, RawListItem, RawListKind, RawNumber, RawString, RawStringKind, RawTable,
+    RawTableItem, RawTableKind,
 };
-use crate::yaml::{Document, StringKind};
+use crate::yaml::Document;
 
 use super::raw::RawList;
 
@@ -147,16 +147,17 @@ impl<'a> Parser<'a> {
     }
 
     /// Read a double-quoted string.
-    /// 
+    ///
     /// TODO: process escape sequences and newlines.
     fn single_quoted(&mut self) -> RawKind {
+        let original = self.position;
         self.bump(1);
         let start = self.position;
 
         loop {
             match self.peek2() {
                 (b'\'', b'\'') => {
-                    self.bump(2);
+                    return self.single_quoted_escaped(start, original);
                 }
                 (b'\'', _) => {
                     break;
@@ -169,24 +170,151 @@ impl<'a> Parser<'a> {
 
         let string = self.strings.insert(self.string(start));
         self.bump(1);
-        RawKind::String(RawString::new(StringKind::SingleQuoted, string))
+        RawKind::String(RawString::new(RawStringKind::SingleQuoted, string))
+    }
+
+    /// Read a single-quoted escaped string.
+    fn single_quoted_escaped(&mut self, start: usize, original: usize) -> RawKind {
+        self.scratch.extend(self.string(start));
+
+        loop {
+            match self.peek2() {
+                (b'\'', b'\'') => {
+                    self.bump(2);
+                    self.scratch.push(b'\'');
+                }
+                (b'\'', _) => {
+                    break;
+                }
+                (b, _) => {
+                    self.bump(1);
+                    self.scratch.push(b);
+                }
+            }
+        }
+
+        let string = self.strings.insert(&self.scratch);
+        self.scratch.clear();
+        self.bump(1);
+
+        let original = self.strings.insert(self.string(original));
+
+        RawKind::String(RawString::new(RawStringKind::Original(original), string))
     }
 
     /// Read a double-quoted string.
-    /// 
+    ///
     /// TODO: process escape sequences and newlines.
-    fn double_quoted(&mut self) -> RawKind {
+    fn double_quoted(&mut self) -> Result<RawKind> {
+        let original = self.position;
         self.bump(1);
         let start = self.position;
 
-        while !matches!(self.peek(), b'"' | EOF) {
-            self.bump(1);
+        loop {
+            match self.peek() {
+                b'"' | b'\0' => break,
+                b'\\' => {
+                    return self.double_quoted_escaped(start, original);
+                }
+                _ => {
+                    self.bump(1);
+                }
+            }
         }
 
         let string = self.strings.insert(self.string(start));
         self.bump(1);
 
-        RawKind::String(RawString::new(StringKind::DoubleQuoted, string))
+        Ok(RawKind::String(RawString::new(
+            RawStringKind::DoubleQuoted,
+            string,
+        )))
+    }
+
+    /// Parse a double quoted string.
+    fn double_quoted_escaped(&mut self, start: usize, original: usize) -> Result<RawKind> {
+        self.scratch.extend(self.string(start));
+
+        loop {
+            match self.peek() {
+                b'"' | b'\0' => break,
+                b'\\' => {
+                    self.bump(1);
+                    self.unescape()?;
+                }
+                _ => {
+                    self.bump(1);
+                }
+            }
+        }
+
+        let string = self.strings.insert(&self.scratch);
+        self.scratch.clear();
+        self.bump(1);
+
+        let original = self.strings.insert(self.string(original));
+
+        Ok(RawKind::String(RawString::new(
+            RawStringKind::Original(original),
+            string,
+        )))
+    }
+
+    /// Unescape into the scratch buffer.
+    fn unescape(&mut self) -> Result<()> {
+        let b = match self.peek() {
+            b'n' => b'\n',
+            b'0' => b'\x00',
+            b'a' => b'\x07',
+            b'b' => b'\x08',
+            b't' => b'\x09',
+            b'v' => b'\x0b',
+            b'f' => b'\x0c',
+            b'r' => b'\r',
+            b'e' => b'\x1b',
+            b'\\' => b'\"',
+            b'x' => {
+                return self.unescape_unicode(2, ErrorKind::ExpectedHexEscape);
+            }
+            b'u' => {
+                return self.unescape_unicode(4, ErrorKind::ExpectedUnicodeEscape);
+            }
+            _ => {
+                return Err(Error::new(self.span(1), ErrorKind::ExpectedEscape));
+            }
+        };
+
+        self.scratch.push(b);
+        Ok(())
+    }
+
+    /// Unescape a unicode character into the scratch buffer.
+    fn unescape_unicode(&mut self, count: usize, err: ErrorKind) -> Result<()> {
+        let mut c: u32 = 0;
+
+        let start = self.position;
+
+        for _ in 0..count {
+            c <<= 4;
+
+            c |= match self.peek() {
+                b @ b'0'..=b'9' => (b - b'0') as u32,
+                b @ b'a'..=b'f' => ((b - b'a') + 10) as u32,
+                b @ b'A'..=b'F' => ((b - b'a') + 10) as u32,
+                _ => {
+                    return Err(Error::new(self.span(1), err));
+                }
+            };
+
+            self.bump(1);
+        }
+
+        let Some(c) = char::from_u32(c) else {
+            return Err(Error::new(start..self.position, err));
+        };
+
+        self.scratch.extend(c.encode_utf8(&mut [0; 4]).as_bytes());
+        Ok(())
     }
 
     /// Parse an inline list.
@@ -194,10 +322,12 @@ impl<'a> Parser<'a> {
         self.bump(1);
 
         let mut items = Vec::new();
+        let mut last = false;
         let mut trailing = false;
         let mut prefix = self.ws().0;
 
         while !matches!(self.peek(), b']' | b'\0') {
+            trailing = false;
             let (value, new_ws) = self.value(indent, true)?;
 
             let separator = match new_ws {
@@ -211,15 +341,16 @@ impl<'a> Parser<'a> {
                 value: Box::new(value),
             });
 
-            if trailing {
+            if last {
                 prefix = self.ws().0;
                 break;
             }
 
             if matches!(self.peek(), b',') {
                 self.bump(1);
-            } else {
                 trailing = true;
+            } else {
+                last = true;
             }
 
             prefix = self.ws().0;
@@ -233,7 +364,7 @@ impl<'a> Parser<'a> {
 
         Ok(RawKind::List(RawList {
             kind: RawListKind::Inline {
-                trailing: !trailing,
+                trailing,
                 suffix: prefix,
             },
             items,
@@ -464,7 +595,7 @@ impl<'a> Parser<'a> {
             match self.peek() {
                 b':' => {
                     let key = self.strings.insert(self.string(start));
-                    return Some(RawString::new(StringKind::Bare, key));
+                    return Some(RawString::new(RawStringKind::Bare, key));
                 }
                 b'\n' | EOF => {
                     break;
@@ -486,7 +617,7 @@ impl<'a> Parser<'a> {
                 (value, Some(ws))
             }
             (number_first!(), _) => (self.number(), None),
-            (b'"', _) => (self.double_quoted(), None),
+            (b'"', _) => (self.double_quoted()?, None),
             (b'\'', _) => (self.single_quoted(), None),
             (b'[', _) => (self.inline_list(indent)?, None),
             (b'{', _) => (self.inline_table(indent)?, None),
@@ -503,7 +634,7 @@ impl<'a> Parser<'a> {
                 }
 
                 let string = self.strings.insert(self.string(start));
-                let string = RawString::new(StringKind::Bare, string);
+                let string = RawString::new(RawStringKind::Bare, string);
                 (RawKind::String(string), None)
             }
             _ => return Err(Error::new(self.span(1), ErrorKind::ValueError)),
@@ -534,6 +665,6 @@ impl<'a> Parser<'a> {
         };
 
         let string = self.strings.insert(string);
-        Some(RawString::new(StringKind::Bare, string))
+        Some(RawString::new(RawStringKind::Bare, string))
     }
 }

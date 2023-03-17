@@ -54,6 +54,12 @@ pub(crate) enum ErrorKind {
     ExpectedListTerminator,
     /// Expected a table terminator.
     ExpectedTableTerminator,
+    /// Expected valid escape sequence.
+    ExpectedEscape,
+    /// Expected hex escape.
+    ExpectedHexEscape,
+    /// Expected unicode escape.
+    ExpectedUnicodeEscape,
 }
 
 impl fmt::Display for ErrorKind {
@@ -64,6 +70,9 @@ impl fmt::Display for ErrorKind {
             ErrorKind::ExpectedListMarker => write!(f, "expected list marker"),
             ErrorKind::ExpectedListTerminator => write!(f, "expected list terminator"),
             ErrorKind::ExpectedTableTerminator => write!(f, "expected table terminator"),
+            ErrorKind::ExpectedEscape => write!(f, "expected escape"),
+            ErrorKind::ExpectedHexEscape => write!(f, "expected hex escape"),
+            ErrorKind::ExpectedUnicodeEscape => write!(f, "expected unicode escape"),
         }
     }
 }
