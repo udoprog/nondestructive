@@ -1,7 +1,9 @@
+use anyhow::{Context, Result};
+
 use crate::yaml;
 
 #[test]
-fn test_property_eol() -> Result<(), Box<dyn std::error::Error>> {
+fn test_property_eol() -> Result<()> {
     let doc = yaml::parse(
         r#"
         table:
@@ -10,12 +12,12 @@ fn test_property_eol() -> Result<(), Box<dyn std::error::Error>> {
         "#,
     )?;
 
-    let root = doc.root().as_table().ok_or("missing root table")?;
+    let root = doc.root().as_table().context("missing root table")?;
 
     let table = root
         .get("table")
         .and_then(|v| v.as_table())
-        .ok_or("missing inner table")?;
+        .context("missing inner table")?;
 
     let string = table.get("inner").and_then(|v| v.as_str());
     assert_eq!(
@@ -26,7 +28,7 @@ fn test_property_eol() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 #[test]
-fn test_lists() -> Result<(), Box<dyn std::error::Error>> {
+fn test_lists() -> Result<()> {
     let doc = yaml::parse(
         r#"
         - one
@@ -38,7 +40,7 @@ fn test_lists() -> Result<(), Box<dyn std::error::Error>> {
         "#,
     )?;
 
-    let root = doc.root().as_list().ok_or("missing root list")?;
+    let root = doc.root().as_list().context("missing root list")?;
 
     assert_eq!(root.get(0).and_then(|v| v.as_str()), Some("one"));
     assert_eq!(root.get(1).and_then(|v| v.as_str()), Some("two"));
@@ -46,14 +48,14 @@ fn test_lists() -> Result<(), Box<dyn std::error::Error>> {
     let three = root
         .get(2)
         .and_then(|v| v.as_list())
-        .ok_or("missing three")?;
+        .context("missing three")?;
 
     assert_eq!(three.get(0).and_then(|v| v.as_str()), Some("three"));
 
     let four = three
         .get(1)
         .and_then(|v| v.as_table())
-        .ok_or("missing four")?;
+        .context("missing four")?;
 
     assert_eq!(four.get("four").and_then(|v| v.as_u32()), Some(2));
     assert_eq!(four.get("five").and_then(|v| v.as_u32()), Some(1));
@@ -63,14 +65,14 @@ fn test_lists() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 #[test]
-fn test_inline_list() -> Result<(), Box<dyn std::error::Error>> {
+fn test_inline_list() -> Result<()> {
     let doc = yaml::parse(
         r#"
         [one, two, 3,]
         "#,
     )?;
 
-    let root = doc.root().as_list().ok_or("missing root list")?;
+    let root = doc.root().as_list().context("missing root list")?;
     assert_eq!(root.get(0).and_then(|v| v.as_str()), Some("one"));
     assert_eq!(root.get(1).and_then(|v| v.as_str()), Some("two"));
     assert_eq!(root.get(2).and_then(|v| v.as_u32()), Some(3));
@@ -86,14 +88,14 @@ fn test_inline_list() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 #[test]
-fn test_inline_table() -> Result<(), Box<dyn std::error::Error>> {
+fn test_inline_table() -> Result<()> {
     let doc = yaml::parse(
         r#"
         {one: one, two: two, three: 3,}
         "#,
     )?;
 
-    let root = doc.root().as_table().ok_or("missing root list")?;
+    let root = doc.root().as_table().context("missing root list")?;
     assert_eq!(root.get("one").and_then(|v| v.as_str()), Some("one"));
     assert_eq!(root.get("two").and_then(|v| v.as_str()), Some("two"));
     assert_eq!(root.get("three").and_then(|v| v.as_u32()), Some(3));
@@ -105,5 +107,13 @@ fn test_inline_table() -> Result<(), Box<dyn std::error::Error>> {
         "#
     );
 
+    Ok(())
+}
+
+#[test]
+fn test_actions() -> Result<()> {
+    const ACTION: &str = include_str!("tests/actions.yaml");
+    let doc = yaml::parse(ACTION)?;
+    // assert_eq!(doc.to_string(), ACTION);
     Ok(())
 }

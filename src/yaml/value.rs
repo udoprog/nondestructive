@@ -70,6 +70,24 @@ pub enum NullKind {
     Empty,
 }
 
+impl NullKind {
+    pub(crate) fn display(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            NullKind::Keyword => {
+                write!(f, "null")?;
+            }
+            NullKind::Tilde => {
+                write!(f, "~")?;
+            }
+            NullKind::Empty => {
+                // empty values count as null.
+            }
+        }
+
+        Ok(())
+    }
+}
+
 /// A value inside of the document.
 ///
 /// # Examples
@@ -248,6 +266,7 @@ impl<'a> Value<'a> {
 }
 
 impl fmt::Display for Value<'_> {
+    #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.raw.display(self.strings, f)
     }
@@ -334,7 +353,7 @@ impl<'a> Table<'a> {
     /// assert_eq!(root.get("string3").and_then(|v| v.as_str()), Some("I am a quoted string!"));
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
-    pub fn get(&self, key: &str) -> Option<Value<'_>> {
+    pub fn get(&self, key: &str) -> Option<Value<'a>> {
         for e in &self.raw.items {
             if self.strings.get(&e.key.string) == key {
                 return Some(Value::new(self.strings, &e.value));
@@ -342,6 +361,13 @@ impl<'a> Table<'a> {
         }
 
         None
+    }
+}
+
+impl fmt::Display for Table<'_> {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.raw.display(self.strings, f)
     }
 }
 
@@ -488,5 +514,12 @@ impl<'a> List<'a> {
     pub fn get(&self, index: usize) -> Option<Value<'_>> {
         let item = self.raw.items.get(index)?;
         Some(Value::new(self.strings, &item.value))
+    }
+}
+
+impl fmt::Display for List<'_> {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.raw.display(self.strings, f)
     }
 }

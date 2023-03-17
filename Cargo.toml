@@ -22,3 +22,6 @@ itoa = "1.0.6"
 lexical-core = "0.8.5"
 ryu = "1.0.13"
 twox-hash = "1.6.3"
+
+[dev-dependencies]
+anyhow = "1.0.69"

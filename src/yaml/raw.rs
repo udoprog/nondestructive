@@ -44,181 +44,26 @@ impl Raw {
     }
 
     pub(crate) fn display(&self, strings: &Strings, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        use std::fmt::Display;
-
         match &self.kind {
             RawKind::Null(raw) => {
-                match raw {
-                    NullKind::Keyword => {
-                        "null".fmt(f)?;
-                    }
-                    NullKind::Tilde => {
-                        "~".fmt(f)?;
-                    }
-                    NullKind::Empty => {
-                        // empty values count as null.
-                    }
-                }
+                raw.display(f)?;
             }
             RawKind::Number(raw) => {
-                strings.get(&raw.string).fmt(f)?;
+                raw.display(strings, f)?;
             }
             RawKind::String(raw) => {
-                let string = strings.get(&raw.string);
-
-                match raw.kind {
-                    StringKind::Bare => {
-                        string.fmt(f)?;
-                    }
-                    StringKind::DoubleQuoted => {
-                        escape_double_quoted(string, f)?;
-                    }
-                    StringKind::SingleQuoted => {
-                        escape_single_quoted(string, f)?;
-                    }
-                }
+                raw.display(strings, f)?;
             }
             RawKind::Table(raw) => {
-                if let RawTableKind::Inline { .. } = &raw.kind {
-                    '{'.fmt(f)?;
-                }
-
-                let mut it = raw.items.iter().peekable();
-
-                while let Some(item) = it.next() {
-                    if let Some(prefix) = &item.prefix {
-                        strings.get(prefix).fmt(f)?;
-                    }
-
-                    strings.get(&item.key.string).fmt(f)?;
-                    ':'.fmt(f)?;
-                    strings.get(&item.separator).fmt(f)?;
-                    item.value.display(strings, f)?;
-
-                    if it.peek().is_some() {
-                        if let RawTableKind::Inline { .. } = &raw.kind {
-                            ','.fmt(f)?;
-                        }
-                    }
-                }
-
-                if let RawTableKind::Inline { trailing, suffix } = &raw.kind {
-                    if *trailing {
-                        ','.fmt(f)?;
-                    }
-
-                    strings.get(suffix).fmt(f)?;
-                    '}'.fmt(f)?;
-                }
+                raw.display(strings, f)?;
             }
             RawKind::List(raw) => {
-                if let RawListKind::Inline { .. } = &raw.kind {
-                    '['.fmt(f)?;
-                }
-
-                let mut it = raw.items.iter().peekable();
-
-                while let Some(item) = it.next() {
-                    if let Some(prefix) = &item.prefix {
-                        strings.get(prefix).fmt(f)?;
-                    }
-
-                    if let RawListKind::Table = raw.kind {
-                        '-'.fmt(f)?;
-                    }
-
-                    strings.get(&item.separator).fmt(f)?;
-                    item.value.display(strings, f)?;
-
-                    if it.peek().is_some() {
-                        if let RawListKind::Inline { .. } = raw.kind {
-                            ','.fmt(f)?;
-                        }
-                    }
-                }
-
-                if let RawListKind::Inline { trailing, suffix } = &raw.kind {
-                    if *trailing {
-                        ','.fmt(f)?;
-                    }
-
-                    write!(f, "{}]", strings.get(suffix))?;
-                }
+                raw.display(strings, f)?;
             }
         }
 
         Ok(())
     }
-}
-
-/// Single-quoted escape sequences:
-/// <https://yaml.org/spec/1.2.2/#escaped-characters>.
-fn escape_single_quoted(string: &bstr::BStr, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-    f.write_char('\'')?;
-
-    for c in string.chars() {
-        match c {
-            '\'' => {
-                f.write_str("''")?;
-            }
-            c => {
-                f.write_char(c)?;
-            }
-        }
-    }
-
-    f.write_char('\'')?;
-    Ok(())
-}
-
-/// Double-quoted escape sequences:
-/// <https://yaml.org/spec/1.2.2/#escaped-characters>.
-fn escape_double_quoted(string: &bstr::BStr, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-    f.write_char('"')?;
-
-    for c in string.chars() {
-        match c {
-            '\u{0000}' => {
-                f.write_str("\\0")?;
-            }
-            '\u{0007}' => {
-                f.write_str("\\a")?;
-            }
-            '\u{0008}' => {
-                f.write_str("\\b")?;
-            }
-            '\u{0009}' => {
-                f.write_str("\\t")?;
-            }
-            '\n' => {
-                f.write_str("\\n")?;
-            }
-            '\u{000b}' => {
-                f.write_str("\\v")?;
-            }
-            '\u{000c}' => {
-                f.write_str("\\f")?;
-            }
-            '\r' => {
-                f.write_str("\\r")?;
-            }
-            '\u{001b}' => {
-                f.write_str("\\e")?;
-            }
-            '\"' => {
-                f.write_str("\\\"")?;
-            }
-            c if c.is_ascii_control() => {
-                write!(f, "\\x{:02x}", c as u8)?;
-            }
-            c => {
-                f.write_char(c)?;
-            }
-        }
-    }
-
-    f.write_char('"')?;
-    Ok(())
 }
 
 /// A raw value.
@@ -247,6 +92,11 @@ impl RawNumber {
     pub(crate) fn new(string: StringId) -> Self {
         Self { string }
     }
+
+    fn display(&self, strings: &Strings, f: &mut fmt::Formatter) -> fmt::Result {
+        let number = strings.get(&self.string);
+        write!(f, "{number}")
+    }
 }
 
 /// A YAML string.
@@ -260,6 +110,100 @@ impl RawString {
     /// A simple number.
     pub(crate) fn new(kind: StringKind, string: StringId) -> Self {
         Self { kind, string }
+    }
+
+    fn display(&self, strings: &Strings, f: &mut fmt::Formatter) -> fmt::Result {
+        /// Single-quoted escape sequences:
+        /// <https://yaml.org/spec/1.2.2/#escaped-characters>.
+        fn escape_single_quoted(
+            string: &bstr::BStr,
+            f: &mut fmt::Formatter,
+        ) -> Result<(), fmt::Error> {
+            f.write_char('\'')?;
+
+            for c in string.chars() {
+                match c {
+                    '\'' => {
+                        f.write_str("''")?;
+                    }
+                    c => {
+                        f.write_char(c)?;
+                    }
+                }
+            }
+
+            f.write_char('\'')?;
+            Ok(())
+        }
+
+        /// Double-quoted escape sequences:
+        /// <https://yaml.org/spec/1.2.2/#escaped-characters>.
+        fn escape_double_quoted(
+            string: &bstr::BStr,
+            f: &mut fmt::Formatter,
+        ) -> Result<(), fmt::Error> {
+            f.write_char('"')?;
+
+            for c in string.chars() {
+                match c {
+                    '\u{0000}' => {
+                        f.write_str("\\0")?;
+                    }
+                    '\u{0007}' => {
+                        f.write_str("\\a")?;
+                    }
+                    '\u{0008}' => {
+                        f.write_str("\\b")?;
+                    }
+                    '\u{0009}' => {
+                        f.write_str("\\t")?;
+                    }
+                    '\n' => {
+                        f.write_str("\\n")?;
+                    }
+                    '\u{000b}' => {
+                        f.write_str("\\v")?;
+                    }
+                    '\u{000c}' => {
+                        f.write_str("\\f")?;
+                    }
+                    '\r' => {
+                        f.write_str("\\r")?;
+                    }
+                    '\u{001b}' => {
+                        f.write_str("\\e")?;
+                    }
+                    '\"' => {
+                        f.write_str("\\\"")?;
+                    }
+                    c if c.is_ascii_control() => {
+                        write!(f, "\\x{:02x}", c as u8)?;
+                    }
+                    c => {
+                        f.write_char(c)?;
+                    }
+                }
+            }
+
+            f.write_char('"')?;
+            Ok(())
+        }
+
+        let string = strings.get(&self.string);
+
+        match &self.kind {
+            StringKind::Bare => {
+                write!(f, "{string}")?;
+            }
+            StringKind::DoubleQuoted => {
+                escape_double_quoted(string, f)?;
+            }
+            StringKind::SingleQuoted => {
+                escape_single_quoted(string, f)?;
+            }
+        }
+
+        Ok(())
     }
 }
 
@@ -328,6 +272,47 @@ impl RawList {
             separator,
             value: Box::new(Raw::new(value, layout.indent)),
         });
+    }
+
+    /// Display the list.
+    pub(crate) fn display(&self, strings: &Strings, f: &mut fmt::Formatter) -> fmt::Result {
+        if let RawListKind::Inline { .. } = &self.kind {
+            write!(f, "[")?;
+        }
+
+        let mut it = self.items.iter().peekable();
+
+        while let Some(item) = it.next() {
+            if let Some(prefix) = &item.prefix {
+                let prefix = strings.get(prefix);
+                write!(f, "{prefix}")?;
+            }
+
+            if let RawListKind::Table = self.kind {
+                write!(f, "-")?;
+            }
+
+            let separator = strings.get(&item.separator);
+            write!(f, "{separator}")?;
+
+            item.value.display(strings, f)?;
+
+            if it.peek().is_some() {
+                if let RawListKind::Inline { .. } = self.kind {
+                    write!(f, ",")?;
+                }
+            }
+        }
+
+        if let RawListKind::Inline { trailing, suffix } = &self.kind {
+            if *trailing {
+                write!(f, ",")?;
+            }
+
+            write!(f, "{}]", strings.get(suffix))?;
+        }
+
+        Ok(())
     }
 }
 
@@ -408,5 +393,44 @@ impl RawTable {
             value: Box::new(Raw::new(value, layout.indent)),
         });
         len
+    }
+
+    /// Display the table.
+    pub(crate) fn display(&self, strings: &Strings, f: &mut fmt::Formatter) -> fmt::Result {
+        if let RawTableKind::Inline { .. } = &self.kind {
+            write!(f, "{}", '{')?;
+        }
+
+        let mut it = self.items.iter().peekable();
+
+        while let Some(item) = it.next() {
+            if let Some(prefix) = &item.prefix {
+                let prefix = strings.get(prefix);
+                write!(f, "{prefix}")?;
+            }
+
+            let key = strings.get(&item.key.string);
+            let separator = strings.get(&item.separator);
+            write!(f, "{key}:{separator}")?;
+
+            item.value.display(strings, f)?;
+
+            if it.peek().is_some() {
+                if let RawTableKind::Inline { .. } = &self.kind {
+                    write!(f, ",")?;
+                }
+            }
+        }
+
+        if let RawTableKind::Inline { trailing, suffix } = &self.kind {
+            if *trailing {
+                write!(f, ",")?;
+            }
+
+            let suffix = strings.get(suffix);
+            write!(f, "{suffix}{}", '}')?;
+        }
+
+        Ok(())
     }
 }
