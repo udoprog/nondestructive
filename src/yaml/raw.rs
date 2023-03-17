@@ -3,6 +3,7 @@ use std::fmt::{self, Write};
 use bstr::ByteSlice;
 
 use crate::strings::{StringId, Strings};
+use crate::yaml::serde::RawNumberHint;
 use crate::yaml::{NullKind, Separator};
 
 /// Construct a raw kind associated with booleans.
@@ -85,12 +86,14 @@ pub(crate) enum RawKind {
 #[derive(Debug, Clone)]
 pub(crate) struct RawNumber {
     pub(crate) string: StringId,
+    #[cfg_attr(not(feature = "serde"), allow(unused))]
+    pub(crate) hint: RawNumberHint,
 }
 
 impl RawNumber {
     /// A simple number.
-    pub(crate) fn new(string: StringId) -> Self {
-        Self { string }
+    pub(crate) fn new(string: StringId, hint: RawNumberHint) -> Self {
+        Self { string, hint }
     }
 
     fn display(&self, strings: &Strings, f: &mut fmt::Formatter) -> fmt::Result {

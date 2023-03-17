@@ -22,7 +22,7 @@ impl Error {
     /// ```
     /// use nondestructive::yaml;
     ///
-    /// let error = yaml::parse("私").unwrap_err();
+    /// let error = yaml::from_bytes("私").unwrap_err();
     /// assert_eq!(error.span(), 0..1);
     /// ```
     #[must_use]

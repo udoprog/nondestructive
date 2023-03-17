@@ -12,7 +12,7 @@ use crate::yaml::Value;
 /// ```
 /// use nondestructive::yaml;
 ///
-/// let doc = yaml::parse(
+/// let doc = yaml::from_bytes(
 ///     r#"
 ///     - one
 ///     - two
@@ -33,7 +33,7 @@ use crate::yaml::Value;
 /// ```
 /// use nondestructive::yaml;
 ///
-/// let doc = yaml::parse(
+/// let doc = yaml::from_bytes(
 ///     r#"
 ///     - one
 ///     - two
@@ -73,16 +73,16 @@ use crate::yaml::Value;
 /// ```
 /// use nondestructive::yaml;
 ///
-/// let doc = yaml::parse("[]")?;
+/// let doc = yaml::from_bytes("[]")?;
 /// assert_eq!(doc.to_string(), "[]");
 ///
-/// let doc = yaml::parse("[,]")?;
+/// let doc = yaml::from_bytes("[,]")?;
 /// let list = doc.root().as_list().ok_or("missing root list")?;
 /// assert!(!list.is_empty());
 /// assert_eq!(list.len(), 1);
 /// assert_eq!(doc.to_string(), "[,]");
 ///
-/// let doc = yaml::parse(
+/// let doc = yaml::from_bytes(
 ///     r#"
 ///     [one, two, 3,]
 ///     "#,
@@ -118,7 +118,7 @@ impl<'a> List<'a> {
     /// ```
     /// use nondestructive::yaml;
     ///
-    /// let doc = yaml::parse(
+    /// let doc = yaml::from_bytes(
     ///     r#"
     ///     - one
     ///     - two
@@ -143,7 +143,7 @@ impl<'a> List<'a> {
     /// ```
     /// use nondestructive::yaml;
     ///
-    /// let doc = yaml::parse(
+    /// let doc = yaml::from_bytes(
     ///     r#"
     ///     - one
     ///     - two
@@ -168,7 +168,7 @@ impl<'a> List<'a> {
     /// ```
     /// use nondestructive::yaml;
     ///
-    /// let doc = yaml::parse(
+    /// let doc = yaml::from_bytes(
     ///     r#"
     ///     - one
     ///     - two
@@ -197,7 +197,7 @@ impl<'a> List<'a> {
     /// ```
     /// use nondestructive::yaml;
     ///
-    /// let doc = yaml::parse(
+    /// let doc = yaml::from_bytes(
     ///     r#"
     ///     - one
     ///     - two
@@ -209,32 +209,9 @@ impl<'a> List<'a> {
     /// root.iter().flat_map(|v| v.as_str()).eq(["one", "two", "three"]);
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
+    #[must_use]
     #[inline]
     pub fn iter(&self) -> Iter<'_> {
-        Iter::new(self.strings, &self.raw.items)
-    }
-
-    /// Returns an iterator over the list.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use nondestructive::yaml;
-    ///
-    /// let doc = yaml::parse(
-    ///     r#"
-    ///     - one
-    ///     - two
-    ///     - three
-    ///     "#,
-    /// )?;
-    ///
-    /// let root = doc.root().as_list().ok_or("missing root list")?;
-    /// root.into_iter().flat_map(|v| v.as_str()).eq(["one", "two", "three"]);
-    /// # Ok::<_, Box<dyn std::error::Error>>(())
-    /// ```
-    #[inline]
-    pub fn into_iter(self) -> Iter<'a> {
         Iter::new(self.strings, &self.raw.items)
     }
 }
@@ -253,12 +230,31 @@ impl fmt::Debug for List<'_> {
     }
 }
 
+/// Returns an iterator over the [List].
+///
+/// # Examples
+///
+/// ```
+/// use nondestructive::yaml;
+///
+/// let doc = yaml::from_bytes(
+///     r#"
+///     - one
+///     - two
+///     - three
+///     "#,
+/// )?;
+///
+/// let root = doc.root().as_list().ok_or("missing root list")?;
+/// root.into_iter().flat_map(|v| v.as_str()).eq(["one", "two", "three"]);
+/// # Ok::<_, Box<dyn std::error::Error>>(())
+/// ```
 impl<'a> IntoIterator for List<'a> {
     type Item = Value<'a>;
     type IntoIter = Iter<'a>;
 
     #[inline]
     fn into_iter(self) -> Self::IntoIter {
-        List::into_iter(self)
+        Iter::new(self.strings, &self.raw.items)
     }
 }

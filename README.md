@@ -16,7 +16,7 @@ Nondestructive editing over various file formats.
 ```rust
 use nondestructive::yaml;
 
-let mut doc = yaml::parse(r#"
+let mut doc = yaml::from_bytes(r#"
   number1: 10
   number2: 20
   table:

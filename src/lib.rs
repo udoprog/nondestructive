@@ -14,7 +14,7 @@
 //! ```
 //! use nondestructive::yaml;
 //!
-//! let mut doc = yaml::parse(r#"
+//! let mut doc = yaml::from_bytes(r#"
 //!   number1: 10
 //!   number2: 20
 //!   table:
@@ -40,6 +40,10 @@
 //!
 //! # Ok::<_, Box<dyn std::error::Error>>(())
 //! ```
+
+#![deny(missing_docs)]
+#![allow(clippy::module_inception)]
+#![allow(clippy::module_name_repetitions)]
 
 mod strings;
 pub mod yaml;

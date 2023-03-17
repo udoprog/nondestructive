@@ -5,12 +5,11 @@ use bstr::ByteSlice;
 use crate::strings::{StringId, Strings};
 use crate::yaml::error::{Error, ErrorKind};
 use crate::yaml::raw::{
-    Raw, RawKind, RawListItem, RawListKind, RawNumber, RawString, RawStringKind, RawTable,
+    Raw, RawKind, RawList, RawListItem, RawListKind, RawNumber, RawString, RawStringKind, RawTable,
     RawTableItem, RawTableKind,
 };
+use crate::yaml::serde;
 use crate::yaml::Document;
-
-use super::raw::RawList;
 
 type Result<T, E = Error> = std::result::Result<T, E>;
 
@@ -117,7 +116,10 @@ impl<'a> Parser<'a> {
     fn number(&mut self) -> RawKind {
         let start = self.position;
 
+        let mut hint = serde::U64;
+
         if matches!(self.peek(), b'-') {
+            hint = serde::I64;
             self.bump(1);
         }
 
@@ -127,9 +129,11 @@ impl<'a> Parser<'a> {
         loop {
             match self.peek() {
                 b'.' if !dot => {
+                    hint = serde::F64;
                     dot = true;
                 }
                 b'e' | b'E' if !e => {
+                    hint = serde::F64;
                     dot = true;
                     e = true;
                 }
@@ -143,12 +147,10 @@ impl<'a> Parser<'a> {
         }
 
         let string = self.strings.insert(self.string(start));
-        RawKind::Number(RawNumber::new(string))
+        RawKind::Number(RawNumber::new(string, hint))
     }
 
     /// Read a double-quoted string.
-    ///
-    /// TODO: process escape sequences and newlines.
     fn single_quoted(&mut self) -> RawKind {
         let original = self.position;
         self.bump(1);
@@ -203,8 +205,6 @@ impl<'a> Parser<'a> {
     }
 
     /// Read a double-quoted string.
-    ///
-    /// TODO: process escape sequences and newlines.
     fn double_quoted(&mut self) -> Result<RawKind> {
         let original = self.position;
         self.bump(1);
@@ -298,9 +298,9 @@ impl<'a> Parser<'a> {
             c <<= 4;
 
             c |= match self.peek() {
-                b @ b'0'..=b'9' => (b - b'0') as u32,
-                b @ b'a'..=b'f' => ((b - b'a') + 10) as u32,
-                b @ b'A'..=b'F' => ((b - b'a') + 10) as u32,
+                b @ b'0'..=b'9' => u32::from(b - b'0'),
+                b @ b'a'..=b'f' => u32::from(b - b'a') + 0xa,
+                b @ b'A'..=b'F' => u32::from(b - b'A') + 0xa,
                 _ => {
                     return Err(Error::new(self.span(1), err));
                 }

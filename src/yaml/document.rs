@@ -9,7 +9,7 @@ use crate::yaml::{Value, ValueMut};
 pub struct Document {
     prefix: StringId,
     suffix: StringId,
-    root: Raw,
+    pub(crate) root: Raw,
     pub(crate) strings: Strings,
 }
 
@@ -31,7 +31,7 @@ impl Document {
     /// ```
     /// use nondestructive::yaml;
     ///
-    /// let doc = yaml::parse("32")?;
+    /// let doc = yaml::from_bytes("32")?;
     /// assert_eq!(doc.root().as_u32(), Some(32));
     ///
     /// # Ok::<_, Box<dyn std::error::Error>>(())
@@ -49,7 +49,7 @@ impl Document {
     /// ```
     /// use nondestructive::yaml;
     ///
-    /// let mut doc = yaml::parse("  32")?;
+    /// let mut doc = yaml::from_bytes("  32")?;
     /// doc.root_mut().set_u32(42);
     /// assert_eq!(doc.to_string(), "  42");
     ///

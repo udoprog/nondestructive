@@ -6,6 +6,9 @@ use crate::strings::Strings;
 use crate::yaml::raw::RawTableItem;
 use crate::yaml::Value;
 
+/// An immutable iterator over a [`Table`][crate::yaml::table::Table].
+///
+/// See [`Table::iter`][crate::yaml::table::Table::iter].
 pub struct Iter<'a> {
     strings: &'a Strings,
     iter: slice::Iter<'a, RawTableItem>,
