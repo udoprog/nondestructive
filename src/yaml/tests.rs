@@ -110,11 +110,11 @@ fn test_inline_table() -> Result<()> {
     Ok(())
 }
 
+/// Just roundtrip a fairly complex document to ensure it's correctly processed.
 #[test]
 fn test_actions() -> Result<()> {
     const ACTION: &str = include_str!("tests/actions.yaml");
     let doc = yaml::parse(ACTION)?;
-    // assert_eq!(doc.to_string(), ACTION);
-    // std::fs::write("src/yaml/tests/actions.yaml", doc.to_string());
+    assert_eq!(doc.to_string(), ACTION);
     Ok(())
 }
