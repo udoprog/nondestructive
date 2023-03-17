@@ -4,6 +4,9 @@ use crate::strings::Strings;
 use crate::yaml::raw::RawListItem;
 use crate::yaml::Value;
 
+/// An immutable iterator over a [`List`][crate::yaml::list::List].
+///
+/// See [`List::iter`][crate::yaml::list::List::iter].
 pub struct Iter<'a> {
     strings: &'a Strings,
     iter: slice::Iter<'a, RawListItem>,

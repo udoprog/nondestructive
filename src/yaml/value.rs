@@ -1,6 +1,6 @@
 use core::fmt;
 
-use bstr::ByteSlice;
+use bstr::{BStr, ByteSlice};
 
 use crate::strings::Strings;
 use crate::yaml::raw::{Raw, RawKind, RawStringKind};
@@ -68,23 +68,23 @@ impl NullKind {
 /// ```
 /// use nondestructive::yaml;
 ///
-/// let doc = yaml::parse("string")?;
+/// let doc = yaml::from_bytes("string")?;
 /// assert_eq!(doc.root().as_str(), Some("string"));
 ///
-/// let doc = yaml::parse("\"a double-quoted string\"")?;
+/// let doc = yaml::from_bytes("\"a double-quoted string\"")?;
 /// assert_eq!(doc.root().as_str(), Some("a double-quoted string"));
 ///
-/// let doc = yaml::parse("'a single-quoted string'")?;
+/// let doc = yaml::from_bytes("'a single-quoted string'")?;
 /// assert_eq!(doc.root().as_str(), Some("a single-quoted string"));
 ///
-/// let doc = yaml::parse("'It''s a bargain!'")?;
+/// let doc = yaml::from_bytes("'It''s a bargain!'")?;
 /// assert_eq!(doc.root().as_str(), Some("It's a bargain!"));
 ///
 /// # Ok::<_, Box<dyn std::error::Error>>(())
 /// ```
 pub struct Value<'a> {
-    strings: &'a Strings,
-    raw: &'a Raw,
+    pub(crate) strings: &'a Strings,
+    pub(crate) raw: &'a Raw,
 }
 
 macro_rules! as_number {
@@ -96,7 +96,7 @@ macro_rules! as_number {
         /// ```
         /// use nondestructive::yaml;
         ///
-        #[doc = concat!("let doc = yaml::parse(\"", stringify!($lit), "\")?;")]
+        #[doc = concat!("let doc = yaml::from_bytes(\"", stringify!($lit), "\")?;")]
         #[doc = concat!("let value = doc.root().", stringify!($name), "();")]
         #[doc = concat!("assert_eq!(value, Some(", stringify!($lit), "));")]
         /// # Ok::<_, Box<dyn std::error::Error>>(())
@@ -120,17 +120,53 @@ impl<'a> Value<'a> {
         Self { strings, raw }
     }
 
-    /// Get the value as a string.
+    /// Get the value as a [`BStr`].
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nondestructive::yaml;
+    /// use bstr::BStr;
+    ///
+    /// let doc = yaml::from_bytes("string")?;
+    /// assert_eq!(doc.root().as_str(), Some("string"));
+    ///
+    /// let doc = yaml::from_bytes(r#"
+    /// - It's the same string!
+    /// - "It's the same string!"
+    /// - 'It''s the same string!'
+    /// "#)?;
+    ///
+    /// let array = doc.root().as_list().ok_or("expected list")?;
+    ///
+    /// for item in array {
+    ///     assert_eq!(item.as_bstr(), Some(BStr::new("It's the same string!")));
+    /// }
+    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// ```
+    #[must_use]
+    #[inline]
+    pub fn as_bstr(&self) -> Option<&'a BStr> {
+        match &self.raw.kind {
+            RawKind::String(raw) => Some(self.strings.get(&raw.string)),
+            _ => None,
+        }
+    }
+
+    /// Get the value as a [`str`]. This might fail if the underlying string is
+    /// not valid UTF-8.
+    ///
+    /// See [`Value::as_bstr`] for an alternative.
     ///
     /// # Examples
     ///
     /// ```
     /// use nondestructive::yaml;
     ///
-    /// let doc = yaml::parse("string")?;
+    /// let doc = yaml::from_bytes("string")?;
     /// assert_eq!(doc.root().as_str(), Some("string"));
     ///
-    /// let doc = yaml::parse(r#"
+    /// let doc = yaml::from_bytes(r#"
     /// - It's the same string!
     /// - "It's the same string!"
     /// - 'It''s the same string!'
@@ -159,10 +195,10 @@ impl<'a> Value<'a> {
     /// ```
     /// use nondestructive::yaml;
     ///
-    /// let doc = yaml::parse("true")?;
+    /// let doc = yaml::from_bytes("true")?;
     /// assert_eq!(doc.root().as_bool(), Some(true));
     ///
-    /// let doc = yaml::parse("string")?;
+    /// let doc = yaml::from_bytes("string")?;
     /// assert_eq!(doc.root().as_bool(), None);
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
@@ -182,14 +218,14 @@ impl<'a> Value<'a> {
         }
     }
 
-    /// Get the value as a table.
+    /// Get the value as a [`Table`].
     ///
     /// # Examples
     ///
     /// ```
     /// use nondestructive::yaml;
     ///
-    /// let doc = yaml::parse(r#"
+    /// let doc = yaml::from_bytes(r#"
     /// number1: 10
     /// number2: 20
     /// table:
@@ -217,14 +253,14 @@ impl<'a> Value<'a> {
         }
     }
 
-    /// Get the value as a table.
+    /// Get the value as a [`List`].
     ///
     /// # Examples
     ///
     /// ```
     /// use nondestructive::yaml;
     ///
-    /// let doc = yaml::parse(
+    /// let doc = yaml::from_bytes(
     ///     r#"
     ///     - one
     ///     - two

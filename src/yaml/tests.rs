@@ -4,7 +4,7 @@ use crate::yaml;
 
 #[test]
 fn test_property_eol() -> Result<()> {
-    let doc = yaml::parse(
+    let doc = yaml::from_bytes(
         r#"
         table:
             inner: so this is as a matter of @ course, a large document
@@ -29,7 +29,7 @@ fn test_property_eol() -> Result<()> {
 
 #[test]
 fn test_lists() -> Result<()> {
-    let doc = yaml::parse(
+    let doc = yaml::from_bytes(
         r#"
         - one
         - two
@@ -68,7 +68,7 @@ fn test_lists() -> Result<()> {
 #[test]
 fn test_actions() -> Result<()> {
     const ACTION: &str = include_str!("tests/actions.yaml");
-    let doc = yaml::parse(ACTION)?;
+    let doc = yaml::from_bytes(ACTION)?;
     assert_eq!(doc.to_string(), ACTION);
     Ok(())
 }

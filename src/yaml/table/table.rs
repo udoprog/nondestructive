@@ -14,7 +14,7 @@ use crate::yaml::Value;
 /// ```
 /// use nondestructive::yaml;
 ///
-/// let doc = yaml::parse(r#"
+/// let doc = yaml::from_bytes(r#"
 /// number1: 10
 /// number2: 20
 /// table:
@@ -39,16 +39,16 @@ use crate::yaml::Value;
 /// ```
 /// use nondestructive::yaml;
 ///
-/// let doc = yaml::parse("{}")?;
+/// let doc = yaml::from_bytes("{}")?;
 /// assert_eq!(doc.to_string(), "{}");
 ///
-/// let doc = yaml::parse("{test: 1,}")?;
+/// let doc = yaml::from_bytes("{test: 1,}")?;
 /// let table = doc.root().as_table().ok_or("missing root table")?;
 /// assert!(!table.is_empty());
 /// assert_eq!(table.len(), 1);
 /// assert_eq!(doc.to_string(), "{test: 1,}");
 ///
-/// let doc = yaml::parse(
+/// let doc = yaml::from_bytes(
 ///     r#"
 ///     {one: one, two: two, three: 3,}
 ///     "#,
@@ -84,7 +84,7 @@ impl<'a> Table<'a> {
     /// ```
     /// use nondestructive::yaml;
     ///
-    /// let doc = yaml::parse(
+    /// let doc = yaml::from_bytes(
     ///     r#"
     ///     one: 1
     ///     two: 2
@@ -109,7 +109,7 @@ impl<'a> Table<'a> {
     /// ```
     /// use nondestructive::yaml;
     ///
-    /// let doc = yaml::parse(
+    /// let doc = yaml::from_bytes(
     ///     r#"
     ///     one: 1
     ///     two: 2
@@ -134,7 +134,7 @@ impl<'a> Table<'a> {
     /// ```
     /// use nondestructive::yaml;
     ///
-    /// let doc = yaml::parse(r#"
+    /// let doc = yaml::from_bytes(r#"
     /// number1: 10
     /// number2: 20
     /// table:
@@ -165,14 +165,14 @@ impl<'a> Table<'a> {
         None
     }
 
-    /// Returns an iterator over the table.
+    /// Returns an iterator over the [Table].
     ///
     /// # Examples
     ///
     /// ```
     /// use nondestructive::yaml;
     ///
-    /// let doc = yaml::parse(
+    /// let doc = yaml::from_bytes(
     ///     r#"
     ///     one: 1
     ///     two: 2
@@ -184,32 +184,9 @@ impl<'a> Table<'a> {
     /// root.iter().flat_map(|(key, value)| value.as_u32()).eq([1, 2, 3]);
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
+    #[must_use]
     #[inline]
     pub fn iter(&self) -> Iter<'_> {
-        Iter::new(self.strings, &self.raw.items)
-    }
-
-    /// Returns an iterator over the table.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use nondestructive::yaml;
-    ///
-    /// let doc = yaml::parse(
-    ///     r#"
-    ///     one: 1
-    ///     two: 2
-    ///     three: 3
-    ///     "#,
-    /// )?;
-    ///
-    /// let root = doc.root().as_table().ok_or("missing root table")?;
-    /// root.into_iter().flat_map(|(key, value)| value.as_u32()).eq([1, 2, 3]);
-    /// # Ok::<_, Box<dyn std::error::Error>>(())
-    /// ```
-    #[inline]
-    pub fn into_iter(self) -> Iter<'a> {
         Iter::new(self.strings, &self.raw.items)
     }
 }
@@ -228,12 +205,31 @@ impl fmt::Debug for Table<'_> {
     }
 }
 
+/// Returns an iterator over the [Table].
+///
+/// # Examples
+///
+/// ```
+/// use nondestructive::yaml;
+///
+/// let doc = yaml::from_bytes(
+///     r#"
+///     one: 1
+///     two: 2
+///     three: 3
+///     "#,
+/// )?;
+///
+/// let root = doc.root().as_table().ok_or("missing root table")?;
+/// root.into_iter().flat_map(|(key, value)| value.as_u32()).eq([1, 2, 3]);
+/// # Ok::<_, Box<dyn std::error::Error>>(())
+/// ```
 impl<'a> IntoIterator for Table<'a> {
     type Item = (&'a BStr, Value<'a>);
     type IntoIter = Iter<'a>;
 
     #[inline]
     fn into_iter(self) -> Self::IntoIter {
-        Table::into_iter(self)
+        Iter::new(self.strings, &self.raw.items)
     }
 }
