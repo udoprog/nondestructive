@@ -35,6 +35,10 @@ mod value_mut;
 pub use self::value_mut::{ListMut, TableMut, ValueMut};
 
 /// Parse a YAML document.
+///
+/// # Errors
+///
+/// Errors in case the document cannot be parsed as YAML.
 pub fn parse<D>(input: D) -> Result<Document, Error>
 where
     D: AsRef<[u8]>,

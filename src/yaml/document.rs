@@ -36,6 +36,8 @@ impl Document {
     ///
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
+    #[must_use]
+    #[inline]
     pub fn root(&self) -> Value<'_> {
         Value::new(&self.strings, &self.root)
     }

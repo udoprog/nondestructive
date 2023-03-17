@@ -398,7 +398,7 @@ impl RawTable {
     /// Display the table.
     pub(crate) fn display(&self, strings: &Strings, f: &mut fmt::Formatter) -> fmt::Result {
         if let RawTableKind::Inline { .. } = &self.kind {
-            write!(f, "{}", '{')?;
+            write!(f, "{{")?;
         }
 
         let mut it = self.items.iter().peekable();
@@ -428,7 +428,7 @@ impl RawTable {
             }
 
             let suffix = strings.get(suffix);
-            write!(f, "{suffix}{}", '}')?;
+            write!(f, "{suffix}}}")?;
         }
 
         Ok(())

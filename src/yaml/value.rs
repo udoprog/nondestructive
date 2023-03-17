@@ -71,7 +71,7 @@ pub enum NullKind {
 }
 
 impl NullKind {
-    pub(crate) fn display(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    pub(crate) fn display(self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             NullKind::Keyword => {
                 write!(f, "null")?;
@@ -125,6 +125,8 @@ macro_rules! as_number {
         #[doc = concat!("assert_eq!(value, Some(", stringify!($lit), "));")]
         /// # Ok::<_, Box<dyn std::error::Error>>(())
         /// ```
+        #[must_use]
+        #[inline]
         pub fn $name(&self) -> Option<$ty> {
             match &self.raw.kind {
                 RawKind::Number(raw) => {
@@ -154,6 +156,8 @@ impl<'a> Value<'a> {
     /// assert_eq!(value, Some("string"));
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
+    #[must_use]
+    #[inline]
     pub fn as_str(&self) -> Option<&'a str> {
         match &self.raw.kind {
             RawKind::String(raw) => self.strings.get(&raw.string).to_str().ok(),
@@ -175,6 +179,8 @@ impl<'a> Value<'a> {
     /// assert_eq!(doc.root().as_bool(), None);
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
+    #[must_use]
+    #[inline]
     pub fn as_bool(&self) -> Option<bool> {
         const TRUE: &[u8] = b"true";
         const FALSE: &[u8] = b"false";
@@ -215,6 +221,8 @@ impl<'a> Value<'a> {
     /// assert_eq!(root.get("string3").and_then(|v| v.as_str()), Some("I am a quoted string!"));
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
+    #[must_use]
+    #[inline]
     pub fn as_table(&self) -> Option<Table<'a>> {
         match &self.raw.kind {
             RawKind::Table(raw) => Some(Table::new(self.strings, raw)),
@@ -244,6 +252,8 @@ impl<'a> Value<'a> {
     /// assert_eq!(root.get(2).and_then(|v| v.as_str()), Some("three"));
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
+    #[must_use]
+    #[inline]
     pub fn as_list(&self) -> Option<List<'a>> {
         match &self.raw.kind {
             RawKind::List(raw) => Some(List::new(self.strings, raw)),
@@ -353,6 +363,8 @@ impl<'a> Table<'a> {
     /// assert_eq!(root.get("string3").and_then(|v| v.as_str()), Some("I am a quoted string!"));
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
+    #[must_use]
+    #[inline]
     pub fn get(&self, key: &str) -> Option<Value<'a>> {
         for e in &self.raw.items {
             if self.strings.get(&e.key.string) == key {
@@ -462,6 +474,8 @@ impl<'a> List<'a> {
     /// assert_eq!(root.len(), 3);
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
+    #[must_use]
+    #[inline]
     pub fn len(&self) -> usize {
         self.raw.items.len()
     }
@@ -485,6 +499,8 @@ impl<'a> List<'a> {
     /// assert!(!root.is_empty());
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
+    #[must_use]
+    #[inline]
     pub fn is_empty(&self) -> bool {
         self.raw.items.is_empty()
     }
@@ -511,6 +527,8 @@ impl<'a> List<'a> {
     /// assert_eq!(root.get(2).and_then(|v| v.as_str()), Some("three"));
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
+    #[must_use]
+    #[inline]
     pub fn get(&self, index: usize) -> Option<Value<'_>> {
         let item = self.raw.items.get(index)?;
         Some(Value::new(self.strings, &item.value))

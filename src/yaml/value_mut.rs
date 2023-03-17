@@ -45,6 +45,8 @@ impl<'a> ValueMut<'a> {
     /// assert_eq!(root.get_mut("string3").and_then(|v| v.into_ref().as_str()), Some("I am a quoted string!"));
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
+    #[must_use]
+    #[inline]
     pub fn as_ref(&self) -> Value<'_> {
         Value::new(self.strings, self.raw)
     }
@@ -79,6 +81,8 @@ impl<'a> ValueMut<'a> {
     /// assert_eq!(root.get_mut("string3").and_then(|v| v.into_ref().as_str()), Some("I am a quoted string!"));
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
+    #[must_use]
+    #[inline]
     pub fn into_ref(self) -> Value<'a> {
         Value::new(self.strings, self.raw)
     }
@@ -165,6 +169,8 @@ impl<'a> ValueMut<'a> {
     ///
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
+    #[must_use]
+    #[inline]
     pub fn into_table_mut(self) -> Option<TableMut<'a>> {
         match &mut self.raw.kind {
             RawKind::Table(raw) => Some(TableMut::new(self.strings, raw, &self.raw.layout)),
@@ -236,6 +242,8 @@ impl<'a> ValueMut<'a> {
     /// "#);
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
+    #[must_use]
+    #[inline]
     pub fn into_list_mut(self) -> Option<ListMut<'a>> {
         match &mut self.raw.kind {
             RawKind::List(raw) => Some(ListMut::new(self.strings, raw, &self.raw.layout)),
@@ -528,6 +536,8 @@ impl<'a> TableMut<'a> {
     /// assert_eq!(table.get("inner").and_then(|v| v.as_u32()), Some(400));
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
+    #[must_use]
+    #[inline]
     pub fn as_ref(&self) -> Table<'_> {
         Table::new(self.strings, self.raw)
     }
@@ -559,6 +569,8 @@ impl<'a> TableMut<'a> {
     /// assert_eq!(table.get("inner").and_then(|v| v.as_u32()), Some(400));
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
+    #[must_use]
+    #[inline]
     pub fn into_ref(self) -> Table<'a> {
         Table::new(self.strings, self.raw)
     }
@@ -603,10 +615,10 @@ impl<'a> TableMut<'a> {
         None
     }
 
-    /// Insert a new null value and return a [ValueMut] to the newly inserted
+    /// Insert a new null value and return a [`ValueMut`] to the newly inserted
     /// value.
     ///
-    /// This allows for setting a custom [Separator].
+    /// This allows for setting a custom [`Separator`].
     ///
     /// # Examples
     ///
@@ -828,6 +840,8 @@ impl<'a> ListMut<'a> {
     /// assert_eq!(root.get(2).and_then(|v| v.as_str()), Some("three"));
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
+    #[must_use]
+    #[inline]
     pub fn as_ref(&self) -> List<'_> {
         List::new(self.strings, self.raw)
     }
@@ -855,6 +869,8 @@ impl<'a> ListMut<'a> {
     /// assert_eq!(root.get(2).and_then(|v| v.as_str()), Some("three"));
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
+    #[must_use]
+    #[inline]
     pub fn into_ref(self) -> List<'a> {
         List::new(self.strings, self.raw)
     }
@@ -895,9 +911,9 @@ impl<'a> ListMut<'a> {
         None
     }
 
-    /// Push a new null value and return a [ValueMut] to the newly pushed value.
+    /// Push a new null value and return a [`ValueMut`] to the newly pushed value.
     ///
-    /// This allows for setting a custom [Separator].
+    /// This allows for setting a custom [`Separator`].
     ///
     /// # Examples
     ///

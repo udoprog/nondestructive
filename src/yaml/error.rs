@@ -25,6 +25,8 @@ impl Error {
     /// let error = yaml::parse("私").unwrap_err();
     /// assert_eq!(error.span(), 0..1);
     /// ```
+    #[must_use]
+    #[inline]
     pub fn span(&self) -> Range<usize> {
         self.span.clone()
     }

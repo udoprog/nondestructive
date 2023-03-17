@@ -114,7 +114,7 @@ impl<'a> Parser<'a> {
     }
 
     /// Consume a single number.
-    fn number(&mut self) -> Result<RawKind> {
+    fn number(&mut self) -> RawKind {
         let start = self.position;
 
         if matches!(self.peek(), b'-') {
@@ -143,11 +143,13 @@ impl<'a> Parser<'a> {
         }
 
         let string = self.strings.insert(self.string(start));
-        Ok(RawKind::Number(RawNumber::new(string)))
+        RawKind::Number(RawNumber::new(string))
     }
 
     /// Read a double-quoted string.
-    fn single_quoted(&mut self) -> Result<RawKind> {
+    /// 
+    /// TODO: process escape sequences and newlines.
+    fn single_quoted(&mut self) -> RawKind {
         self.bump(1);
         let start = self.position;
 
@@ -167,14 +169,13 @@ impl<'a> Parser<'a> {
 
         let string = self.strings.insert(self.string(start));
         self.bump(1);
-        Ok(RawKind::String(RawString::new(
-            StringKind::SingleQuoted,
-            string,
-        )))
+        RawKind::String(RawString::new(StringKind::SingleQuoted, string))
     }
 
     /// Read a double-quoted string.
-    fn double_quoted(&mut self) -> Result<RawKind> {
+    /// 
+    /// TODO: process escape sequences and newlines.
+    fn double_quoted(&mut self) -> RawKind {
         self.bump(1);
         let start = self.position;
 
@@ -184,10 +185,8 @@ impl<'a> Parser<'a> {
 
         let string = self.strings.insert(self.string(start));
         self.bump(1);
-        Ok(RawKind::String(RawString::new(
-            StringKind::DoubleQuoted,
-            string,
-        )))
+
+        RawKind::String(RawString::new(StringKind::DoubleQuoted, string))
     }
 
     /// Parse an inline list.
@@ -384,7 +383,7 @@ impl<'a> Parser<'a> {
     fn table(&mut self, indent: &StringId, mut key: RawString) -> Result<(RawKind, StringId)> {
         let mut items = Vec::new();
         let mut previous = None;
-        let indent_count = self.count_indent(&indent);
+        let indent_count = self.count_indent(indent);
 
         let ws = loop {
             if !matches!(self.peek(), b':') {
@@ -397,7 +396,7 @@ impl<'a> Parser<'a> {
 
             let new_indent = if nl == 0 {
                 let len = self.strings.get(&key.string).len();
-                self.build_indentation(len.saturating_add(1), &indent, &new_indentation)
+                self.build_indentation(len.saturating_add(1), indent, &new_indentation)
             } else {
                 new_indentation
             };
@@ -453,7 +452,7 @@ impl<'a> Parser<'a> {
     /// Count indentation level for the given string.
     fn count_indent(&self, string: &StringId) -> usize {
         let string = self.strings.get(string);
-        let n = string.rfind(b"\n").map(|n| n.wrapping_add(1)).unwrap_or(0);
+        let n = string.rfind(b"\n").map_or(0, |n| n.wrapping_add(1));
         string[n..].chars().count()
     }
 
@@ -486,9 +485,9 @@ impl<'a> Parser<'a> {
                 let (value, ws) = self.list(indent)?;
                 (value, Some(ws))
             }
-            (number_first!(), _) => (self.number()?, None),
-            (b'"', _) => (self.double_quoted()?, None),
-            (b'\'', _) => (self.single_quoted()?, None),
+            (number_first!(), _) => (self.number(), None),
+            (b'"', _) => (self.double_quoted(), None),
+            (b'\'', _) => (self.single_quoted(), None),
             (b'[', _) => (self.inline_list(indent)?, None),
             (b'{', _) => (self.inline_table(indent)?, None),
             (b, _) if b.is_ascii_graphic() => {
