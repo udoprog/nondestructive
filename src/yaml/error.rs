@@ -1,3 +1,5 @@
+//! Errors associated with processing YAML.
+
 use core::fmt;
 use core::ops::Range;
 
@@ -16,19 +18,17 @@ impl Error {
     }
 
     /// Get the range of the input span.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use nondestructive::yaml;
-    ///
-    /// let error = yaml::from_bytes("私").unwrap_err();
-    /// assert_eq!(error.span(), 0..1);
-    /// ```
     #[must_use]
     #[inline]
     pub fn span(&self) -> Range<usize> {
         self.span.clone()
+    }
+
+    /// Get the kind of an error.
+    #[must_use]
+    #[inline]
+    pub fn kind(&self) -> &ErrorKind {
+        &self.kind
     }
 }
 
@@ -45,38 +45,118 @@ impl fmt::Display for Error {
 
 impl std::error::Error for Error {}
 
-/// The kind of a parse error.
-#[derive(Debug)]
-pub(crate) enum ErrorKind {
-    /// Failed to parse value.
-    ValueError,
-    /// Expected mapping separator.
-    ExpectedMappingSeparator,
-    /// Expected sequence,
-    ExpectedSequenceMarker,
-    /// Expected a sequence terminator.
-    ExpectedSequenceTerminator,
-    /// Expected a mapping terminator.
-    ExpectedMappingTerminator,
-    /// Expected valid escape sequence.
-    ExpectedEscape,
-    /// Expected hex escape.
-    ExpectedHexEscape,
-    /// Expected unicode escape.
-    ExpectedUnicodeEscape,
+/// The kind of an [`Error`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ErrorKind {
+    /// Bad a sequence terminator.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nondestructive::yaml;
+    ///
+    /// const INPUT: &str = r#"[Aristotle, # this is a comment"#;
+    ///
+    /// let error = yaml::from_bytes(INPUT).unwrap_err();
+    /// assert_eq!(*error.kind(), yaml::error::ErrorKind::BadSequenceTerminator);
+    /// assert_eq!(&INPUT[error.span()], " # this is a comment");
+    /// ```
+    BadSequenceTerminator,
+    /// Bad mapping separator.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nondestructive::yaml;
+    ///
+    /// const INPUT: &str = r#"{name: Aristotle, age # this is a comment"#;
+    ///
+    /// let error = yaml::from_bytes(INPUT).unwrap_err();
+    /// assert_eq!(*error.kind(), yaml::error::ErrorKind::BadMappingSeparator);
+    /// assert_eq!(&INPUT[error.span()], " age # this is a comment");
+    /// ```
+    ///
+    /// Missing terminator in a non-inline mapping:
+    ///
+    /// ```
+    /// use nondestructive::yaml;
+    ///
+    /// const INPUT: &str = r#"
+    /// name: Aristotle
+    /// age # end"#;
+    ///
+    /// let error = yaml::from_bytes(INPUT).unwrap_err();
+    /// assert_eq!(*error.kind(), yaml::error::ErrorKind::BadMappingSeparator);
+    /// assert_eq!(&INPUT[error.span()], "age # end");
+    /// ```
+    BadMappingSeparator,
+    /// Bad a mapping terminator.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nondestructive::yaml;
+    ///
+    /// const INPUT: &str = r#"{name: Aristotle, # this is a comment"#;
+    ///
+    /// let error = yaml::from_bytes(INPUT).unwrap_err();
+    /// assert_eq!(*error.kind(), yaml::error::ErrorKind::BadMappingTerminator);
+    /// assert_eq!(&INPUT[error.span()], " # this is a comment");
+    /// ```
+    BadMappingTerminator,
+    /// Not a valid escape sequence.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nondestructive::yaml;
+    ///
+    /// const INPUT: &str = r#""hello \o1u world""#;
+    ///
+    /// let error = yaml::from_bytes(INPUT).unwrap_err();
+    /// assert_eq!(*error.kind(), yaml::error::ErrorKind::BadEscape);
+    /// assert_eq!(&INPUT[error.span()], "\\o");
+    /// ```
+    BadEscape,
+    /// Bad hex escape.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nondestructive::yaml;
+    ///
+    /// const INPUT: &str = r#""hello \x1u world""#;
+    ///
+    /// let error = yaml::from_bytes(INPUT).unwrap_err();
+    /// assert_eq!(*error.kind(), yaml::error::ErrorKind::BadHexEscape);
+    /// assert_eq!(&INPUT[error.span()], "\\x1u");
+    /// ```
+    BadHexEscape,
+    /// Bad unicode escape.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nondestructive::yaml;
+    ///
+    /// const INPUT: &str = r#""hello \ud800 world""#;
+    ///
+    /// let error = yaml::from_bytes(INPUT).unwrap_err();
+    /// assert_eq!(*error.kind(), yaml::error::ErrorKind::BadUnicodeEscape);
+    /// assert_eq!(&INPUT[error.span()], "\\ud800");
+    /// ```
+    BadUnicodeEscape,
 }
 
 impl fmt::Display for ErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ErrorKind::ValueError => write!(f, "value error"),
-            ErrorKind::ExpectedMappingSeparator => write!(f, "expected mapping separator"),
-            ErrorKind::ExpectedSequenceMarker => write!(f, "expected sequence marker"),
-            ErrorKind::ExpectedSequenceTerminator => write!(f, "expected sequence terminator"),
-            ErrorKind::ExpectedMappingTerminator => write!(f, "expected mapping terminator"),
-            ErrorKind::ExpectedEscape => write!(f, "expected escape"),
-            ErrorKind::ExpectedHexEscape => write!(f, "expected hex escape"),
-            ErrorKind::ExpectedUnicodeEscape => write!(f, "expected unicode escape"),
+            ErrorKind::BadSequenceTerminator => write!(f, "bad sequence terminator"),
+            ErrorKind::BadMappingSeparator => write!(f, "bad mapping separator"),
+            ErrorKind::BadMappingTerminator => write!(f, "bad mapping terminator"),
+            ErrorKind::BadEscape => write!(f, "bad escape"),
+            ErrorKind::BadHexEscape => write!(f, "bad hex escape"),
+            ErrorKind::BadUnicodeEscape => write!(f, "bad unicode escape"),
         }
     }
 }

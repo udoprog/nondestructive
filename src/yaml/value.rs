@@ -225,6 +225,28 @@ impl<'a> Value<'a> {
     ///
     /// See [`Value::as_bstr`] for an alternative.
     ///
+    /// # Escape sequences and unicode
+    ///
+    /// YAML supports a variety of escape sequences which will be handled by
+    /// this parser.
+    ///
+    /// ```
+    /// use nondestructive::yaml;
+    ///
+    /// let doc = yaml::from_bytes("フェリスと言います！")?;
+    /// assert_eq!(doc.root().as_str(), Some("フェリスと言います！"));
+    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// ```
+    ///
+    /// ```
+    /// use nondestructive::yaml;
+    ///
+    /// let doc = yaml::from_bytes("\"hello \\x20 world\"")?;
+    /// assert_eq!(doc.root().as_str(), Some("hello \x20 world"));
+    /// assert_eq!(doc.to_string(), "\"hello \\x20 world\"");
+    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// ```
+    ///
     /// # Examples
     ///
     /// ```

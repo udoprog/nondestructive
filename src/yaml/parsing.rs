@@ -1,5 +1,3 @@
-use std::ops::Range;
-
 use bstr::ByteSlice;
 
 use crate::yaml::data::{Data, StringId};
@@ -16,9 +14,16 @@ type Result<T, E = Error> = std::result::Result<T, E>;
 const EOF: u8 = b'\0';
 
 /// Inline control characters which splits up data.
-macro_rules! inline_control {
+macro_rules! ctl {
     () => {
         b',' | b':' | b']' | b'}' | EOF
+    };
+}
+
+/// Ascii whitespace matching.
+macro_rules! ws {
+    () => {
+        b'\t' | b'\n' | b'\x0C' | b'\r' | b' '
     };
 }
 
@@ -28,7 +33,7 @@ pub struct Parser<'a> {
     scratch: Vec<u8>,
     data: Data,
     input: &'a [u8],
-    position: usize,
+    n: usize,
 }
 
 impl<'a> Parser<'a> {
@@ -38,19 +43,19 @@ impl<'a> Parser<'a> {
             scratch: Vec::new(),
             data: Data::default(),
             input,
-            position: 0,
+            n: 0,
         }
     }
 
     /// Parses a single value, and returns its kind.
     pub(crate) fn parse(mut self) -> Result<Document> {
-        let (prefix, _) = self.ws();
+        let prefix = self.ws();
         let indent = self.indentation(&prefix);
         let (root, suffix) = self.value(&indent, false)?;
 
         let suffix = match suffix {
             Some(suffix) => suffix,
-            None => self.ws().0,
+            None => self.ws(),
         };
 
         let root = self.data.insert_raw(root);
@@ -59,12 +64,12 @@ impl<'a> Parser<'a> {
 
     /// Test if eof.
     fn is_eof(&self) -> bool {
-        self.position == self.input.len()
+        self.n == self.input.len()
     }
 
     /// Peek the next value.
     fn peek(&self) -> u8 {
-        let Some(&b) = self.input.get(self.position) else {
+        let Some(&b) = self.input.get(self.n) else {
             return 0;
         };
 
@@ -75,7 +80,7 @@ impl<'a> Parser<'a> {
     fn peek2(&self) -> (u8, u8) {
         let b0 = self.peek();
 
-        let Some(&b) = self.input.get(self.position.wrapping_add(1)) else {
+        let Some(&b) = self.input.get(self.n.wrapping_add(1)) else {
             return (b0, 0);
         };
 
@@ -84,32 +89,63 @@ impl<'a> Parser<'a> {
 
     /// Bump a single byte of input.
     fn bump(&mut self, n: usize) {
-        self.position = self.position.wrapping_add(n).min(self.input.len());
+        self.n = self.n.wrapping_add(n).min(self.input.len());
     }
 
-    /// Get the current span.
-    fn span(&self, len: usize) -> Range<usize> {
-        let end = self.position.wrapping_add(len);
-        self.position..end
+    /// Get the current back span.
+    fn span_back(&self, string: &StringId) -> usize {
+        let len = self.data.str(string).len();
+        self.n.saturating_sub(len)
     }
 
     /// Get a string from the given starting position to current cursor
     /// location.
     fn string(&self, start: usize) -> &'a [u8] {
-        self.input.get(start..self.position).unwrap_or_default()
+        self.input.get(start..self.n).unwrap_or_default()
+    }
+
+    /// Find the given character.
+    fn find(&mut self, a: u8) {
+        if let Some(n) = memchr::memchr(a, &self.input[self.n..]) {
+            self.bump(n);
+        } else {
+            self.n = self.input.len();
+        }
+    }
+
+    /// Find the given character.
+    fn find2(&mut self, a: u8, b: u8) {
+        if let Some(n) = memchr::memchr2(a, b, &self.input[self.n..]) {
+            self.bump(n);
+        } else {
+            self.n = self.input.len();
+        }
     }
 
     /// Consume whitespace.
-    fn ws(&mut self) -> (StringId, usize) {
-        let start = self.position;
-        let mut nl = 0;
+    fn ws_nl(&mut self) -> (StringId, u32) {
+        let start = self.n;
+        let mut nl = 0u32;
 
-        while self.peek().is_ascii_whitespace() {
-            nl += usize::from(matches!(self.peek(), b'\n'));
+        loop {
+            match self.peek() {
+                b'#' => {
+                    self.find(b'\n');
+                }
+                ws!() => {}
+                _ => break,
+            }
+
+            nl = nl.wrapping_add(u32::from(matches!(self.peek(), b'\n')));
             self.bump(1);
         }
 
         (self.data.insert_str(self.string(start)), nl)
+    }
+
+    /// Consume whitespace.
+    fn ws(&mut self) -> StringId {
+        self.ws_nl().0
     }
 
     /// Consume a single number.
@@ -156,9 +192,9 @@ impl<'a> Parser<'a> {
 
     /// Read a double-quoted string.
     fn single_quoted(&mut self) -> RawKind {
-        let original = self.position;
+        let original = self.n;
         self.bump(1);
-        let start = self.position;
+        let start = self.n;
 
         loop {
             match self.peek2() {
@@ -210,9 +246,9 @@ impl<'a> Parser<'a> {
 
     /// Read a double-quoted string.
     fn double_quoted(&mut self) -> Result<RawKind> {
-        let original = self.position;
+        let original = self.n;
         self.bump(1);
-        let start = self.position;
+        let start = self.n;
 
         loop {
             match self.peek() {
@@ -243,10 +279,12 @@ impl<'a> Parser<'a> {
             match self.peek() {
                 b'"' | EOF => break,
                 b'\\' => {
+                    let start = self.n;
                     self.bump(1);
-                    self.unescape()?;
+                    self.unescape(start)?;
                 }
-                _ => {
+                b => {
+                    self.scratch.push(b);
                     self.bump(1);
                 }
             }
@@ -265,7 +303,7 @@ impl<'a> Parser<'a> {
     }
 
     /// Unescape into the scratch buffer.
-    fn unescape(&mut self) -> Result<()> {
+    fn unescape(&mut self, start: usize) -> Result<()> {
         let b = match self.peek() {
             b'n' => b'\n',
             b'0' => b'\x00',
@@ -278,25 +316,27 @@ impl<'a> Parser<'a> {
             b'e' => b'\x1b',
             b'\\' => b'\"',
             b'x' => {
-                return self.unescape_unicode(2, ErrorKind::ExpectedHexEscape);
+                self.bump(1);
+                return self.unescape_unicode(start, 2, ErrorKind::BadHexEscape);
             }
             b'u' => {
-                return self.unescape_unicode(4, ErrorKind::ExpectedUnicodeEscape);
+                self.bump(1);
+                return self.unescape_unicode(start, 4, ErrorKind::BadUnicodeEscape);
             }
             _ => {
-                return Err(Error::new(self.span(1), ErrorKind::ExpectedEscape));
+                self.bump(1);
+                return Err(Error::new(start..self.n, ErrorKind::BadEscape));
             }
         };
 
         self.scratch.push(b);
+        self.bump(1);
         Ok(())
     }
 
     /// Unescape a unicode character into the scratch buffer.
-    fn unescape_unicode(&mut self, count: usize, err: ErrorKind) -> Result<()> {
+    fn unescape_unicode(&mut self, start: usize, count: usize, err: ErrorKind) -> Result<()> {
         let mut c: u32 = 0;
-
-        let start = self.position;
 
         for _ in 0..count {
             c <<= 4;
@@ -306,7 +346,8 @@ impl<'a> Parser<'a> {
                 b @ b'a'..=b'f' => u32::from(b - b'a') + 0xa,
                 b @ b'A'..=b'F' => u32::from(b - b'A') + 0xa,
                 _ => {
-                    return Err(Error::new(self.span(1), err));
+                    self.bump(1);
+                    return Err(Error::new(start..self.n, err));
                 }
             };
 
@@ -314,7 +355,7 @@ impl<'a> Parser<'a> {
         }
 
         let Some(c) = char::from_u32(c) else {
-            return Err(Error::new(start..self.position, err));
+            return Err(Error::new(start..self.n, err));
         };
 
         self.scratch.extend(c.encode_utf8(&mut [0; 4]).as_bytes());
@@ -328,7 +369,7 @@ impl<'a> Parser<'a> {
         let mut items = Vec::new();
         let mut last = false;
         let mut trailing = false;
-        let mut prefix = self.ws().0;
+        let mut prefix = self.ws();
 
         while !matches!(self.peek(), b']' | EOF) {
             trailing = false;
@@ -336,7 +377,7 @@ impl<'a> Parser<'a> {
 
             let separator = match new_ws {
                 Some(ws) => ws,
-                None => self.ws().0,
+                None => self.ws(),
             };
 
             items.push(RawSequenceItem {
@@ -346,7 +387,7 @@ impl<'a> Parser<'a> {
             });
 
             if last {
-                prefix = self.ws().0;
+                prefix = self.ws();
                 break;
             }
 
@@ -357,13 +398,13 @@ impl<'a> Parser<'a> {
                 last = true;
             }
 
-            prefix = self.ws().0;
+            prefix = self.ws();
         }
 
         if !matches!(self.peek(), b']') {
             return Err(Error::new(
-                self.span(1),
-                ErrorKind::ExpectedSequenceTerminator,
+                self.span_back(&prefix)..self.n,
+                ErrorKind::BadSequenceTerminator,
             ));
         }
 
@@ -385,17 +426,18 @@ impl<'a> Parser<'a> {
         let mut items = Vec::new();
         let mut last = false;
         let mut trailing = false;
-        let mut prefix = self.ws().0;
+        let mut start = self.n;
+        let mut prefix = self.ws();
 
         while !matches!(self.peek(), b'}' | EOF) {
             trailing = false;
 
-            let Some(key) = self.until_colon(self.position) else {
-                return Err(Error::new(self.span(1), ErrorKind::ExpectedMappingSeparator));
+            let Some(key) = self.until_colon(self.n) else {
+                return Err(Error::new(start..self.n, ErrorKind::BadMappingSeparator));
             };
 
             self.bump(1);
-            let separator = self.ws().0;
+            let separator = self.ws();
             let (value, new_ws) = self.value(indent, true)?;
 
             items.push(RawMappingItem {
@@ -408,7 +450,7 @@ impl<'a> Parser<'a> {
             if last {
                 prefix = match new_ws {
                     Some(ws) => ws,
-                    None => self.ws().0,
+                    None => self.ws(),
                 };
 
                 break;
@@ -421,17 +463,16 @@ impl<'a> Parser<'a> {
                 last = true;
             }
 
+            start = self.n;
+
             prefix = match new_ws {
                 Some(ws) => ws,
-                None => self.ws().0,
+                None => self.ws(),
             };
         }
 
         if !matches!(self.peek(), b'}') {
-            return Err(Error::new(
-                self.span(1),
-                ErrorKind::ExpectedMappingTerminator,
-            ));
+            return Err(Error::new(start..self.n, ErrorKind::BadMappingTerminator));
         }
 
         self.bump(1);
@@ -452,12 +493,8 @@ impl<'a> Parser<'a> {
         let indentation_count = self.count_indent(indentation);
 
         let ws = loop {
-            if !matches!(self.peek(), b'-') {
-                return Err(Error::new(self.span(1), ErrorKind::ExpectedSequenceMarker));
-            }
-
             self.bump(1);
-            let (separator, nl) = self.ws();
+            let (separator, nl) = self.ws_nl();
             let new_indentation = self.indentation(&separator);
 
             let new_indent = if nl == 0 {
@@ -470,7 +507,7 @@ impl<'a> Parser<'a> {
 
             let ws = match ws {
                 Some(suffix) => suffix,
-                None => self.ws().0,
+                None => self.ws(),
             };
 
             items.push(RawSequenceItem {
@@ -520,21 +557,24 @@ impl<'a> Parser<'a> {
     }
 
     /// Parse a raw mapping.
-    fn mapping(&mut self, indent: &StringId, mut key: RawString) -> Result<(RawKind, StringId)> {
+    fn mapping(
+        &mut self,
+        mut start: usize,
+        indent: &StringId,
+        mut key: RawString,
+    ) -> Result<(RawKind, StringId)> {
         let mut items = Vec::new();
         let mut previous = None;
         let indent_count = self.count_indent(indent);
 
         let ws = loop {
             if !matches!(self.peek(), b':') {
-                return Err(Error::new(
-                    self.span(1),
-                    ErrorKind::ExpectedMappingSeparator,
-                ));
+                self.bump(1);
+                return Err(Error::new(start..self.n, ErrorKind::BadMappingSeparator));
             }
 
             self.bump(1);
-            let (separator, nl) = self.ws();
+            let (separator, nl) = self.ws_nl();
             let new_indentation = self.indentation(&separator);
 
             let new_indent = if nl == 0 {
@@ -548,7 +588,7 @@ impl<'a> Parser<'a> {
 
             let ws = match ws {
                 Some(ws) => ws,
-                None => self.ws().0,
+                None => self.ws(),
             };
 
             items.push(RawMappingItem {
@@ -565,6 +605,7 @@ impl<'a> Parser<'a> {
             }
 
             previous = Some(ws);
+            start = self.n;
 
             key = match self.next_mapping_key() {
                 Some(key) => key,
@@ -601,9 +642,7 @@ impl<'a> Parser<'a> {
 
     /// Process a key up until `:` or end of the current line.
     fn key_or_eol(&mut self, start: usize) -> Option<RawString> {
-        while !matches!(self.peek(), b':' | b'\n' | EOF) {
-            self.bump(1);
-        }
+        self.find2(b':', b'\n');
 
         if self.peek() == b':' {
             let key = self.data.insert_str(self.string(start));
@@ -630,7 +669,7 @@ impl<'a> Parser<'a> {
     /// Consume a single value.
     fn value(&mut self, indent: &StringId, inline: bool) -> Result<(Raw, Option<StringId>)> {
         let (kind, ws) = match self.peek2() {
-            (b'-', b) if !inline && b.is_ascii_whitespace() => {
+            (b'-', ws!()) if !inline => {
                 let (value, ws) = self.sequence(indent)?;
                 (value, Some(ws))
             }
@@ -639,9 +678,9 @@ impl<'a> Parser<'a> {
             (b'[', _) => (self.inline_sequence(indent)?, None),
             (b'{', _) => (self.inline_mapping(indent)?, None),
             (b'~', _) => (RawKind::Null(super::NullKind::Tilde), None),
-            (b, _) if b.is_ascii_graphic() => {
+            _ => {
                 'default: {
-                    let start = self.position;
+                    let start = self.n;
 
                     if let Some(number) = self.number(start) {
                         break 'default (number, None);
@@ -650,11 +689,11 @@ impl<'a> Parser<'a> {
                     if inline {
                         // Seek until we find a control character, since we're
                         // simply treating the current segment as a string.
-                        while !matches!(self.peek(), inline_control!()) {
+                        while !matches!(self.peek(), ctl!()) {
                             self.bump(1);
                         }
                     } else if let Some(key) = self.key_or_eol(start) {
-                        let (value, ws) = self.mapping(indent, key)?;
+                        let (value, ws) = self.mapping(start, indent, key)?;
                         return Ok((Raw::new(value, *indent), Some(ws)));
                     }
 
@@ -673,7 +712,6 @@ impl<'a> Parser<'a> {
                     }
                 }
             }
-            _ => return Err(Error::new(self.span(1), ErrorKind::ValueError)),
         };
 
         Ok((Raw::new(kind, *indent), ws))
@@ -681,7 +719,7 @@ impl<'a> Parser<'a> {
 
     /// Parse next mapping key.
     fn next_mapping_key(&mut self) -> Option<RawString> {
-        let start = self.position;
+        let start = self.n;
 
         let string = loop {
             match self.peek() {

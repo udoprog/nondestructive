@@ -58,7 +58,7 @@ pub use self::any_mut::AnyMut;
 mod data;
 pub use self::data::ValueId;
 
-mod error;
+pub mod error;
 pub use self::error::Error;
 
 mod document;
