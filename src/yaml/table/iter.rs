@@ -31,7 +31,7 @@ impl<'a> Iterator for Iter<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         let item = self.iter.next()?;
         let key = self.data.str(&item.key.string);
-        let value = Value::new(self.data, &item.value);
+        let value = Value::new(self.data, item.value);
         Some((key, value))
     }
 
@@ -39,7 +39,7 @@ impl<'a> Iterator for Iter<'a> {
     fn nth(&mut self, n: usize) -> Option<Self::Item> {
         let item = self.iter.nth(n)?;
         let key = self.data.str(&item.key.string);
-        let value = Value::new(self.data, &item.value);
+        let value = Value::new(self.data, item.value);
         Some((key, value))
     }
 
@@ -54,7 +54,7 @@ impl DoubleEndedIterator for Iter<'_> {
     fn next_back(&mut self) -> Option<Self::Item> {
         let item = self.iter.next_back()?;
         let key = self.data.str(&item.key.string);
-        let value = Value::new(self.data, &item.value);
+        let value = Value::new(self.data, item.value);
         Some((key, value))
     }
 
@@ -62,7 +62,7 @@ impl DoubleEndedIterator for Iter<'_> {
     fn nth_back(&mut self, n: usize) -> Option<Self::Item> {
         let item = self.iter.nth(n)?;
         let key = self.data.str(&item.key.string);
-        let value = Value::new(self.data, &item.value);
+        let value = Value::new(self.data, item.value);
         Some((key, value))
     }
 }

@@ -2,8 +2,7 @@ use core::fmt;
 
 use bstr::BStr;
 
-use crate::yaml::data::Data;
-use crate::yaml::raw::RawTable;
+use crate::yaml::data::{Data, ValueId};
 use crate::yaml::table::Iter;
 use crate::yaml::Value;
 
@@ -69,12 +68,12 @@ use crate::yaml::Value;
 /// ```
 pub struct Table<'a> {
     data: &'a Data,
-    raw: &'a RawTable,
+    id: ValueId,
 }
 
 impl<'a> Table<'a> {
-    pub(crate) fn new(data: &'a Data, raw: &'a RawTable) -> Self {
-        Self { data, raw }
+    pub(crate) fn new(data: &'a Data, id: ValueId) -> Self {
+        Self { data, id }
     }
 
     /// Get the length of the table.
@@ -99,7 +98,7 @@ impl<'a> Table<'a> {
     #[must_use]
     #[inline]
     pub fn len(&self) -> usize {
-        self.raw.items.len()
+        self.data.table(self.id).items.len()
     }
 
     /// Test if the table is empty.
@@ -124,7 +123,7 @@ impl<'a> Table<'a> {
     #[must_use]
     #[inline]
     pub fn is_empty(&self) -> bool {
-        self.raw.items.is_empty()
+        self.data.table(self.id).items.is_empty()
     }
 
     /// Get a value from the table by its key.
@@ -156,9 +155,9 @@ impl<'a> Table<'a> {
     #[must_use]
     #[inline]
     pub fn get(&self, key: &str) -> Option<Value<'a>> {
-        for e in &self.raw.items {
-            if self.data.str(&e.key.string) == key {
-                return Some(Value::new(self.data, &e.value));
+        for item in &self.data.table(self.id).items {
+            if self.data.str(&item.key.string) == key {
+                return Some(Value::new(self.data, item.value));
             }
         }
 
@@ -187,14 +186,14 @@ impl<'a> Table<'a> {
     #[must_use]
     #[inline]
     pub fn iter(&self) -> Iter<'_> {
-        Iter::new(self.data, &self.raw.items)
+        Iter::new(self.data, &self.data.table(self.id).items)
     }
 }
 
 impl fmt::Display for Table<'_> {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.raw.display(self.data, f)
+        self.data.table(self.id).display(self.data, f)
     }
 }
 
@@ -230,6 +229,6 @@ impl<'a> IntoIterator for Table<'a> {
 
     #[inline]
     fn into_iter(self) -> Self::IntoIter {
-        Iter::new(self.data, &self.raw.items)
+        Iter::new(self.data, &self.data.table(self.id).items)
     }
 }

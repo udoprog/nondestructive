@@ -79,7 +79,6 @@ mod de;
 mod error;
 mod ser;
 
-pub use self::de::ValueDeserializer;
 pub use self::error::Error;
 
 /// A number hint associated with a deserialized number.

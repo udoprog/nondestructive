@@ -3,8 +3,10 @@ use core::fmt;
 use bstr::{BStr, ByteSlice};
 
 use crate::yaml::data::Data;
-use crate::yaml::raw::{Raw, RawKind, RawStringKind};
+use crate::yaml::raw::{RawKind, RawStringKind};
 use crate::yaml::{List, Table};
+
+use super::data::ValueId;
 
 /// Separator to use when separating the value from its key or list marker.
 ///
@@ -84,7 +86,7 @@ impl NullKind {
 /// ```
 pub struct Value<'a> {
     pub(crate) data: &'a Data,
-    pub(crate) raw: &'a Raw,
+    pub(crate) id: ValueId,
 }
 
 macro_rules! as_number {
@@ -104,7 +106,7 @@ macro_rules! as_number {
         #[must_use]
         #[inline]
         pub fn $name(&self) -> Option<$ty> {
-            match &self.raw.kind {
+            match &self.data.raw(self.id).kind {
                 RawKind::Number(raw) => {
                     let string = self.data.str(&raw.string);
                     lexical_core::parse(string).ok()
@@ -116,8 +118,8 @@ macro_rules! as_number {
 }
 
 impl<'a> Value<'a> {
-    pub(crate) fn new(data: &'a Data, raw: &'a Raw) -> Self {
-        Self { data, raw }
+    pub(crate) fn new(data: &'a Data, id: ValueId) -> Self {
+        Self { data, id }
     }
 
     /// Get the value as a [`BStr`].
@@ -147,7 +149,7 @@ impl<'a> Value<'a> {
     #[must_use]
     #[inline]
     pub fn as_bstr(&self) -> Option<&'a BStr> {
-        match &self.raw.kind {
+        match &self.data.raw(self.id).kind {
             RawKind::String(raw) => Some(self.data.str(&raw.string)),
             _ => None,
         }
@@ -182,7 +184,7 @@ impl<'a> Value<'a> {
     #[must_use]
     #[inline]
     pub fn as_str(&self) -> Option<&'a str> {
-        match &self.raw.kind {
+        match &self.data.raw(self.id).kind {
             RawKind::String(raw) => self.data.str(&raw.string).to_str().ok(),
             _ => None,
         }
@@ -208,7 +210,7 @@ impl<'a> Value<'a> {
         const TRUE: &[u8] = b"true";
         const FALSE: &[u8] = b"false";
 
-        match &self.raw.kind {
+        match &self.data.raw(self.id).kind {
             RawKind::String(raw) => match (raw.kind, self.data.str(&raw.string).as_bytes()) {
                 (RawStringKind::Bare, TRUE) => Some(true),
                 (RawStringKind::Bare, FALSE) => Some(false),
@@ -247,8 +249,8 @@ impl<'a> Value<'a> {
     #[must_use]
     #[inline]
     pub fn as_table(&self) -> Option<Table<'a>> {
-        match &self.raw.kind {
-            RawKind::Table(raw) => Some(Table::new(self.data, raw)),
+        match &self.data.raw(self.id).kind {
+            RawKind::Table(..) => Some(Table::new(self.data, self.id)),
             _ => None,
         }
     }
@@ -278,8 +280,8 @@ impl<'a> Value<'a> {
     #[must_use]
     #[inline]
     pub fn as_list(&self) -> Option<List<'a>> {
-        match &self.raw.kind {
-            RawKind::List(raw) => Some(List::new(self.data, raw)),
+        match &self.data.raw(self.id).kind {
+            RawKind::List(..) => Some(List::new(self.data, self.id)),
             _ => None,
         }
     }
@@ -301,7 +303,7 @@ impl<'a> Value<'a> {
 impl fmt::Display for Value<'_> {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.raw.display(self.data, f)
+        self.data.raw(self.id).display(self.data, f)
     }
 }
 
@@ -312,7 +314,7 @@ impl fmt::Debug for Value<'_> {
         impl fmt::Debug for Display<'_, '_> {
             #[inline]
             fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                self.0.raw.display(self.0.data, f)
+                self.0.data.raw(self.0.id).display(self.0.data, f)
             }
         }
 

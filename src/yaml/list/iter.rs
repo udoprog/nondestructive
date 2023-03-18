@@ -28,13 +28,13 @@ impl<'a> Iterator for Iter<'a> {
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         let item = self.iter.next()?;
-        Some(Value::new(self.data, &item.value))
+        Some(Value::new(self.data, item.value))
     }
 
     #[inline]
     fn nth(&mut self, n: usize) -> Option<Self::Item> {
         let item = self.iter.nth(n)?;
-        Some(Value::new(self.data, &item.value))
+        Some(Value::new(self.data, item.value))
     }
 
     #[inline]
@@ -47,13 +47,13 @@ impl DoubleEndedIterator for Iter<'_> {
     #[inline]
     fn next_back(&mut self) -> Option<Self::Item> {
         let item = self.iter.next_back()?;
-        Some(Value::new(self.data, &item.value))
+        Some(Value::new(self.data, item.value))
     }
 
     #[inline]
     fn nth_back(&mut self, n: usize) -> Option<Self::Item> {
         let item = self.iter.nth(n)?;
-        Some(Value::new(self.data, &item.value))
+        Some(Value::new(self.data, item.value))
     }
 }
 

@@ -1,6 +1,5 @@
-use crate::yaml::data::Data;
-use crate::yaml::raw::{new_bool, new_string};
-use crate::yaml::raw::{Layout, RawKind, RawNumber, RawTable};
+use crate::yaml::data::{Data, ValueId};
+use crate::yaml::raw::{new_bool, new_string, RawKind, RawNumber};
 use crate::yaml::serde;
 use crate::yaml::{NullKind, Separator, Table, ValueMut};
 
@@ -43,8 +42,7 @@ use crate::yaml::{NullKind, Separator, Table, ValueMut};
 /// ```
 pub struct TableMut<'a> {
     data: &'a mut Data,
-    raw: &'a mut RawTable,
-    layout: &'a Layout,
+    id: ValueId,
 }
 
 macro_rules! insert_float {
@@ -75,8 +73,7 @@ macro_rules! insert_float {
             let mut buffer = ryu::Buffer::new();
             let number = self.data.insert_str(buffer.format(value));
             let value = RawKind::Number(RawNumber::new(number, serde::$hint));
-            self.raw
-                .insert(self.data, self.layout, key, Separator::Auto, value);
+            insert(self.data, self.id, key, Separator::Auto, value);
         }
     };
 }
@@ -109,15 +106,14 @@ macro_rules! insert_number {
             let mut buffer = itoa::Buffer::new();
             let number = self.data.insert_str(buffer.format(value));
             let value = RawKind::Number(RawNumber::new(number, serde::$hint));
-            self.raw
-                .insert(self.data, self.layout, key, Separator::Auto, value);
+            insert(self.data, self.id, key, Separator::Auto, value);
         }
     };
 }
 
 impl<'a> TableMut<'a> {
-    pub(crate) fn new(data: &'a mut Data, raw: &'a mut RawTable, layout: &'a Layout) -> Self {
-        Self { data, raw, layout }
+    pub(crate) fn new(data: &'a mut Data, id: ValueId) -> Self {
+        Self { data, id }
     }
 
     /// Coerce a mutable table as an immutable [Table].
@@ -153,7 +149,7 @@ impl<'a> TableMut<'a> {
     #[must_use]
     #[inline]
     pub fn as_ref(&self) -> Table<'_> {
-        Table::new(self.data, self.raw)
+        Table::new(self.data, self.id)
     }
 
     /// Coerce a mutable table into an immutable [Table] with the lifetime of
@@ -186,7 +182,7 @@ impl<'a> TableMut<'a> {
     #[must_use]
     #[inline]
     pub fn into_ref(self) -> Table<'a> {
-        Table::new(self.data, self.raw)
+        Table::new(self.data, self.id)
     }
 
     /// Get a value mutably from the table.
@@ -220,9 +216,9 @@ impl<'a> TableMut<'a> {
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     pub fn get_mut(&mut self, key: &str) -> Option<ValueMut<'_>> {
-        for e in &mut self.raw.items {
-            if self.data.str(&e.key.string) == key {
-                return Some(ValueMut::new(self.data, &mut e.value));
+        for item in &self.data.table(self.id).items {
+            if self.data.str(&item.key.string) == key {
+                return Some(ValueMut::new(self.data, item.value));
             }
         }
 
@@ -260,16 +256,14 @@ impl<'a> TableMut<'a> {
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     pub fn insert(&mut self, key: &str, separator: Separator<'_>) -> ValueMut<'_> {
-        let index = self.raw.insert(
+        let value = insert(
             self.data,
-            self.layout,
+            self.id,
             key,
             separator,
             RawKind::Null(NullKind::Empty),
         );
-        // SAFETY: value was just inserted.
-        let raw = unsafe { self.raw.items.get_unchecked_mut(index) };
-        ValueMut::new(self.data, &mut raw.value)
+        ValueMut::new(self.data, value)
     }
 
     /// Insert a string.
@@ -299,8 +293,7 @@ impl<'a> TableMut<'a> {
         S: AsRef<str>,
     {
         let string = new_string(self.data, string);
-        self.raw
-            .insert(self.data, self.layout, key, Separator::Auto, string);
+        insert(self.data, self.id, key, Separator::Auto, string);
     }
 
     /// Insert a bool.
@@ -326,8 +319,7 @@ impl<'a> TableMut<'a> {
     /// ```
     pub fn insert_bool(&mut self, key: &str, value: bool) {
         let value = new_bool(self.data, value);
-        self.raw
-            .insert(self.data, self.layout, key, Separator::Auto, value);
+        insert(self.data, self.id, key, Separator::Auto, value);
     }
 
     insert_float!(insert_f32, f32, "32-bit float", 10.42, F32);
@@ -342,4 +334,52 @@ impl<'a> TableMut<'a> {
     insert_number!(insert_i64, i64, "64-bit signed integer", -42, I64);
     insert_number!(insert_u128, u128, "128-bit unsigned integer", 42, U128);
     insert_number!(insert_i128, i128, "128-bit signed integer", -42, I128);
+}
+
+/// Insert a value into the table.
+pub(crate) fn insert(
+    data: &mut Data,
+    id: ValueId,
+    key: &str,
+    separator: Separator<'_>,
+    value: RawKind,
+) -> ValueId {
+    use crate::yaml::raw::{Raw, RawString, RawStringKind, RawTableItem};
+
+    let key = data.insert_str(key);
+
+    if let Some(id) = data
+        .table(id)
+        .items
+        .iter()
+        .find(|c| c.key.string == key)
+        .map(|item| item.value)
+    {
+        data.replace_raw(id, value);
+        return id;
+    }
+
+    let key = RawString::new(RawStringKind::Bare, key);
+
+    let separator = match separator {
+        Separator::Auto => match data.table(id).items.last() {
+            Some(last) => last.separator,
+            None => data.insert_str(" "),
+        },
+        Separator::Custom(separator) => data.insert_str(separator),
+    };
+
+    let indent = data.layout(id).indent;
+    let value = data.insert_raw(Raw::new(value, indent));
+    let raw = data.table_mut(id);
+    let prefix = (!raw.items.is_empty()).then_some(indent);
+
+    raw.items.push(RawTableItem {
+        prefix,
+        key,
+        separator,
+        value,
+    });
+
+    value
 }

@@ -1,13 +1,12 @@
-use crate::yaml::data::Data;
-use crate::yaml::raw::{new_bool, new_string, Layout, RawKind, RawList, RawNumber};
+use crate::yaml::data::{Data, ValueId};
+use crate::yaml::raw::{new_bool, new_string, RawKind, RawNumber};
 use crate::yaml::serde;
 use crate::yaml::{List, NullKind, Separator, ValueMut};
 
 /// Mutator for a list.
 pub struct ListMut<'a> {
     data: &'a mut Data,
-    raw: &'a mut RawList,
-    layout: &'a Layout,
+    id: ValueId,
 }
 
 macro_rules! push_float {
@@ -38,8 +37,7 @@ macro_rules! push_float {
             let mut buffer = ryu::Buffer::new();
             let number = self.data.insert_str(buffer.format(value));
             let value = RawKind::Number(RawNumber::new(number, serde::$hint));
-            self.raw
-                .push(self.data, self.layout, Separator::Auto, value);
+            push(self.data, self.id, Separator::Auto, value);
         }
     };
 }
@@ -72,15 +70,14 @@ macro_rules! push_number {
             let mut buffer = itoa::Buffer::new();
             let number = self.data.insert_str(buffer.format(value));
             let value = RawKind::Number(RawNumber::new(number, serde::$hint));
-            self.raw
-                .push(self.data, self.layout, Separator::Auto, value);
+            push(self.data, self.id, Separator::Auto, value);
         }
     };
 }
 
 impl<'a> ListMut<'a> {
-    pub(crate) fn new(data: &'a mut Data, raw: &'a mut RawList, layout: &'a Layout) -> Self {
-        Self { data, raw, layout }
+    pub(crate) fn new(data: &'a mut Data, id: ValueId) -> Self {
+        Self { data, id }
     }
 
     /// Coerce a mutable list as an immutable [List].
@@ -112,7 +109,7 @@ impl<'a> ListMut<'a> {
     #[must_use]
     #[inline]
     pub fn as_ref(&self) -> List<'_> {
-        List::new(self.data, self.raw)
+        List::new(self.data, self.id)
     }
 
     /// Coerce a mutable list into an immutable [List] with the lifetime of the
@@ -141,7 +138,7 @@ impl<'a> ListMut<'a> {
     #[must_use]
     #[inline]
     pub fn into_ref(self) -> List<'a> {
-        List::new(self.data, self.raw)
+        List::new(self.data, self.id)
     }
 
     /// Get a value mutably from the table.
@@ -173,8 +170,8 @@ impl<'a> ListMut<'a> {
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     pub fn get_mut(&mut self, index: usize) -> Option<ValueMut<'_>> {
-        if let Some(item) = self.raw.items.get_mut(index) {
-            return Some(ValueMut::new(self.data, &mut item.value));
+        if let Some(item) = self.data.list(self.id).items.get(index) {
+            return Some(ValueMut::new(self.data, item.value));
         }
 
         None
@@ -210,16 +207,13 @@ impl<'a> ListMut<'a> {
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     pub fn push(&mut self, separator: Separator<'_>) -> ValueMut<'_> {
-        let index = self.raw.items.len();
-        self.raw.push(
+        let value = push(
             self.data,
-            self.layout,
+            self.id,
             separator,
             RawKind::Null(NullKind::Empty),
         );
-        // SAFETY: value was just pushed.
-        let raw = unsafe { self.raw.items.get_unchecked_mut(index) };
-        ValueMut::new(self.data, &mut raw.value)
+        ValueMut::new(self.data, value)
     }
 
     /// Push a string.
@@ -249,8 +243,7 @@ impl<'a> ListMut<'a> {
         S: AsRef<str>,
     {
         let string = new_string(self.data, string);
-        self.raw
-            .push(self.data, self.layout, Separator::Auto, string);
+        push(self.data, self.id, Separator::Auto, string);
     }
 
     /// Push a bool.
@@ -277,8 +270,7 @@ impl<'a> ListMut<'a> {
     /// ```
     pub fn push_bool(&mut self, value: bool) {
         let value = new_bool(self.data, value);
-        self.raw
-            .push(self.data, self.layout, Separator::Auto, value);
+        push(self.data, self.id, Separator::Auto, value);
     }
 
     push_float!(push_f32, f32, "32-bit float", 10.42, F32);
@@ -293,4 +285,28 @@ impl<'a> ListMut<'a> {
     push_number!(push_i64, i64, "64-bit signed integer", -42, I64);
     push_number!(push_u128, u128, "128-bit unsigned integer", 42, U128);
     push_number!(push_i128, i128, "128-bit signed integer", -42, I128);
+}
+
+/// Push a value on the list.
+pub(crate) fn push(data: &mut Data, id: ValueId, separator: Separator, value: RawKind) -> ValueId {
+    use crate::yaml::raw::{Raw, RawListItem};
+
+    let separator = match separator {
+        Separator::Auto => match data.list(id).items.last() {
+            Some(last) => last.separator,
+            None => data.insert_str(" "),
+        },
+        Separator::Custom(string) => data.insert_str(string),
+    };
+
+    let indent = data.layout(id).indent;
+    let value = data.insert_raw(Raw::new(value, indent));
+    let raw = data.list_mut(id);
+    let prefix = (!raw.items.is_empty()).then_some(indent);
+    raw.items.push(RawListItem {
+        prefix,
+        separator,
+        value,
+    });
+    value
 }

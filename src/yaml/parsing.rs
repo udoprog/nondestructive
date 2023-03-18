@@ -59,6 +59,7 @@ impl<'a> Parser<'a> {
             None => self.ws().0,
         };
 
+        let root = self.data.insert_raw(root);
         Ok(Document::new(prefix, suffix, root, self.data))
     }
 
@@ -338,7 +339,7 @@ impl<'a> Parser<'a> {
             items.push(RawListItem {
                 prefix: Some(prefix),
                 separator,
-                value: Box::new(value),
+                value: self.data.insert_raw(value),
             });
 
             if last {
@@ -395,7 +396,7 @@ impl<'a> Parser<'a> {
                 prefix: Some(prefix),
                 key,
                 separator,
-                value: Box::new(value),
+                value: self.data.insert_raw(value),
             });
 
             if last {
@@ -466,7 +467,7 @@ impl<'a> Parser<'a> {
             items.push(RawListItem {
                 prefix: previous.take(),
                 separator,
-                value: Box::new(value),
+                value: self.data.insert_raw(value),
             });
 
             let current_indentation = self.indentation(&ws);
@@ -542,7 +543,7 @@ impl<'a> Parser<'a> {
                 prefix: previous.take(),
                 key,
                 separator,
-                value: Box::new(value),
+                value: self.data.insert_raw(value),
             });
 
             let current_indentation = self.indentation(&ws);

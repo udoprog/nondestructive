@@ -2,9 +2,9 @@ use std::fmt::{self, Write};
 
 use bstr::ByteSlice;
 
-use crate::yaml::data::{Data, StringId};
+use crate::yaml::data::{Data, StringId, ValueId};
 use crate::yaml::serde::RawNumberHint;
-use crate::yaml::{NullKind, Separator};
+use crate::yaml::NullKind;
 
 /// Construct a raw kind associated with booleans.
 pub(crate) fn new_bool(data: &mut Data, value: bool) -> RawKind {
@@ -284,7 +284,7 @@ pub(crate) enum RawListKind {
 pub(crate) struct RawListItem {
     pub(crate) prefix: Option<StringId>,
     pub(crate) separator: StringId,
-    pub(crate) value: Box<Raw>,
+    pub(crate) value: ValueId,
 }
 
 /// A YAML list.
@@ -297,31 +297,6 @@ pub(crate) struct RawList {
 }
 
 impl RawList {
-    /// Push a value on the list.
-    pub(crate) fn push(
-        &mut self,
-        data: &mut Data,
-        layout: &Layout,
-        separator: Separator,
-        value: RawKind,
-    ) {
-        let separator = match separator {
-            Separator::Auto => match self.items.last() {
-                Some(last) => last.separator,
-                None => data.insert_str(" "),
-            },
-            Separator::Custom(string) => data.insert_str(string),
-        };
-
-        let prefix = (!self.items.is_empty()).then_some(layout.indent);
-
-        self.items.push(RawListItem {
-            prefix,
-            separator,
-            value: Box::new(Raw::new(value, layout.indent)),
-        });
-    }
-
     /// Display the list.
     pub(crate) fn display(&self, data: &Data, f: &mut fmt::Formatter) -> fmt::Result {
         if let RawListKind::Inline { .. } = &self.kind {
@@ -343,7 +318,7 @@ impl RawList {
             let separator = data.str(&item.separator);
             write!(f, "{separator}")?;
 
-            item.value.display(data, f)?;
+            data.raw(item.value).display(data, f)?;
 
             if it.peek().is_some() {
                 if let RawListKind::Inline { .. } = self.kind {
@@ -370,7 +345,7 @@ pub(crate) struct RawTableItem {
     pub(crate) prefix: Option<StringId>,
     pub(crate) key: RawString,
     pub(crate) separator: StringId,
-    pub(crate) value: Box<Raw>,
+    pub(crate) value: ValueId,
 }
 
 /// The kind of a raw table.
@@ -404,45 +379,6 @@ pub(crate) struct RawTable {
 }
 
 impl RawTable {
-    /// Insert a value into the table.
-    pub(crate) fn insert(
-        &mut self,
-        data: &mut Data,
-        layout: &Layout,
-        key: &str,
-        separator: Separator<'_>,
-        value: RawKind,
-    ) -> usize {
-        let key = data.insert_str(key);
-
-        if let Some(index) = self.items.iter_mut().position(|c| c.key.string == key) {
-            let item = &mut self.items[index];
-            item.value.kind = value;
-            return index;
-        }
-
-        let key = RawString::new(RawStringKind::Bare, key);
-
-        let separator = match separator {
-            Separator::Auto => match self.items.last() {
-                Some(last) => last.separator,
-                None => data.insert_str(" "),
-            },
-            Separator::Custom(separator) => data.insert_str(separator),
-        };
-
-        let prefix = (!self.items.is_empty()).then_some(layout.indent);
-
-        let len = self.items.len();
-        self.items.push(RawTableItem {
-            prefix,
-            key,
-            separator,
-            value: Box::new(Raw::new(value, layout.indent)),
-        });
-        len
-    }
-
     /// Display the table.
     pub(crate) fn display(&self, data: &Data, f: &mut fmt::Formatter) -> fmt::Result {
         if let RawTableKind::Inline { .. } = &self.kind {
@@ -461,7 +397,7 @@ impl RawTable {
             let separator = data.str(&item.separator);
             write!(f, "{key}:{separator}")?;
 
-            item.value.display(data, f)?;
+            data.raw(item.value).display(data, f)?;
 
             if it.peek().is_some() {
                 if let RawTableKind::Inline { .. } = &self.kind {

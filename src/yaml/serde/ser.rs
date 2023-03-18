@@ -22,7 +22,7 @@ impl Serialize for Value<'_> {
     where
         S: serde::Serializer,
     {
-        match &self.raw.kind {
+        match &self.data.raw(self.id).kind {
             RawKind::Null(..) => serializer.serialize_none(),
             RawKind::Number(raw) => match raw.hint {
                 RawNumberHint::Float32 => match self.as_f32() {
@@ -83,8 +83,8 @@ impl Serialize for Value<'_> {
                     serializer.serialize_bytes(string)
                 }
             }
-            RawKind::Table(raw) => Table::new(self.data, raw).serialize(serializer),
-            RawKind::List(raw) => List::new(self.data, raw).serialize(serializer),
+            RawKind::Table(..) => Table::new(self.data, self.id).serialize(serializer),
+            RawKind::List(..) => List::new(self.data, self.id).serialize(serializer),
         }
     }
 }

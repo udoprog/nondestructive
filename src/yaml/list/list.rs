@@ -1,8 +1,7 @@
 use core::fmt;
 
-use crate::yaml::data::Data;
+use crate::yaml::data::{Data, ValueId};
 use crate::yaml::list::Iter;
-use crate::yaml::raw::RawList;
 use crate::yaml::Value;
 
 /// Accessor for a list.
@@ -103,12 +102,12 @@ use crate::yaml::Value;
 /// ```
 pub struct List<'a> {
     data: &'a Data,
-    raw: &'a RawList,
+    id: ValueId,
 }
 
 impl<'a> List<'a> {
-    pub(crate) fn new(data: &'a Data, raw: &'a RawList) -> Self {
-        Self { data, raw }
+    pub(crate) fn new(data: &'a Data, id: ValueId) -> Self {
+        Self { data, id }
     }
 
     /// Get the length of the list.
@@ -133,7 +132,7 @@ impl<'a> List<'a> {
     #[must_use]
     #[inline]
     pub fn len(&self) -> usize {
-        self.raw.items.len()
+        self.data.list(self.id).items.len()
     }
 
     /// Test if the list is empty.
@@ -158,7 +157,7 @@ impl<'a> List<'a> {
     #[must_use]
     #[inline]
     pub fn is_empty(&self) -> bool {
-        self.raw.items.is_empty()
+        self.data.list(self.id).items.is_empty()
     }
 
     /// Get a value from the list.
@@ -186,8 +185,8 @@ impl<'a> List<'a> {
     #[must_use]
     #[inline]
     pub fn get(&self, index: usize) -> Option<Value<'_>> {
-        let item = self.raw.items.get(index)?;
-        Some(Value::new(self.data, &item.value))
+        let item = self.data.list(self.id).items.get(index)?;
+        Some(Value::new(self.data, item.value))
     }
 
     /// Returns an iterator over the list.
@@ -212,14 +211,14 @@ impl<'a> List<'a> {
     #[must_use]
     #[inline]
     pub fn iter(&self) -> Iter<'_> {
-        Iter::new(self.data, &self.raw.items)
+        Iter::new(self.data, &self.data.list(self.id).items)
     }
 }
 
 impl fmt::Display for List<'_> {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.raw.display(self.data, f)
+        self.data.list(self.id).display(self.data, f)
     }
 }
 
@@ -255,6 +254,6 @@ impl<'a> IntoIterator for List<'a> {
 
     #[inline]
     fn into_iter(self) -> Self::IntoIter {
-        Iter::new(self.data, &self.raw.items)
+        Iter::new(self.data, &self.data.list(self.id).items)
     }
 }

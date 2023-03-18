@@ -1,18 +1,18 @@
-use crate::yaml::data::Data;
-use crate::yaml::raw::{new_bool, new_string, Raw, RawKind, RawNumber};
+use crate::yaml::data::{Data, ValueId};
+use crate::yaml::raw::{new_bool, new_string, RawKind, RawNumber};
 use crate::yaml::serde;
 use crate::yaml::{ListMut, NullKind, TableMut, Value};
 
 /// A mutable value inside of a document.
 pub struct ValueMut<'a> {
     data: &'a mut Data,
-    raw: &'a mut Raw,
+    id: ValueId,
 }
 
 impl<'a> ValueMut<'a> {
     /// Construct a new mutable value.
-    pub(crate) fn new(data: &'a mut Data, raw: &'a mut Raw) -> Self {
-        Self { data, raw }
+    pub(crate) fn new(data: &'a mut Data, id: ValueId) -> Self {
+        Self { data, id }
     }
 
     /// Coerce a mutable value as an immutable [Value].
@@ -47,7 +47,7 @@ impl<'a> ValueMut<'a> {
     #[must_use]
     #[inline]
     pub fn as_ref(&self) -> Value<'_> {
-        Value::new(self.data, self.raw)
+        Value::new(self.data, self.id)
     }
 
     /// Coerce a mutable value into an immutable [Value] with the lifetime of
@@ -83,7 +83,7 @@ impl<'a> ValueMut<'a> {
     #[must_use]
     #[inline]
     pub fn into_ref(self) -> Value<'a> {
-        Value::new(self.data, self.raw)
+        Value::new(self.data, self.id)
     }
 
     /// Convert the value into a mutable [`TableMut`].
@@ -117,8 +117,8 @@ impl<'a> ValueMut<'a> {
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     pub fn as_table_mut(&mut self) -> Option<TableMut<'_>> {
-        match &mut self.raw.kind {
-            RawKind::Table(raw) => Some(TableMut::new(self.data, raw, &self.raw.layout)),
+        match &mut self.data.raw_mut(self.id).kind {
+            RawKind::Table(..) => Some(TableMut::new(self.data, self.id)),
             _ => None,
         }
     }
@@ -171,8 +171,8 @@ impl<'a> ValueMut<'a> {
     #[must_use]
     #[inline]
     pub fn into_table_mut(self) -> Option<TableMut<'a>> {
-        match &mut self.raw.kind {
-            RawKind::Table(raw) => Some(TableMut::new(self.data, raw, &self.raw.layout)),
+        match &mut self.data.raw_mut(self.id).kind {
+            RawKind::Table(..) => Some(TableMut::new(self.data, self.id)),
             _ => None,
         }
     }
@@ -206,8 +206,8 @@ impl<'a> ValueMut<'a> {
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     pub fn as_list_mut(&mut self) -> Option<ListMut<'_>> {
-        match &mut self.raw.kind {
-            RawKind::List(raw) => Some(ListMut::new(self.data, raw, &self.raw.layout)),
+        match &mut self.data.raw_mut(self.id).kind {
+            RawKind::List(..) => Some(ListMut::new(self.data, self.id)),
             _ => None,
         }
     }
@@ -244,8 +244,8 @@ impl<'a> ValueMut<'a> {
     #[must_use]
     #[inline]
     pub fn into_list_mut(self) -> Option<ListMut<'a>> {
-        match &mut self.raw.kind {
-            RawKind::List(raw) => Some(ListMut::new(self.data, raw, &self.raw.layout)),
+        match &mut self.data.raw_mut(self.id).kind {
+            RawKind::List(..) => Some(ListMut::new(self.data, self.id)),
             _ => None,
         }
     }
@@ -268,7 +268,7 @@ macro_rules! set_float {
         pub fn $name(&mut self, value: $ty) {
             let mut buffer = ryu::Buffer::new();
             let string = self.data.insert_str(buffer.format(value));
-            self.raw.kind = RawKind::Number(RawNumber::new(string, serde::$hint));
+            self.data.replace_raw(self.id, RawKind::Number(RawNumber::new(string, serde::$hint)));
         }
     };
 }
@@ -290,7 +290,7 @@ macro_rules! set_number {
         pub fn $name(&mut self, value: $ty) {
             let mut buffer = itoa::Buffer::new();
             let string = self.data.insert_str(buffer.format(value));
-            self.raw.kind = RawKind::Number(RawNumber::new(string, serde::$hint));
+            self.data.replace_raw(self.id, RawKind::Number(RawNumber::new(string, serde::$hint)));
         }
     };
 }
@@ -319,7 +319,7 @@ impl<'a> ValueMut<'a> {
     /// ```
     #[inline]
     pub fn set_null(&mut self, kind: NullKind) {
-        self.raw.kind = RawKind::Null(kind);
+        self.data.replace_raw(self.id, RawKind::Null(kind));
     }
 
     /// Set the value as a string.
@@ -351,7 +351,8 @@ impl<'a> ValueMut<'a> {
     where
         S: AsRef<str>,
     {
-        self.raw.kind = new_string(self.data, string);
+        let value = new_string(self.data, string);
+        self.data.replace_raw(self.id, value);
     }
 
     /// Set the value as a boolean.
@@ -368,7 +369,7 @@ impl<'a> ValueMut<'a> {
     /// ```
     pub fn set_bool(&mut self, value: bool) {
         let value = new_bool(self.data, value);
-        self.raw.kind = value;
+        self.data.replace_raw(self.id, value);
     }
 
     set_float!(set_f32, f32, "32-bit float", 10.42, F32);

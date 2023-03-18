@@ -1,9 +1,13 @@
-use core::fmt;
-use core::hash::Hash;
 use std::collections::hash_map::{self, HashMap};
+use std::fmt;
+use std::hash::Hash;
+use std::mem;
+use std::num::NonZeroUsize;
 
 use bstr::BStr;
 use twox_hash::xxh3::{Hash128, HasherExt};
+
+use crate::yaml::raw::{Layout, Raw, RawKind, RawList, RawTable};
 
 /// The unique hash of a string.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -16,10 +20,29 @@ impl fmt::Display for StringId {
     }
 }
 
+/// The identifier of a raw value.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[repr(transparent)]
+pub(crate) struct ValueId(NonZeroUsize);
+
+impl ValueId {
+    #[inline]
+    fn get(&self) -> usize {
+        self.0.get().wrapping_sub(1)
+    }
+}
+
+impl fmt::Display for ValueId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:08x}", self.get())
+    }
+}
+
 /// Strings cache.
 #[derive(Clone, Default)]
 pub(crate) struct Data {
     strings: HashMap<StringId, Box<[u8]>>,
+    slab: slab::Slab<Raw>,
 }
 
 impl Data {
@@ -47,5 +70,121 @@ impl Data {
         }
 
         id
+    }
+
+    #[inline]
+    pub(crate) fn layout(&self, index: ValueId) -> &Layout {
+        if let Some(raw) = self.slab.get(index.get()) {
+            return &raw.layout;
+        }
+
+        panic!("expected raw at {index}")
+    }
+
+    #[inline]
+    pub(crate) fn raw(&self, index: ValueId) -> &Raw {
+        if let Some(raw) = self.slab.get(index.get()) {
+            return raw;
+        }
+
+        panic!("expected raw at {index}")
+    }
+
+    #[inline]
+    pub(crate) fn raw_mut(&mut self, index: ValueId) -> &mut Raw {
+        if let Some(raw) = self.slab.get_mut(index.get()) {
+            return raw;
+        }
+
+        panic!("expected raw at {index}")
+    }
+
+    #[inline]
+    pub(crate) fn list(&self, index: ValueId) -> &RawList {
+        if let Some(Raw {
+            kind: RawKind::List(raw),
+            ..
+        }) = self.slab.get(index.get())
+        {
+            return raw;
+        }
+
+        panic!("expected list at {index}")
+    }
+
+    #[inline]
+    pub(crate) fn list_mut(&mut self, index: ValueId) -> &mut RawList {
+        if let Some(Raw {
+            kind: RawKind::List(raw),
+            ..
+        }) = self.slab.get_mut(index.get())
+        {
+            return raw;
+        }
+
+        panic!("expected list at {index}")
+    }
+
+    #[inline]
+    pub(crate) fn table(&self, index: ValueId) -> &RawTable {
+        if let Some(Raw {
+            kind: RawKind::Table(raw),
+            ..
+        }) = self.slab.get(index.get())
+        {
+            return raw;
+        }
+
+        panic!("expected table at {index}")
+    }
+
+    #[inline]
+    pub(crate) fn table_mut(&mut self, index: ValueId) -> &mut RawTable {
+        if let Some(Raw {
+            kind: RawKind::Table(raw),
+            ..
+        }) = self.slab.get_mut(index.get())
+        {
+            return raw;
+        }
+
+        panic!("expected table at {index}")
+    }
+
+    /// Insert a raw value and return its identifier.
+    #[inline]
+    pub(crate) fn insert_raw(&mut self, raw: Raw) -> ValueId {
+        let index = self.slab.insert(raw);
+        let index = NonZeroUsize::new(index.wrapping_add(1)).expect("ran out of ids");
+        ValueId(index)
+    }
+
+    /// Drop a raw value recursively.
+    #[inline]
+    pub(crate) fn drop_raw(&mut self, kind: RawKind) {
+        match kind {
+            RawKind::Table(raw) => {
+                for item in raw.items {
+                    let item = self.slab.remove(item.value.get());
+                    self.drop_raw(item.kind);
+                }
+            }
+            RawKind::List(raw) => {
+                for item in raw.items {
+                    let item = self.slab.remove(item.value.get());
+                    self.drop_raw(item.kind);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    pub(crate) fn replace_raw(&mut self, index: ValueId, kind: RawKind) {
+        let Some(value) = self.slab.get_mut(index.get()) else {
+            return;
+        };
+
+        let removed = mem::replace(&mut value.kind, kind);
+        self.drop_raw(removed);
     }
 }

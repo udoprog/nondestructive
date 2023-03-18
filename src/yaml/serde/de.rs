@@ -7,41 +7,27 @@ use crate::yaml::serde::{Error, RawNumberHint};
 use crate::yaml::{list, table, Document, List, Table, Value};
 
 impl<'de, 'a: 'de> IntoDeserializer<'de, Error> for &'a Document {
-    type Deserializer = ValueDeserializer<'de>;
+    type Deserializer = Value<'de>;
 
     #[inline]
     fn into_deserializer(self) -> Self::Deserializer {
-        ValueDeserializer::new(self.root())
+        self.root()
     }
 }
 
 impl<'de, 'a: 'de> IntoDeserializer<'de, Error> for Value<'a> {
-    type Deserializer = ValueDeserializer<'de>;
+    type Deserializer = Value<'de>;
 
     #[inline]
     fn into_deserializer(self) -> Self::Deserializer {
-        ValueDeserializer::new(self)
-    }
-}
-
-/// A deserializer around a value.
-///
-/// See [`serde` module][crate::yaml::serde] for documentation.
-pub struct ValueDeserializer<'de> {
-    value: Value<'de>,
-}
-
-impl<'de> ValueDeserializer<'de> {
-    #[inline]
-    fn new(value: Value<'de>) -> Self {
-        Self { value }
+        self
     }
 }
 
 /// [`Deserializer`] implementation for [`Document`].
 ///
 /// This allows a [`Document`] to be deserialized from any compatible type.
-impl<'de> Deserializer<'de> for ValueDeserializer<'de> {
+impl<'de> Deserializer<'de> for Value<'de> {
     type Error = Error;
 
     #[inline]
@@ -49,7 +35,7 @@ impl<'de> Deserializer<'de> for ValueDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        match &self.value.raw.kind {
+        match &self.data.raw(self.id).kind {
             RawKind::Null(..) => visitor.visit_none(),
             RawKind::Number(raw) => match raw.hint {
                 RawNumberHint::Float32 => self.deserialize_f32(visitor),
@@ -66,7 +52,7 @@ impl<'de> Deserializer<'de> for ValueDeserializer<'de> {
                 RawNumberHint::Signed128 => self.deserialize_i128(visitor),
             },
             RawKind::String(raw) => {
-                let string = self.value.data.str(&raw.string);
+                let string = self.data.str(&raw.string);
 
                 if let Ok(string) = string.to_str() {
                     visitor.visit_borrowed_str(string)
@@ -74,11 +60,11 @@ impl<'de> Deserializer<'de> for ValueDeserializer<'de> {
                     visitor.visit_borrowed_bytes(string)
                 }
             }
-            RawKind::Table(raw) => {
-                visitor.visit_map(TableIter::new(Table::new(self.value.data, raw).into_iter()))
+            RawKind::Table(..) => {
+                visitor.visit_map(TableIter::new(Table::new(self.data, self.id).into_iter()))
             }
-            RawKind::List(raw) => {
-                visitor.visit_seq(ListIter::new(List::new(self.value.data, raw).into_iter()))
+            RawKind::List(..) => {
+                visitor.visit_seq(ListIter::new(List::new(self.data, self.id).into_iter()))
             }
         }
     }
@@ -88,7 +74,7 @@ impl<'de> Deserializer<'de> for ValueDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        match self.value.as_bool() {
+        match self.as_bool() {
             Some(value) => visitor.visit_bool(value),
             None => self.deserialize_any(visitor),
         }
@@ -99,7 +85,7 @@ impl<'de> Deserializer<'de> for ValueDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        match self.value.as_i8() {
+        match self.as_i8() {
             Some(value) => visitor.visit_i8(value),
             None => self.deserialize_any(visitor),
         }
@@ -110,7 +96,7 @@ impl<'de> Deserializer<'de> for ValueDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        match self.value.as_i16() {
+        match self.as_i16() {
             Some(value) => visitor.visit_i16(value),
             None => self.deserialize_any(visitor),
         }
@@ -121,7 +107,7 @@ impl<'de> Deserializer<'de> for ValueDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        match self.value.as_i32() {
+        match self.as_i32() {
             Some(value) => visitor.visit_i32(value),
             None => self.deserialize_any(visitor),
         }
@@ -132,7 +118,7 @@ impl<'de> Deserializer<'de> for ValueDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        match self.value.as_i64() {
+        match self.as_i64() {
             Some(value) => visitor.visit_i64(value),
             None => self.deserialize_any(visitor),
         }
@@ -143,7 +129,7 @@ impl<'de> Deserializer<'de> for ValueDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        match self.value.as_u8() {
+        match self.as_u8() {
             Some(value) => visitor.visit_u8(value),
             None => self.deserialize_any(visitor),
         }
@@ -154,7 +140,7 @@ impl<'de> Deserializer<'de> for ValueDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        match self.value.as_u16() {
+        match self.as_u16() {
             Some(value) => visitor.visit_u16(value),
             None => self.deserialize_any(visitor),
         }
@@ -165,7 +151,7 @@ impl<'de> Deserializer<'de> for ValueDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        match self.value.as_u32() {
+        match self.as_u32() {
             Some(value) => visitor.visit_u32(value),
             None => self.deserialize_any(visitor),
         }
@@ -176,7 +162,7 @@ impl<'de> Deserializer<'de> for ValueDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        match self.value.as_u64() {
+        match self.as_u64() {
             Some(value) => visitor.visit_u64(value),
             None => self.deserialize_any(visitor),
         }
@@ -187,7 +173,7 @@ impl<'de> Deserializer<'de> for ValueDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        match self.value.as_f32() {
+        match self.as_f32() {
             Some(value) => visitor.visit_f32(value),
             None => self.deserialize_any(visitor),
         }
@@ -198,7 +184,7 @@ impl<'de> Deserializer<'de> for ValueDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        match self.value.as_f64() {
+        match self.as_f64() {
             Some(value) => visitor.visit_f64(value),
             None => self.deserialize_any(visitor),
         }
@@ -209,7 +195,7 @@ impl<'de> Deserializer<'de> for ValueDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        match self.value.as_str() {
+        match self.as_str() {
             Some(value) => visitor.visit_borrowed_str(value),
             None => self.deserialize_any(visitor),
         }
@@ -220,7 +206,7 @@ impl<'de> Deserializer<'de> for ValueDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        match self.value.as_str() {
+        match self.as_str() {
             Some(value) => visitor.visit_borrowed_str(value),
             None => self.deserialize_any(visitor),
         }
@@ -231,7 +217,7 @@ impl<'de> Deserializer<'de> for ValueDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        match self.value.as_str() {
+        match self.as_str() {
             Some(value) => visitor.visit_borrowed_str(value),
             None => self.deserialize_any(visitor),
         }
@@ -242,7 +228,7 @@ impl<'de> Deserializer<'de> for ValueDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        match self.value.as_bstr() {
+        match self.as_bstr() {
             Some(value) => visitor.visit_borrowed_bytes(value),
             None => self.deserialize_any(visitor),
         }
@@ -253,7 +239,7 @@ impl<'de> Deserializer<'de> for ValueDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        match self.value.as_bstr() {
+        match self.as_bstr() {
             Some(value) => visitor.visit_borrowed_bytes(value),
             None => self.deserialize_any(visitor),
         }
@@ -264,7 +250,7 @@ impl<'de> Deserializer<'de> for ValueDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        match self.value.raw.kind {
+        match &self.data.raw(self.id).kind {
             RawKind::Null(..) => visitor.visit_none(),
             _ => visitor.visit_some(self),
         }
@@ -307,7 +293,7 @@ impl<'de> Deserializer<'de> for ValueDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        match self.value.as_list() {
+        match self.as_list() {
             Some(value) => visitor.visit_seq(ListIter::new(value.into_iter())),
             None => self.deserialize_any(visitor),
         }
@@ -318,7 +304,7 @@ impl<'de> Deserializer<'de> for ValueDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        match self.value.as_list() {
+        match self.as_list() {
             Some(value) => visitor.visit_seq(ListIter::new(value.into_iter())),
             None => self.deserialize_any(visitor),
         }
@@ -342,7 +328,7 @@ impl<'de> Deserializer<'de> for ValueDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        match self.value.as_table() {
+        match self.as_table() {
             Some(value) => visitor.visit_map(TableIter::new(value.into_iter())),
             None => self.deserialize_any(visitor),
         }
@@ -698,7 +684,7 @@ impl<'de> MapAccess<'de> for TableIter<'de> {
             return Err(Error::custom("missing value"));
         };
 
-        seed.deserialize(ValueDeserializer::new(value))
+        seed.deserialize(value)
     }
 }
 
@@ -725,6 +711,6 @@ impl<'de> SeqAccess<'de> for ListIter<'de> {
             return Ok(None);
         };
 
-        Ok(Some(seed.deserialize(ValueDeserializer::new(value))?))
+        Ok(Some(seed.deserialize(value)?))
     }
 }
