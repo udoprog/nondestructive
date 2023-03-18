@@ -35,7 +35,11 @@ impl Error {
 impl fmt::Display for Error {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.kind.fmt(f)
+        write!(
+            f,
+            "{} (at {}-{})",
+            self.kind, self.span.start, self.span.end
+        )
     }
 }
 

@@ -72,3 +72,9 @@ fn test_actions() -> Result<()> {
     assert_eq!(doc.to_string(), ACTION);
     Ok(())
 }
+
+#[test]
+fn test_leading_dash() -> Result<()> {
+    let doc = yaml::from_bytes("a: -test")?;
+    Ok(())
+}
