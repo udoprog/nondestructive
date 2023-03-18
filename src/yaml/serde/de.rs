@@ -37,6 +37,7 @@ impl<'de> Deserializer<'de> for Value<'de> {
     {
         match &self.data.raw(self.id).kind {
             RawKind::Null(..) => visitor.visit_none(),
+            RawKind::Boolean(value) => visitor.visit_bool(*value),
             RawKind::Number(raw) => match raw.hint {
                 RawNumberHint::Float32 => self.deserialize_f32(visitor),
                 RawNumberHint::Float64 => self.deserialize_f64(visitor),
