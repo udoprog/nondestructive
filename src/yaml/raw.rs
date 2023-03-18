@@ -7,12 +7,8 @@ use crate::yaml::serde::RawNumberHint;
 use crate::yaml::NullKind;
 
 /// Construct a raw kind associated with booleans.
-pub(crate) fn new_bool(data: &mut Data, value: bool) -> RawKind {
-    const TRUE: &[u8] = b"true";
-    const FALSE: &[u8] = b"false";
-
-    let string = data.insert_str(if value { TRUE } else { FALSE });
-    RawKind::String(RawString::new(RawStringKind::Bare, string))
+pub(crate) fn new_bool(value: bool) -> RawKind {
+    RawKind::Boolean(value)
 }
 
 /// Construct a raw kind associated with a string.
@@ -49,6 +45,13 @@ impl Raw {
             RawKind::Null(raw) => {
                 raw.display(f)?;
             }
+            RawKind::Boolean(value) => {
+                if *value {
+                    write!(f, "true")?;
+                } else {
+                    write!(f, "false")?;
+                }
+            }
             RawKind::Number(raw) => {
                 raw.display(data, f)?;
             }
@@ -72,6 +75,8 @@ impl Raw {
 pub(crate) enum RawKind {
     /// A null value.
     Null(NullKind),
+    /// A boolean value.
+    Boolean(bool),
     /// A single number.
     Number(RawNumber),
     /// A string.
@@ -119,6 +124,10 @@ pub(crate) enum RawStringKind {
 impl RawStringKind {
     /// Detect the appropriate kind to use for the given string.
     pub(crate) fn detect(string: &str) -> RawStringKind {
+        if matches!(string, "true" | "false" | "null") {
+            return RawStringKind::SingleQuoted;
+        }
+
         let mut kind = RawStringKind::Bare;
 
         for c in string.chars() {

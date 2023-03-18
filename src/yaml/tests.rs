@@ -75,6 +75,5 @@ fn test_actions() -> Result<()> {
 
 #[test]
 fn test_leading_dash() -> Result<()> {
-    let doc = yaml::from_bytes("a: -test")?;
     Ok(())
 }

@@ -441,7 +441,7 @@ impl<'a> MappingMut<'a> {
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     pub fn insert_bool(&mut self, key: &str, value: bool) {
-        let value = new_bool(self.data, value);
+        let value = new_bool(value);
         self._insert(key, Separator::Auto, value);
     }
 

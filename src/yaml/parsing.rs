@@ -18,13 +18,7 @@ const EOF: u8 = b'\0';
 /// Inline control characters which splits up data.
 macro_rules! inline_control {
     () => {
-        b',' | b':' | b']' | b'}' | b'\0'
-    };
-}
-
-macro_rules! number_first {
-    () => {
-        b'-' | b'0'..=b'9' | b'.'
+        b',' | b':' | b']' | b'}' | EOF
     };
 }
 
@@ -61,6 +55,11 @@ impl<'a> Parser<'a> {
 
         let root = self.data.insert_raw(root);
         Ok(Document::new(prefix, suffix, root, self.data))
+    }
+
+    /// Test if eof.
+    fn is_eof(&self) -> bool {
+        self.position == self.input.len()
     }
 
     /// Peek the next value.
@@ -114,9 +113,7 @@ impl<'a> Parser<'a> {
     }
 
     /// Consume a single number.
-    fn number(&mut self) -> RawKind {
-        let start = self.position;
-
+    fn number(&mut self, start: usize) -> Option<RawKind> {
         let mut hint = serde::U64;
 
         if matches!(self.peek(), b'-') {
@@ -126,6 +123,7 @@ impl<'a> Parser<'a> {
 
         let mut dot = false;
         let mut e = false;
+        let mut any = false;
 
         loop {
             match self.peek() {
@@ -144,11 +142,16 @@ impl<'a> Parser<'a> {
                 }
             }
 
+            any = true;
             self.bump(1);
         }
 
+        if !any {
+            return None;
+        }
+
         let string = self.data.insert_str(self.string(start));
-        RawKind::Number(RawNumber::new(string, hint))
+        Some(RawKind::Number(RawNumber::new(string, hint)))
     }
 
     /// Read a double-quoted string.
@@ -172,7 +175,7 @@ impl<'a> Parser<'a> {
         }
 
         let string = self.data.insert_str(self.string(start));
-        self.bump(1);
+        self.bump(usize::from(!self.is_eof()));
         RawKind::String(RawString::new(RawStringKind::SingleQuoted, string))
     }
 
@@ -213,7 +216,7 @@ impl<'a> Parser<'a> {
 
         loop {
             match self.peek() {
-                b'"' | b'\0' => break,
+                b'"' | EOF => break,
                 b'\\' => {
                     return self.double_quoted_escaped(start, original);
                 }
@@ -224,7 +227,7 @@ impl<'a> Parser<'a> {
         }
 
         let string = self.data.insert_str(self.string(start));
-        self.bump(1);
+        self.bump(usize::from(!self.is_eof()));
 
         Ok(RawKind::String(RawString::new(
             RawStringKind::DoubleQuoted,
@@ -238,7 +241,7 @@ impl<'a> Parser<'a> {
 
         loop {
             match self.peek() {
-                b'"' | b'\0' => break,
+                b'"' | EOF => break,
                 b'\\' => {
                     self.bump(1);
                     self.unescape()?;
@@ -327,7 +330,7 @@ impl<'a> Parser<'a> {
         let mut trailing = false;
         let mut prefix = self.ws().0;
 
-        while !matches!(self.peek(), b']' | b'\0') {
+        while !matches!(self.peek(), b']' | EOF) {
             trailing = false;
             let (value, new_ws) = self.value(indent, true)?;
 
@@ -384,10 +387,10 @@ impl<'a> Parser<'a> {
         let mut trailing = false;
         let mut prefix = self.ws().0;
 
-        while !matches!(self.peek(), b'}' | b'\0') {
+        while !matches!(self.peek(), b'}' | EOF) {
             trailing = false;
 
-            let Some(key) = self.key() else {
+            let Some(key) = self.until_colon(self.position) else {
                 return Err(Error::new(self.span(1), ErrorKind::ExpectedMappingSeparator));
             };
 
@@ -596,26 +599,32 @@ impl<'a> Parser<'a> {
         string[n..].chars().count()
     }
 
-    /// Process a key up until `:`.
-    fn key(&mut self) -> Option<RawString> {
-        let start = self.position;
+    /// Process a key up until `:` or end of the current line.
+    fn key_or_eol(&mut self, start: usize) -> Option<RawString> {
+        while !matches!(self.peek(), b':' | b'\n' | EOF) {
+            self.bump(1);
+        }
 
-        loop {
-            match self.peek() {
-                b':' => {
-                    let key = self.data.insert_str(self.string(start));
-                    return Some(RawString::new(RawStringKind::Bare, key));
-                }
-                b'\n' | EOF => {
-                    break;
-                }
-                _ => {
-                    self.bump(1);
-                }
-            }
+        if self.peek() == b':' {
+            let key = self.data.insert_str(self.string(start));
+            return Some(RawString::new(RawStringKind::Bare, key));
         }
 
         None
+    }
+
+    /// Process a key up until `:`.
+    fn until_colon(&mut self, start: usize) -> Option<RawString> {
+        while !matches!(self.peek(), b':' | EOF) {
+            self.bump(1);
+        }
+
+        if self.is_eof() {
+            return None;
+        }
+
+        let key = self.data.insert_str(self.string(start));
+        Some(RawString::new(RawStringKind::Bare, key))
     }
 
     /// Consume a single value.
@@ -625,26 +634,44 @@ impl<'a> Parser<'a> {
                 let (value, ws) = self.sequence(indent)?;
                 (value, Some(ws))
             }
-            (number_first!(), _) => (self.number(), None),
             (b'"', _) => (self.double_quoted()?, None),
             (b'\'', _) => (self.single_quoted(), None),
             (b'[', _) => (self.inline_sequence(indent)?, None),
             (b'{', _) => (self.inline_mapping(indent)?, None),
+            (b'~', _) => (RawKind::Null(super::NullKind::Tilde), None),
             (b, _) if b.is_ascii_graphic() => {
-                let start = self.position;
+                'default: {
+                    let start = self.position;
 
-                if inline {
-                    while !matches!(self.peek(), inline_control!()) {
-                        self.bump(1);
+                    if let Some(number) = self.number(start) {
+                        break 'default (number, None);
                     }
-                } else if let Some(key) = self.key() {
-                    let (value, ws) = self.mapping(indent, key)?;
-                    return Ok((Raw::new(value, *indent), Some(ws)));
-                }
 
-                let string = self.data.insert_str(self.string(start));
-                let string = RawString::new(RawStringKind::Bare, string);
-                (RawKind::String(string), None)
+                    if inline {
+                        // Seek until we find a control character, since we're
+                        // simply treating the current segment as a string.
+                        while !matches!(self.peek(), inline_control!()) {
+                            self.bump(1);
+                        }
+                    } else if let Some(key) = self.key_or_eol(start) {
+                        let (value, ws) = self.mapping(indent, key)?;
+                        return Ok((Raw::new(value, *indent), Some(ws)));
+                    }
+
+                    // NB: calling `key_or_eol` will have consumed up until end
+                    // of line for us, so use the current span as the production
+                    // string.
+                    match self.string(start) {
+                        b"null" => (RawKind::Null(super::NullKind::Keyword), None),
+                        b"true" => (RawKind::Boolean(true), None),
+                        b"false" => (RawKind::Boolean(false), None),
+                        string => {
+                            let string = self.data.insert_str(string);
+                            let string = RawString::new(RawStringKind::Bare, string);
+                            (RawKind::String(string), None)
+                        }
+                    }
+                }
             }
             _ => return Err(Error::new(self.span(1), ErrorKind::ValueError)),
         };

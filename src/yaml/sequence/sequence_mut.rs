@@ -364,7 +364,7 @@ impl<'a> SequenceMut<'a> {
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     pub fn push_bool(&mut self, value: bool) {
-        let value = new_bool(self.data, value);
+        let value = new_bool(value);
         self._push(Separator::Auto, value);
     }
 

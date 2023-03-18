@@ -3,7 +3,7 @@ use core::fmt;
 use bstr::{BStr, ByteSlice};
 
 use crate::yaml::data::Data;
-use crate::yaml::raw::{RawKind, RawStringKind};
+use crate::yaml::raw::RawKind;
 use crate::yaml::{Any, Mapping, Sequence};
 
 use super::data::ValueId;
@@ -272,15 +272,8 @@ impl<'a> Value<'a> {
     #[must_use]
     #[inline]
     pub fn as_bool(&self) -> Option<bool> {
-        const TRUE: &[u8] = b"true";
-        const FALSE: &[u8] = b"false";
-
         match &self.data.raw(self.id).kind {
-            RawKind::String(raw) => match (raw.kind, self.data.str(&raw.string).as_bytes()) {
-                (RawStringKind::Bare, TRUE) => Some(true),
-                (RawStringKind::Bare, FALSE) => Some(false),
-                _ => None,
-            },
+            RawKind::Boolean(value) => Some(*value),
             _ => None,
         }
     }

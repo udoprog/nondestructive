@@ -380,6 +380,10 @@ impl<'a> ValueMut<'a> {
     /// let mut doc = yaml::from_bytes("  string")?;
     /// doc.root_mut().set_string("I am a string with \"quotes\"");
     /// assert_eq!(doc.to_string(), "  I am a string with \"quotes\"");
+    ///
+    /// let mut doc = yaml::from_bytes("  string")?;
+    /// doc.root_mut().set_string("null");
+    /// assert_eq!(doc.to_string(), "  'null'");
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     #[inline]
@@ -404,7 +408,7 @@ impl<'a> ValueMut<'a> {
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     pub fn set_bool(&mut self, value: bool) {
-        let value = new_bool(self.data, value);
+        let value = new_bool(value);
         self.data.replace_raw(self.id, value);
     }
 
