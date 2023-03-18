@@ -1,3 +1,5 @@
+use core::mem;
+
 use crate::yaml::data::{Data, ValueId};
 use crate::yaml::raw::{new_bool, new_string, RawKind, RawNumber};
 use crate::yaml::serde;
@@ -175,6 +177,80 @@ impl<'a> ListMut<'a> {
         }
 
         None
+    }
+
+    /// Remove the given index from the list, returning a boolean indicating if
+    /// it existed in the list or not.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nondestructive::yaml;
+    ///
+    /// let mut doc = yaml::from_bytes(r#"
+    ///   - 10
+    ///   - 20
+    ///   - inner: 400
+    ///   - "I am a quoted string!"
+    /// "#)?;
+    ///
+    /// let mut root = doc.root_mut();
+    /// let mut root = root.as_list_mut().ok_or("missing root list")?;
+    ///
+    /// assert!(!root.remove(4));
+    /// assert!(root.remove(2));
+    ///
+    /// assert_eq!(
+    /// doc.to_string(),
+    /// r#"
+    ///   - 10
+    ///   - 20
+    ///   - "I am a quoted string!"
+    /// "#);
+    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn remove(&mut self, index: usize) -> bool {
+        let raw = self.data.list_mut(self.id);
+
+        if raw.items.len() <= index {
+            return false;
+        }
+
+        let item = raw.items.remove(index);
+        self.data.drop(item.value);
+        true
+    }
+
+    /// Clear all the elements in a list.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nondestructive::yaml;
+    ///
+    /// let mut doc = yaml::from_bytes(r#"
+    ///   - 10
+    ///   - 20
+    ///   - inner: 400
+    ///   - "I am a quoted string!"
+    /// "#)?;
+    ///
+    /// let mut root = doc.root_mut();
+    /// let mut root = root.as_list_mut().ok_or("missing root list")?;
+    ///
+    /// root.clear();
+    ///
+    /// assert_eq!(doc.to_string(), "\n  \n");
+    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn clear(&mut self) {
+        let mut items = mem::take(&mut self.data.list_mut(self.id).items);
+
+        for item in items.drain(..) {
+            self.data.drop(item.value);
+        }
+
+        self.data.list_mut(self.id).items = items;
     }
 
     /// Push a new null value and return a [`ValueMut`] to the newly pushed value.

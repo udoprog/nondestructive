@@ -1,3 +1,5 @@
+use core::mem;
+
 use crate::yaml::data::{Data, ValueId};
 use crate::yaml::raw::{new_bool, new_string, RawKind, RawNumber};
 use crate::yaml::serde;
@@ -223,6 +225,90 @@ impl<'a> TableMut<'a> {
         }
 
         None
+    }
+
+    /// Remove the given value from the table, returning a boolean indicating if
+    /// it existed in the list or not.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nondestructive::yaml;
+    ///
+    /// let mut doc = yaml::from_bytes(r#"
+    ///   number1: 10
+    ///   number2: 20
+    ///   table:
+    ///     inner: 400
+    ///   string3: "I am a quoted string!"
+    /// "#)?;
+    ///
+    /// let mut root = doc.root_mut();
+    /// let mut root = root.as_table_mut().ok_or("missing root table")?;
+    ///
+    /// assert!(!root.remove("no such key"));
+    /// assert!(root.remove("table"));
+    /// assert!(!root.remove("table"));
+    ///
+    /// assert_eq!(
+    /// doc.to_string(),
+    /// r#"
+    ///   number1: 10
+    ///   number2: 20
+    ///   string3: "I am a quoted string!"
+    /// "#);
+    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn remove(&mut self, key: &str) -> bool {
+        let mut index = None;
+
+        for (i, item) in self.data.table(self.id).items.iter().enumerate() {
+            if self.data.str(&item.key.string) == key {
+                index = Some(i);
+                break;
+            }
+        }
+
+        let Some(index) = index else {
+            return false;
+        };
+
+        let item = self.data.table_mut(self.id).items.remove(index);
+        self.data.drop(item.value);
+        true
+    }
+
+    /// Clear all the elements in a table.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nondestructive::yaml;
+    ///
+    /// let mut doc = yaml::from_bytes(r#"
+    ///   number1: 10
+    ///   number2: 20
+    ///   table:
+    ///     inner: 400
+    ///   string3: "I am a quoted string!"
+    /// "#)?;
+    ///
+    /// let mut root = doc.root_mut();
+    /// let mut root = root.as_table_mut().ok_or("missing root table")?;
+    ///
+    /// root.clear();
+    ///
+    /// assert_eq!(doc.to_string(), "\n  \n");
+    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn clear(&mut self) {
+        let mut items = mem::take(&mut self.data.table_mut(self.id).items);
+
+        for item in items.drain(..) {
+            self.data.drop(item.value);
+        }
+
+        self.data.table_mut(self.id).items = items;
     }
 
     /// Insert a new null value and return a [`ValueMut`] to the newly inserted

@@ -122,6 +122,35 @@ impl<'a> Value<'a> {
         Self { data, id }
     }
 
+    /// Get the opaque [`ValueId`] associated with this value.
+    ///
+    /// This can be used through [`Document::value`] to look up the same value
+    /// again.
+    ///
+    /// [`Document::value`]: crate::yaml::Document::value
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nondestructive::yaml;
+    ///
+    /// let doc = yaml::from_bytes(r#"
+    /// first: 32
+    /// second: [1, 2, 3]
+    /// "#)?;
+    ///
+    /// let root = doc.root().as_table().ok_or("missing table")?;
+    /// let second = root.get("second").ok_or("missing second")?;
+    /// let id = second.id();
+    ///
+    /// // Reference the same value again using the id.
+    /// assert_eq!(doc.value(id).to_string(), "[1, 2, 3]");
+    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn id(&self) -> ValueId {
+        self.id
+    }
+
     /// Get the value as a [`BStr`].
     ///
     /// # Examples

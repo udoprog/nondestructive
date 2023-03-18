@@ -41,6 +41,80 @@ impl Document {
         Value::new(&self.data, self.root)
     }
 
+    /// Get the given value.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the given [`ValueId`] is not contained in the current
+    /// document.
+    ///
+    /// If [`ValueId`]'s are shared between documents, this might also result in
+    /// unspecified behavior, such as it referencing a random value in the other
+    /// document.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nondestructive::yaml;
+    ///
+    /// let doc = yaml::from_bytes(r#"
+    /// first: 32
+    /// second: [1, 2, 3]
+    /// "#)?;
+    ///
+    /// let root = doc.root().as_table().ok_or("missing table")?;
+    /// let second = root.get("second").ok_or("missing second")?;
+    /// let id = second.id();
+    ///
+    /// // Reference the same value again using the id.
+    /// assert_eq!(doc.value(id).to_string(), "[1, 2, 3]");
+    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn value(&self, id: ValueId) -> Value<'_> {
+        Value::new(&self.data, id)
+    }
+
+    /// Get the given value mutably.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the given [`ValueId`] is not contained in the current
+    /// document.
+    ///
+    /// If [`ValueId`]'s are shared between documents, this might also result in
+    /// unspecified behavior, such as it referencing a random value in the other
+    /// document.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nondestructive::yaml;
+    ///
+    /// let mut doc = yaml::from_bytes(r#"
+    /// first: 32
+    /// second: [1, 2, 3]
+    /// "#)?;
+    ///
+    /// let root = doc.root().as_table().ok_or("missing table")?;
+    /// let second = root.get("second").ok_or("missing second")?;
+    /// let id = second.id();
+    ///
+    /// // Reference the same value again using the id.
+    /// doc.value_mut(id).set_string("Hello World");
+    ///
+    /// assert_eq!(
+    /// doc.to_string(),
+    /// r#"
+    /// first: 32
+    /// second: Hello World
+    /// "#
+    /// );
+    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn value_mut(&mut self, id: ValueId) -> ValueMut<'_> {
+        ValueMut::new(&mut self.data, id)
+    }
+
     /// Get the root value of a document.
     ///
     /// # Examples

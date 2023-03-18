@@ -50,6 +50,7 @@ mod parsing;
 pub use self::parsing::Parser;
 
 mod data;
+pub use self::data::ValueId;
 
 mod error;
 pub use self::error::Error;

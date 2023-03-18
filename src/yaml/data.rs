@@ -20,10 +20,22 @@ impl fmt::Display for StringId {
     }
 }
 
-/// The identifier of a raw value.
+/// An opaque identifier for a value inside of a [`Document`].
+///
+/// Is constructed through [`Value::id`], [`Table::id`], or [`List::id`] and can
+/// be converted into a [`Value`] again through [`Document::value`] or
+/// [`Document::value_mut`].
+///
+/// [`Value::id`]: crate::yaml::Value::id
+/// [`Table::id`]: crate::yaml::Table::id
+/// [`List::id`]: crate::yaml::List::id
+/// [`Value`]: crate::yaml::Value
+/// [`Document`]: crate::yaml::Document
+/// [`Document::value`]: crate::yaml::Document::value
+/// [`Document::value_mut`]: crate::yaml::Document::value_mut
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
-pub(crate) struct ValueId(NonZeroUsize);
+pub struct ValueId(NonZeroUsize);
 
 impl ValueId {
     #[inline]
@@ -159,20 +171,30 @@ impl Data {
         ValueId(index)
     }
 
+    /// Drop a value recursively.
+    #[inline]
+    pub(crate) fn drop(&mut self, id: ValueId) {
+        let Some(value) = self.slab.try_remove(id.get()) else {
+            return;
+        };
+
+        self.drop_kind(value.kind);
+    }
+
     /// Drop a raw value recursively.
     #[inline]
-    pub(crate) fn drop_raw(&mut self, kind: RawKind) {
+    pub(crate) fn drop_kind(&mut self, kind: RawKind) {
         match kind {
             RawKind::Table(raw) => {
                 for item in raw.items {
                     let item = self.slab.remove(item.value.get());
-                    self.drop_raw(item.kind);
+                    self.drop_kind(item.kind);
                 }
             }
             RawKind::List(raw) => {
                 for item in raw.items {
                     let item = self.slab.remove(item.value.get());
-                    self.drop_raw(item.kind);
+                    self.drop_kind(item.kind);
                 }
             }
             _ => {}
@@ -185,6 +207,6 @@ impl Data {
         };
 
         let removed = mem::replace(&mut value.kind, kind);
-        self.drop_raw(removed);
+        self.drop_kind(removed);
     }
 }

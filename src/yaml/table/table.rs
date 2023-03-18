@@ -76,6 +76,31 @@ impl<'a> Table<'a> {
         Self { data, id }
     }
 
+    /// Get the opaque [`ValueId`] associated with this table.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nondestructive::yaml;
+    ///
+    /// let doc = yaml::from_bytes(r#"
+    /// first: 32
+    /// second: [1, 2, 3]
+    /// "#)?;
+    ///
+    /// let root = doc.root().as_table().ok_or("missing table")?;
+    /// let second = root.get("second").and_then(|v| v.as_list()).ok_or("missing second")?;
+    /// let id = second.id();
+    ///
+    /// // Reference the same value again using the id.
+    /// let second = doc.value(id).as_list().ok_or("missing id")?;
+    /// assert!(second.iter().flat_map(|v| v.as_u32()).eq([1, 2, 3]));
+    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn id(&self) -> ValueId {
+        self.id
+    }
+
     /// Get the length of the table.
     ///
     /// # Examples
