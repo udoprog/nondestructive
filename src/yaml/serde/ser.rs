@@ -75,7 +75,7 @@ impl Serialize for Value<'_> {
                 },
             },
             RawKind::String(raw) => {
-                let string = self.strings.get(&raw.string);
+                let string = self.data.str(&raw.string);
 
                 if let Ok(string) = string.to_str() {
                     serializer.serialize_str(string)
@@ -83,8 +83,8 @@ impl Serialize for Value<'_> {
                     serializer.serialize_bytes(string)
                 }
             }
-            RawKind::Table(raw) => Table::new(self.strings, raw).serialize(serializer),
-            RawKind::List(raw) => List::new(self.strings, raw).serialize(serializer),
+            RawKind::Table(raw) => Table::new(self.data, raw).serialize(serializer),
+            RawKind::List(raw) => List::new(self.data, raw).serialize(serializer),
         }
     }
 }

@@ -18,15 +18,15 @@ impl fmt::Display for StringId {
 
 /// Strings cache.
 #[derive(Clone, Default)]
-pub(crate) struct Strings {
-    data: HashMap<StringId, Box<[u8]>>,
+pub(crate) struct Data {
+    strings: HashMap<StringId, Box<[u8]>>,
 }
 
-impl Strings {
+impl Data {
     /// Get a string.
     #[inline]
-    pub(crate) fn get(&self, id: &StringId) -> &BStr {
-        let Some(string) = self.data.get(id) else {
+    pub(crate) fn str(&self, id: &StringId) -> &BStr {
+        let Some(string) = self.strings.get(id) else {
             panic!("missing string with id {id}");
         };
 
@@ -34,7 +34,7 @@ impl Strings {
     }
 
     /// Insert a string into the string cache.
-    pub(crate) fn insert<B>(&mut self, string: B) -> StringId
+    pub(crate) fn insert_str<B>(&mut self, string: B) -> StringId
     where
         B: AsRef<[u8]>,
     {
@@ -42,7 +42,7 @@ impl Strings {
         string.as_ref().hash(&mut hasher);
         let id = StringId(hasher.finish_ext());
 
-        if let hash_map::Entry::Vacant(e) = self.data.entry(id) {
+        if let hash_map::Entry::Vacant(e) = self.strings.entry(id) {
             e.insert(string.as_ref().into());
         }
 

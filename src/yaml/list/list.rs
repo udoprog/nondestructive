@@ -1,6 +1,6 @@
 use core::fmt;
 
-use crate::strings::Strings;
+use crate::yaml::data::Data;
 use crate::yaml::list::Iter;
 use crate::yaml::raw::RawList;
 use crate::yaml::Value;
@@ -102,13 +102,13 @@ use crate::yaml::Value;
 /// # Ok::<_, Box<dyn std::error::Error>>(())
 /// ```
 pub struct List<'a> {
-    strings: &'a Strings,
+    data: &'a Data,
     raw: &'a RawList,
 }
 
 impl<'a> List<'a> {
-    pub(crate) fn new(strings: &'a Strings, raw: &'a RawList) -> Self {
-        Self { strings, raw }
+    pub(crate) fn new(data: &'a Data, raw: &'a RawList) -> Self {
+        Self { data, raw }
     }
 
     /// Get the length of the list.
@@ -187,7 +187,7 @@ impl<'a> List<'a> {
     #[inline]
     pub fn get(&self, index: usize) -> Option<Value<'_>> {
         let item = self.raw.items.get(index)?;
-        Some(Value::new(self.strings, &item.value))
+        Some(Value::new(self.data, &item.value))
     }
 
     /// Returns an iterator over the list.
@@ -212,14 +212,14 @@ impl<'a> List<'a> {
     #[must_use]
     #[inline]
     pub fn iter(&self) -> Iter<'_> {
-        Iter::new(self.strings, &self.raw.items)
+        Iter::new(self.data, &self.raw.items)
     }
 }
 
 impl fmt::Display for List<'_> {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.raw.display(self.strings, f)
+        self.raw.display(self.data, f)
     }
 }
 
@@ -255,6 +255,6 @@ impl<'a> IntoIterator for List<'a> {
 
     #[inline]
     fn into_iter(self) -> Self::IntoIter {
-        Iter::new(self.strings, &self.raw.items)
+        Iter::new(self.data, &self.raw.items)
     }
 }

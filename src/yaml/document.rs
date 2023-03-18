@@ -1,6 +1,6 @@
 use core::fmt;
 
-use crate::strings::{StringId, Strings};
+use crate::yaml::data::{Data, StringId};
 use crate::yaml::raw::Raw;
 use crate::yaml::{Value, ValueMut};
 
@@ -10,17 +10,17 @@ pub struct Document {
     prefix: StringId,
     suffix: StringId,
     pub(crate) root: Raw,
-    pub(crate) strings: Strings,
+    pub(crate) data: Data,
 }
 
 impl Document {
     /// Construct a new document.
-    pub(crate) fn new(prefix: StringId, suffix: StringId, root: Raw, strings: Strings) -> Self {
+    pub(crate) fn new(prefix: StringId, suffix: StringId, root: Raw, data: Data) -> Self {
         Self {
             prefix,
             suffix,
             root,
-            strings,
+            data,
         }
     }
 
@@ -39,7 +39,7 @@ impl Document {
     #[must_use]
     #[inline]
     pub fn root(&self) -> Value<'_> {
-        Value::new(&self.strings, &self.root)
+        Value::new(&self.data, &self.root)
     }
 
     /// Get the root value of a document.
@@ -56,15 +56,15 @@ impl Document {
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     pub fn root_mut(&mut self) -> ValueMut<'_> {
-        ValueMut::new(&mut self.strings, &mut self.root)
+        ValueMut::new(&mut self.data, &mut self.root)
     }
 }
 
 impl fmt::Display for Document {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.strings.get(&self.prefix).fmt(f)?;
-        self.root.display(&self.strings, f)?;
-        self.strings.get(&self.suffix).fmt(f)?;
+        self.data.str(&self.prefix).fmt(f)?;
+        self.root.display(&self.data, f)?;
+        self.data.str(&self.suffix).fmt(f)?;
         Ok(())
     }
 }

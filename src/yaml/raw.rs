@@ -2,26 +2,26 @@ use std::fmt::{self, Write};
 
 use bstr::ByteSlice;
 
-use crate::strings::{StringId, Strings};
+use crate::yaml::data::{Data, StringId};
 use crate::yaml::serde::RawNumberHint;
 use crate::yaml::{NullKind, Separator};
 
 /// Construct a raw kind associated with booleans.
-pub(crate) fn new_bool(strings: &mut Strings, value: bool) -> RawKind {
+pub(crate) fn new_bool(data: &mut Data, value: bool) -> RawKind {
     const TRUE: &[u8] = b"true";
     const FALSE: &[u8] = b"false";
 
-    let string = strings.insert(if value { TRUE } else { FALSE });
+    let string = data.insert_str(if value { TRUE } else { FALSE });
     RawKind::String(RawString::new(RawStringKind::Bare, string))
 }
 
 /// Construct a raw kind associated with a string.
-pub(crate) fn new_string<S>(strings: &mut Strings, string: S) -> RawKind
+pub(crate) fn new_string<S>(data: &mut Data, string: S) -> RawKind
 where
     S: AsRef<str>,
 {
     let kind = RawStringKind::detect(string.as_ref());
-    let string = strings.insert(string.as_ref());
+    let string = data.insert_str(string.as_ref());
     RawKind::String(RawString::new(kind, string))
 }
 
@@ -44,22 +44,22 @@ impl Raw {
         }
     }
 
-    pub(crate) fn display(&self, strings: &Strings, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    pub(crate) fn display(&self, data: &Data, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self.kind {
             RawKind::Null(raw) => {
                 raw.display(f)?;
             }
             RawKind::Number(raw) => {
-                raw.display(strings, f)?;
+                raw.display(data, f)?;
             }
             RawKind::String(raw) => {
-                raw.display(strings, f)?;
+                raw.display(data, f)?;
             }
             RawKind::Table(raw) => {
-                raw.display(strings, f)?;
+                raw.display(data, f)?;
             }
             RawKind::List(raw) => {
-                raw.display(strings, f)?;
+                raw.display(data, f)?;
             }
         }
 
@@ -96,8 +96,8 @@ impl RawNumber {
         Self { string, hint }
     }
 
-    fn display(&self, strings: &Strings, f: &mut fmt::Formatter) -> fmt::Result {
-        let number = strings.get(&self.string);
+    fn display(&self, data: &Data, f: &mut fmt::Formatter) -> fmt::Result {
+        let number = data.str(&self.string);
         write!(f, "{number}")
     }
 }
@@ -155,7 +155,7 @@ impl RawString {
         Self { kind, string }
     }
 
-    fn display(&self, strings: &Strings, f: &mut fmt::Formatter) -> fmt::Result {
+    fn display(&self, data: &Data, f: &mut fmt::Formatter) -> fmt::Result {
         /// Single-quoted escape sequences:
         /// <https://yaml.org/spec/1.2.2/#escaped-characters>.
         fn escape_single_quoted(
@@ -234,19 +234,19 @@ impl RawString {
 
         match &self.kind {
             RawStringKind::Original(original) => {
-                let string = strings.get(original);
+                let string = data.str(original);
                 write!(f, "{string}")?;
             }
             RawStringKind::Bare => {
-                let string = strings.get(&self.string);
+                let string = data.str(&self.string);
                 write!(f, "{string}")?;
             }
             RawStringKind::DoubleQuoted => {
-                let string = strings.get(&self.string);
+                let string = data.str(&self.string);
                 escape_double_quoted(string, f)?;
             }
             RawStringKind::SingleQuoted => {
-                let string = strings.get(&self.string);
+                let string = data.str(&self.string);
                 escape_single_quoted(string, f)?;
             }
         }
@@ -300,7 +300,7 @@ impl RawList {
     /// Push a value on the list.
     pub(crate) fn push(
         &mut self,
-        strings: &mut Strings,
+        data: &mut Data,
         layout: &Layout,
         separator: Separator,
         value: RawKind,
@@ -308,9 +308,9 @@ impl RawList {
         let separator = match separator {
             Separator::Auto => match self.items.last() {
                 Some(last) => last.separator,
-                None => strings.insert(" "),
+                None => data.insert_str(" "),
             },
-            Separator::Custom(string) => strings.insert(string),
+            Separator::Custom(string) => data.insert_str(string),
         };
 
         let prefix = (!self.items.is_empty()).then_some(layout.indent);
@@ -323,7 +323,7 @@ impl RawList {
     }
 
     /// Display the list.
-    pub(crate) fn display(&self, strings: &Strings, f: &mut fmt::Formatter) -> fmt::Result {
+    pub(crate) fn display(&self, data: &Data, f: &mut fmt::Formatter) -> fmt::Result {
         if let RawListKind::Inline { .. } = &self.kind {
             write!(f, "[")?;
         }
@@ -332,7 +332,7 @@ impl RawList {
 
         while let Some(item) = it.next() {
             if let Some(prefix) = &item.prefix {
-                let prefix = strings.get(prefix);
+                let prefix = data.str(prefix);
                 write!(f, "{prefix}")?;
             }
 
@@ -340,10 +340,10 @@ impl RawList {
                 write!(f, "-")?;
             }
 
-            let separator = strings.get(&item.separator);
+            let separator = data.str(&item.separator);
             write!(f, "{separator}")?;
 
-            item.value.display(strings, f)?;
+            item.value.display(data, f)?;
 
             if it.peek().is_some() {
                 if let RawListKind::Inline { .. } = self.kind {
@@ -357,7 +357,7 @@ impl RawList {
                 write!(f, ",")?;
             }
 
-            write!(f, "{}]", strings.get(suffix))?;
+            write!(f, "{}]", data.str(suffix))?;
         }
 
         Ok(())
@@ -407,13 +407,13 @@ impl RawTable {
     /// Insert a value into the table.
     pub(crate) fn insert(
         &mut self,
-        strings: &mut Strings,
+        data: &mut Data,
         layout: &Layout,
         key: &str,
         separator: Separator<'_>,
         value: RawKind,
     ) -> usize {
-        let key = strings.insert(key);
+        let key = data.insert_str(key);
 
         if let Some(index) = self.items.iter_mut().position(|c| c.key.string == key) {
             let item = &mut self.items[index];
@@ -426,9 +426,9 @@ impl RawTable {
         let separator = match separator {
             Separator::Auto => match self.items.last() {
                 Some(last) => last.separator,
-                None => strings.insert(" "),
+                None => data.insert_str(" "),
             },
-            Separator::Custom(separator) => strings.insert(separator),
+            Separator::Custom(separator) => data.insert_str(separator),
         };
 
         let prefix = (!self.items.is_empty()).then_some(layout.indent);
@@ -444,7 +444,7 @@ impl RawTable {
     }
 
     /// Display the table.
-    pub(crate) fn display(&self, strings: &Strings, f: &mut fmt::Formatter) -> fmt::Result {
+    pub(crate) fn display(&self, data: &Data, f: &mut fmt::Formatter) -> fmt::Result {
         if let RawTableKind::Inline { .. } = &self.kind {
             write!(f, "{{")?;
         }
@@ -453,15 +453,15 @@ impl RawTable {
 
         while let Some(item) = it.next() {
             if let Some(prefix) = &item.prefix {
-                let prefix = strings.get(prefix);
+                let prefix = data.str(prefix);
                 write!(f, "{prefix}")?;
             }
 
-            let key = strings.get(&item.key.string);
-            let separator = strings.get(&item.separator);
+            let key = data.str(&item.key.string);
+            let separator = data.str(&item.separator);
             write!(f, "{key}:{separator}")?;
 
-            item.value.display(strings, f)?;
+            item.value.display(data, f)?;
 
             if it.peek().is_some() {
                 if let RawTableKind::Inline { .. } = &self.kind {
@@ -475,7 +475,7 @@ impl RawTable {
                 write!(f, ",")?;
             }
 
-            let suffix = strings.get(suffix);
+            let suffix = data.str(suffix);
             write!(f, "{suffix}}}")?;
         }
 

@@ -2,7 +2,7 @@ use std::ops::Range;
 
 use bstr::ByteSlice;
 
-use crate::strings::{StringId, Strings};
+use crate::yaml::data::{Data, StringId};
 use crate::yaml::error::{Error, ErrorKind};
 use crate::yaml::raw::{
     Raw, RawKind, RawList, RawListItem, RawListKind, RawNumber, RawString, RawStringKind, RawTable,
@@ -15,7 +15,7 @@ type Result<T, E = Error> = std::result::Result<T, E>;
 
 const EOF: u8 = b'\0';
 
-/// Inline control characters which splits up strings.
+/// Inline control characters which splits up data.
 macro_rules! inline_control {
     () => {
         b',' | b':' | b']' | b'}' | b'\0'
@@ -32,7 +32,7 @@ macro_rules! number_first {
 #[derive(Clone)]
 pub struct Parser<'a> {
     scratch: Vec<u8>,
-    strings: Strings,
+    data: Data,
     input: &'a [u8],
     position: usize,
 }
@@ -42,7 +42,7 @@ impl<'a> Parser<'a> {
     pub(crate) fn new(input: &'a [u8]) -> Self {
         Self {
             scratch: Vec::new(),
-            strings: Strings::default(),
+            data: Data::default(),
             input,
             position: 0,
         }
@@ -59,7 +59,7 @@ impl<'a> Parser<'a> {
             None => self.ws().0,
         };
 
-        Ok(Document::new(prefix, suffix, root, self.strings))
+        Ok(Document::new(prefix, suffix, root, self.data))
     }
 
     /// Peek the next value.
@@ -109,7 +109,7 @@ impl<'a> Parser<'a> {
             self.bump(1);
         }
 
-        (self.strings.insert(self.string(start)), nl)
+        (self.data.insert_str(self.string(start)), nl)
     }
 
     /// Consume a single number.
@@ -146,7 +146,7 @@ impl<'a> Parser<'a> {
             self.bump(1);
         }
 
-        let string = self.strings.insert(self.string(start));
+        let string = self.data.insert_str(self.string(start));
         RawKind::Number(RawNumber::new(string, hint))
     }
 
@@ -170,7 +170,7 @@ impl<'a> Parser<'a> {
             }
         }
 
-        let string = self.strings.insert(self.string(start));
+        let string = self.data.insert_str(self.string(start));
         self.bump(1);
         RawKind::String(RawString::new(RawStringKind::SingleQuoted, string))
     }
@@ -195,11 +195,11 @@ impl<'a> Parser<'a> {
             }
         }
 
-        let string = self.strings.insert(&self.scratch);
+        let string = self.data.insert_str(&self.scratch);
         self.scratch.clear();
         self.bump(1);
 
-        let original = self.strings.insert(self.string(original));
+        let original = self.data.insert_str(self.string(original));
 
         RawKind::String(RawString::new(RawStringKind::Original(original), string))
     }
@@ -222,7 +222,7 @@ impl<'a> Parser<'a> {
             }
         }
 
-        let string = self.strings.insert(self.string(start));
+        let string = self.data.insert_str(self.string(start));
         self.bump(1);
 
         Ok(RawKind::String(RawString::new(
@@ -248,11 +248,11 @@ impl<'a> Parser<'a> {
             }
         }
 
-        let string = self.strings.insert(&self.scratch);
+        let string = self.data.insert_str(&self.scratch);
         self.scratch.clear();
         self.bump(1);
 
-        let original = self.strings.insert(self.string(original));
+        let original = self.data.insert_str(self.string(original));
 
         Ok(RawKind::String(RawString::new(
             RawStringKind::Original(original),
@@ -499,13 +499,12 @@ impl<'a> Parser<'a> {
         addition: &StringId,
     ) -> StringId {
         self.scratch.clear();
-        self.scratch
-            .extend(self.strings.get(indentation).as_bytes());
+        self.scratch.extend(self.data.str(indentation).as_bytes());
         // Account for any extra spacing that is added, such as the list marker.
         self.scratch.extend(std::iter::repeat(b' ').take(len));
-        self.scratch.extend(self.strings.get(addition).as_bytes());
+        self.scratch.extend(self.data.str(addition).as_bytes());
 
-        let string = self.strings.insert(&self.scratch);
+        let string = self.data.insert_str(&self.scratch);
         self.scratch.clear();
         string
     }
@@ -526,7 +525,7 @@ impl<'a> Parser<'a> {
             let new_indentation = self.indentation(&separator);
 
             let new_indent = if nl == 0 {
-                let len = self.strings.get(&key.string).len();
+                let len = self.data.str(&key.string).len();
                 self.build_indentation(len.saturating_add(1), indent, &new_indentation)
             } else {
                 new_indentation
@@ -571,18 +570,18 @@ impl<'a> Parser<'a> {
 
     /// Find level of indentation.
     fn indentation(&mut self, string: &StringId) -> StringId {
-        let string = self.strings.get(string);
+        let string = self.data.str(string);
         let indent = string.rfind(b"\n").unwrap_or(0);
         let indent = &string[indent..];
         self.scratch.extend(indent.as_bytes());
-        let string = self.strings.insert(&self.scratch);
+        let string = self.data.insert_str(&self.scratch);
         self.scratch.clear();
         string
     }
 
     /// Count indentation level for the given string.
     fn count_indent(&self, string: &StringId) -> usize {
-        let string = self.strings.get(string);
+        let string = self.data.str(string);
         let n = string.rfind(b"\n").map_or(0, |n| n.wrapping_add(1));
         string[n..].chars().count()
     }
@@ -594,7 +593,7 @@ impl<'a> Parser<'a> {
         loop {
             match self.peek() {
                 b':' => {
-                    let key = self.strings.insert(self.string(start));
+                    let key = self.data.insert_str(self.string(start));
                     return Some(RawString::new(RawStringKind::Bare, key));
                 }
                 b'\n' | EOF => {
@@ -633,7 +632,7 @@ impl<'a> Parser<'a> {
                     return Ok((Raw::new(value, *indent), Some(ws)));
                 }
 
-                let string = self.strings.insert(self.string(start));
+                let string = self.data.insert_str(self.string(start));
                 let string = RawString::new(RawStringKind::Bare, string);
                 (RawKind::String(string), None)
             }
@@ -664,7 +663,7 @@ impl<'a> Parser<'a> {
             }
         };
 
-        let string = self.strings.insert(string);
+        let string = self.data.insert_str(string);
         Some(RawString::new(RawStringKind::Bare, string))
     }
 }

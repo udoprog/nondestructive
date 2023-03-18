@@ -1,11 +1,11 @@
-use crate::strings::Strings;
+use crate::yaml::data::Data;
 use crate::yaml::raw::{new_bool, new_string, Layout, RawKind, RawList, RawNumber};
 use crate::yaml::serde;
 use crate::yaml::{List, NullKind, Separator, ValueMut};
 
 /// Mutator for a list.
 pub struct ListMut<'a> {
-    strings: &'a mut Strings,
+    data: &'a mut Data,
     raw: &'a mut RawList,
     layout: &'a Layout,
 }
@@ -36,10 +36,10 @@ macro_rules! push_float {
         /// ```
         pub fn $name(&mut self, value: $ty) {
             let mut buffer = ryu::Buffer::new();
-            let number = self.strings.insert(buffer.format(value));
+            let number = self.data.insert_str(buffer.format(value));
             let value = RawKind::Number(RawNumber::new(number, serde::$hint));
             self.raw
-                .push(self.strings, self.layout, Separator::Auto, value);
+                .push(self.data, self.layout, Separator::Auto, value);
         }
     };
 }
@@ -70,21 +70,17 @@ macro_rules! push_number {
         /// ```
         pub fn $name(&mut self, value: $ty) {
             let mut buffer = itoa::Buffer::new();
-            let number = self.strings.insert(buffer.format(value));
+            let number = self.data.insert_str(buffer.format(value));
             let value = RawKind::Number(RawNumber::new(number, serde::$hint));
             self.raw
-                .push(self.strings, self.layout, Separator::Auto, value);
+                .push(self.data, self.layout, Separator::Auto, value);
         }
     };
 }
 
 impl<'a> ListMut<'a> {
-    pub(crate) fn new(strings: &'a mut Strings, raw: &'a mut RawList, layout: &'a Layout) -> Self {
-        Self {
-            strings,
-            raw,
-            layout,
-        }
+    pub(crate) fn new(data: &'a mut Data, raw: &'a mut RawList, layout: &'a Layout) -> Self {
+        Self { data, raw, layout }
     }
 
     /// Coerce a mutable list as an immutable [List].
@@ -116,7 +112,7 @@ impl<'a> ListMut<'a> {
     #[must_use]
     #[inline]
     pub fn as_ref(&self) -> List<'_> {
-        List::new(self.strings, self.raw)
+        List::new(self.data, self.raw)
     }
 
     /// Coerce a mutable list into an immutable [List] with the lifetime of the
@@ -145,7 +141,7 @@ impl<'a> ListMut<'a> {
     #[must_use]
     #[inline]
     pub fn into_ref(self) -> List<'a> {
-        List::new(self.strings, self.raw)
+        List::new(self.data, self.raw)
     }
 
     /// Get a value mutably from the table.
@@ -178,7 +174,7 @@ impl<'a> ListMut<'a> {
     /// ```
     pub fn get_mut(&mut self, index: usize) -> Option<ValueMut<'_>> {
         if let Some(item) = self.raw.items.get_mut(index) {
-            return Some(ValueMut::new(self.strings, &mut item.value));
+            return Some(ValueMut::new(self.data, &mut item.value));
         }
 
         None
@@ -216,14 +212,14 @@ impl<'a> ListMut<'a> {
     pub fn push(&mut self, separator: Separator<'_>) -> ValueMut<'_> {
         let index = self.raw.items.len();
         self.raw.push(
-            self.strings,
+            self.data,
             self.layout,
             separator,
             RawKind::Null(NullKind::Empty),
         );
         // SAFETY: value was just pushed.
         let raw = unsafe { self.raw.items.get_unchecked_mut(index) };
-        ValueMut::new(self.strings, &mut raw.value)
+        ValueMut::new(self.data, &mut raw.value)
     }
 
     /// Push a string.
@@ -252,9 +248,9 @@ impl<'a> ListMut<'a> {
     where
         S: AsRef<str>,
     {
-        let string = new_string(self.strings, string);
+        let string = new_string(self.data, string);
         self.raw
-            .push(self.strings, self.layout, Separator::Auto, string);
+            .push(self.data, self.layout, Separator::Auto, string);
     }
 
     /// Push a bool.
@@ -280,9 +276,9 @@ impl<'a> ListMut<'a> {
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     pub fn push_bool(&mut self, value: bool) {
-        let value = new_bool(self.strings, value);
+        let value = new_bool(self.data, value);
         self.raw
-            .push(self.strings, self.layout, Separator::Auto, value);
+            .push(self.data, self.layout, Separator::Auto, value);
     }
 
     push_float!(push_f32, f32, "32-bit float", 10.42, F32);

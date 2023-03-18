@@ -2,7 +2,7 @@ use core::fmt;
 
 use bstr::BStr;
 
-use crate::strings::Strings;
+use crate::yaml::data::Data;
 use crate::yaml::raw::RawTable;
 use crate::yaml::table::Iter;
 use crate::yaml::Value;
@@ -68,13 +68,13 @@ use crate::yaml::Value;
 /// # Ok::<_, Box<dyn std::error::Error>>(())
 /// ```
 pub struct Table<'a> {
-    strings: &'a Strings,
+    data: &'a Data,
     raw: &'a RawTable,
 }
 
 impl<'a> Table<'a> {
-    pub(crate) fn new(strings: &'a Strings, raw: &'a RawTable) -> Self {
-        Self { strings, raw }
+    pub(crate) fn new(data: &'a Data, raw: &'a RawTable) -> Self {
+        Self { data, raw }
     }
 
     /// Get the length of the table.
@@ -157,8 +157,8 @@ impl<'a> Table<'a> {
     #[inline]
     pub fn get(&self, key: &str) -> Option<Value<'a>> {
         for e in &self.raw.items {
-            if self.strings.get(&e.key.string) == key {
-                return Some(Value::new(self.strings, &e.value));
+            if self.data.str(&e.key.string) == key {
+                return Some(Value::new(self.data, &e.value));
             }
         }
 
@@ -187,14 +187,14 @@ impl<'a> Table<'a> {
     #[must_use]
     #[inline]
     pub fn iter(&self) -> Iter<'_> {
-        Iter::new(self.strings, &self.raw.items)
+        Iter::new(self.data, &self.raw.items)
     }
 }
 
 impl fmt::Display for Table<'_> {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.raw.display(self.strings, f)
+        self.raw.display(self.data, f)
     }
 }
 
@@ -230,6 +230,6 @@ impl<'a> IntoIterator for Table<'a> {
 
     #[inline]
     fn into_iter(self) -> Self::IntoIter {
-        Iter::new(self.strings, &self.raw.items)
+        Iter::new(self.data, &self.raw.items)
     }
 }

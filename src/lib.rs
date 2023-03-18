@@ -45,5 +45,4 @@
 #![allow(clippy::module_inception)]
 #![allow(clippy::module_name_repetitions)]
 
-mod strings;
 pub mod yaml;

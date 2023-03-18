@@ -49,6 +49,8 @@ mod tests;
 mod parsing;
 pub use self::parsing::Parser;
 
+mod data;
+
 mod error;
 pub use self::error::Error;
 

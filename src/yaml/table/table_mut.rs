@@ -1,4 +1,4 @@
-use crate::strings::Strings;
+use crate::yaml::data::Data;
 use crate::yaml::raw::{new_bool, new_string};
 use crate::yaml::raw::{Layout, RawKind, RawNumber, RawTable};
 use crate::yaml::serde;
@@ -42,7 +42,7 @@ use crate::yaml::{NullKind, Separator, Table, ValueMut};
 /// # Ok::<_, Box<dyn std::error::Error>>(())
 /// ```
 pub struct TableMut<'a> {
-    strings: &'a mut Strings,
+    data: &'a mut Data,
     raw: &'a mut RawTable,
     layout: &'a Layout,
 }
@@ -73,10 +73,10 @@ macro_rules! insert_float {
         /// ```
         pub fn $name(&mut self, key: &str, value: $ty) {
             let mut buffer = ryu::Buffer::new();
-            let number = self.strings.insert(buffer.format(value));
+            let number = self.data.insert_str(buffer.format(value));
             let value = RawKind::Number(RawNumber::new(number, serde::$hint));
             self.raw
-                .insert(self.strings, self.layout, key, Separator::Auto, value);
+                .insert(self.data, self.layout, key, Separator::Auto, value);
         }
     };
 }
@@ -107,21 +107,17 @@ macro_rules! insert_number {
         /// ```
         pub fn $name(&mut self, key: &str, value: $ty) {
             let mut buffer = itoa::Buffer::new();
-            let number = self.strings.insert(buffer.format(value));
+            let number = self.data.insert_str(buffer.format(value));
             let value = RawKind::Number(RawNumber::new(number, serde::$hint));
             self.raw
-                .insert(self.strings, self.layout, key, Separator::Auto, value);
+                .insert(self.data, self.layout, key, Separator::Auto, value);
         }
     };
 }
 
 impl<'a> TableMut<'a> {
-    pub(crate) fn new(strings: &'a mut Strings, raw: &'a mut RawTable, layout: &'a Layout) -> Self {
-        Self {
-            strings,
-            raw,
-            layout,
-        }
+    pub(crate) fn new(data: &'a mut Data, raw: &'a mut RawTable, layout: &'a Layout) -> Self {
+        Self { data, raw, layout }
     }
 
     /// Coerce a mutable table as an immutable [Table].
@@ -157,7 +153,7 @@ impl<'a> TableMut<'a> {
     #[must_use]
     #[inline]
     pub fn as_ref(&self) -> Table<'_> {
-        Table::new(self.strings, self.raw)
+        Table::new(self.data, self.raw)
     }
 
     /// Coerce a mutable table into an immutable [Table] with the lifetime of
@@ -190,7 +186,7 @@ impl<'a> TableMut<'a> {
     #[must_use]
     #[inline]
     pub fn into_ref(self) -> Table<'a> {
-        Table::new(self.strings, self.raw)
+        Table::new(self.data, self.raw)
     }
 
     /// Get a value mutably from the table.
@@ -225,8 +221,8 @@ impl<'a> TableMut<'a> {
     /// ```
     pub fn get_mut(&mut self, key: &str) -> Option<ValueMut<'_>> {
         for e in &mut self.raw.items {
-            if self.strings.get(&e.key.string) == key {
-                return Some(ValueMut::new(self.strings, &mut e.value));
+            if self.data.str(&e.key.string) == key {
+                return Some(ValueMut::new(self.data, &mut e.value));
             }
         }
 
@@ -265,7 +261,7 @@ impl<'a> TableMut<'a> {
     /// ```
     pub fn insert(&mut self, key: &str, separator: Separator<'_>) -> ValueMut<'_> {
         let index = self.raw.insert(
-            self.strings,
+            self.data,
             self.layout,
             key,
             separator,
@@ -273,7 +269,7 @@ impl<'a> TableMut<'a> {
         );
         // SAFETY: value was just inserted.
         let raw = unsafe { self.raw.items.get_unchecked_mut(index) };
-        ValueMut::new(self.strings, &mut raw.value)
+        ValueMut::new(self.data, &mut raw.value)
     }
 
     /// Insert a string.
@@ -288,7 +284,7 @@ impl<'a> TableMut<'a> {
     /// "#)?;
     ///
     /// let mut value = doc.root_mut().into_table_mut().ok_or("not a table")?;
-    /// value.insert_string("string2", "hello");
+    /// value.insert_str("string2", "hello");
     ///
     /// assert_eq! (
     /// doc.to_string(),
@@ -298,13 +294,13 @@ impl<'a> TableMut<'a> {
     /// "#);
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
-    pub fn insert_string<S>(&mut self, key: &str, string: S)
+    pub fn insert_str<S>(&mut self, key: &str, string: S)
     where
         S: AsRef<str>,
     {
-        let string = new_string(self.strings, string);
+        let string = new_string(self.data, string);
         self.raw
-            .insert(self.strings, self.layout, key, Separator::Auto, string);
+            .insert(self.data, self.layout, key, Separator::Auto, string);
     }
 
     /// Insert a bool.
@@ -329,9 +325,9 @@ impl<'a> TableMut<'a> {
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     pub fn insert_bool(&mut self, key: &str, value: bool) {
-        let value = new_bool(self.strings, value);
+        let value = new_bool(self.data, value);
         self.raw
-            .insert(self.strings, self.layout, key, Separator::Auto, value);
+            .insert(self.data, self.layout, key, Separator::Auto, value);
     }
 
     insert_float!(insert_f32, f32, "32-bit float", 10.42, F32);

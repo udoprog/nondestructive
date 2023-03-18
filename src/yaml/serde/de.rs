@@ -66,7 +66,7 @@ impl<'de> Deserializer<'de> for ValueDeserializer<'de> {
                 RawNumberHint::Signed128 => self.deserialize_i128(visitor),
             },
             RawKind::String(raw) => {
-                let string = self.value.strings.get(&raw.string);
+                let string = self.value.data.str(&raw.string);
 
                 if let Ok(string) = string.to_str() {
                     visitor.visit_borrowed_str(string)
@@ -74,12 +74,12 @@ impl<'de> Deserializer<'de> for ValueDeserializer<'de> {
                     visitor.visit_borrowed_bytes(string)
                 }
             }
-            RawKind::Table(raw) => visitor.visit_map(TableIter::new(
-                Table::new(self.value.strings, raw).into_iter(),
-            )),
-            RawKind::List(raw) => visitor.visit_seq(ListIter::new(
-                List::new(self.value.strings, raw).into_iter(),
-            )),
+            RawKind::Table(raw) => {
+                visitor.visit_map(TableIter::new(Table::new(self.value.data, raw).into_iter()))
+            }
+            RawKind::List(raw) => {
+                visitor.visit_seq(ListIter::new(List::new(self.value.data, raw).into_iter()))
+            }
         }
     }
 

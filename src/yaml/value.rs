@@ -2,7 +2,7 @@ use core::fmt;
 
 use bstr::{BStr, ByteSlice};
 
-use crate::strings::Strings;
+use crate::yaml::data::Data;
 use crate::yaml::raw::{Raw, RawKind, RawStringKind};
 use crate::yaml::{List, Table};
 
@@ -83,7 +83,7 @@ impl NullKind {
 /// # Ok::<_, Box<dyn std::error::Error>>(())
 /// ```
 pub struct Value<'a> {
-    pub(crate) strings: &'a Strings,
+    pub(crate) data: &'a Data,
     pub(crate) raw: &'a Raw,
 }
 
@@ -106,7 +106,7 @@ macro_rules! as_number {
         pub fn $name(&self) -> Option<$ty> {
             match &self.raw.kind {
                 RawKind::Number(raw) => {
-                    let string = self.strings.get(&raw.string);
+                    let string = self.data.str(&raw.string);
                     lexical_core::parse(string).ok()
                 }
                 _ => None,
@@ -116,8 +116,8 @@ macro_rules! as_number {
 }
 
 impl<'a> Value<'a> {
-    pub(crate) fn new(strings: &'a Strings, raw: &'a Raw) -> Self {
-        Self { strings, raw }
+    pub(crate) fn new(data: &'a Data, raw: &'a Raw) -> Self {
+        Self { data, raw }
     }
 
     /// Get the value as a [`BStr`].
@@ -148,7 +148,7 @@ impl<'a> Value<'a> {
     #[inline]
     pub fn as_bstr(&self) -> Option<&'a BStr> {
         match &self.raw.kind {
-            RawKind::String(raw) => Some(self.strings.get(&raw.string)),
+            RawKind::String(raw) => Some(self.data.str(&raw.string)),
             _ => None,
         }
     }
@@ -183,7 +183,7 @@ impl<'a> Value<'a> {
     #[inline]
     pub fn as_str(&self) -> Option<&'a str> {
         match &self.raw.kind {
-            RawKind::String(raw) => self.strings.get(&raw.string).to_str().ok(),
+            RawKind::String(raw) => self.data.str(&raw.string).to_str().ok(),
             _ => None,
         }
     }
@@ -209,7 +209,7 @@ impl<'a> Value<'a> {
         const FALSE: &[u8] = b"false";
 
         match &self.raw.kind {
-            RawKind::String(raw) => match (raw.kind, self.strings.get(&raw.string).as_bytes()) {
+            RawKind::String(raw) => match (raw.kind, self.data.str(&raw.string).as_bytes()) {
                 (RawStringKind::Bare, TRUE) => Some(true),
                 (RawStringKind::Bare, FALSE) => Some(false),
                 _ => None,
@@ -248,7 +248,7 @@ impl<'a> Value<'a> {
     #[inline]
     pub fn as_table(&self) -> Option<Table<'a>> {
         match &self.raw.kind {
-            RawKind::Table(raw) => Some(Table::new(self.strings, raw)),
+            RawKind::Table(raw) => Some(Table::new(self.data, raw)),
             _ => None,
         }
     }
@@ -279,7 +279,7 @@ impl<'a> Value<'a> {
     #[inline]
     pub fn as_list(&self) -> Option<List<'a>> {
         match &self.raw.kind {
-            RawKind::List(raw) => Some(List::new(self.strings, raw)),
+            RawKind::List(raw) => Some(List::new(self.data, raw)),
             _ => None,
         }
     }
@@ -301,7 +301,7 @@ impl<'a> Value<'a> {
 impl fmt::Display for Value<'_> {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.raw.display(self.strings, f)
+        self.raw.display(self.data, f)
     }
 }
 
@@ -312,7 +312,7 @@ impl fmt::Debug for Value<'_> {
         impl fmt::Debug for Display<'_, '_> {
             #[inline]
             fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                self.0.raw.display(self.0.strings, f)
+                self.0.raw.display(self.0.data, f)
             }
         }
 

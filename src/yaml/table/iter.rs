@@ -2,7 +2,7 @@ use core::slice;
 
 use bstr::BStr;
 
-use crate::strings::Strings;
+use crate::yaml::data::Data;
 use crate::yaml::raw::RawTableItem;
 use crate::yaml::Value;
 
@@ -10,15 +10,15 @@ use crate::yaml::Value;
 ///
 /// See [`Table::iter`][crate::yaml::table::Table::iter].
 pub struct Iter<'a> {
-    strings: &'a Strings,
+    data: &'a Data,
     iter: slice::Iter<'a, RawTableItem>,
 }
 
 impl<'a> Iter<'a> {
     #[inline]
-    pub(crate) fn new(strings: &'a Strings, slice: &'a [RawTableItem]) -> Self {
+    pub(crate) fn new(data: &'a Data, slice: &'a [RawTableItem]) -> Self {
         Self {
-            strings,
+            data,
             iter: slice.iter(),
         }
     }
@@ -30,16 +30,16 @@ impl<'a> Iterator for Iter<'a> {
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         let item = self.iter.next()?;
-        let key = self.strings.get(&item.key.string);
-        let value = Value::new(self.strings, &item.value);
+        let key = self.data.str(&item.key.string);
+        let value = Value::new(self.data, &item.value);
         Some((key, value))
     }
 
     #[inline]
     fn nth(&mut self, n: usize) -> Option<Self::Item> {
         let item = self.iter.nth(n)?;
-        let key = self.strings.get(&item.key.string);
-        let value = Value::new(self.strings, &item.value);
+        let key = self.data.str(&item.key.string);
+        let value = Value::new(self.data, &item.value);
         Some((key, value))
     }
 
@@ -53,16 +53,16 @@ impl DoubleEndedIterator for Iter<'_> {
     #[inline]
     fn next_back(&mut self) -> Option<Self::Item> {
         let item = self.iter.next_back()?;
-        let key = self.strings.get(&item.key.string);
-        let value = Value::new(self.strings, &item.value);
+        let key = self.data.str(&item.key.string);
+        let value = Value::new(self.data, &item.value);
         Some((key, value))
     }
 
     #[inline]
     fn nth_back(&mut self, n: usize) -> Option<Self::Item> {
         let item = self.iter.nth(n)?;
-        let key = self.strings.get(&item.key.string);
-        let value = Value::new(self.strings, &item.value);
+        let key = self.data.str(&item.key.string);
+        let value = Value::new(self.data, &item.value);
         Some((key, value))
     }
 }
