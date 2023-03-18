@@ -44,7 +44,7 @@ use crate::yaml::{Mapping, NullKind, Separator, ValueMut};
 /// ```
 pub struct MappingMut<'a> {
     data: &'a mut Data,
-    id: ValueId,
+    pub(crate) id: ValueId,
 }
 
 macro_rules! insert_float {

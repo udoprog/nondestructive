@@ -68,7 +68,7 @@ use crate::yaml::Value;
 /// ```
 pub struct Mapping<'a> {
     data: &'a Data,
-    id: ValueId,
+    pub(crate) id: ValueId,
 }
 
 impl<'a> Mapping<'a> {

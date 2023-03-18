@@ -1,18 +1,54 @@
 use crate::yaml::data::{Data, ValueId};
 use crate::yaml::raw::{new_bool, new_string, RawKind, RawNumber};
 use crate::yaml::serde;
-use crate::yaml::{MappingMut, NullKind, SequenceMut, Value};
+use crate::yaml::{AnyMut, MappingMut, NullKind, SequenceMut, Value};
 
 /// A mumapping value inside of a document.
 pub struct ValueMut<'a> {
     data: &'a mut Data,
-    id: ValueId,
+    pub(crate) id: ValueId,
 }
 
 impl<'a> ValueMut<'a> {
     /// Construct a new mumapping value.
     pub(crate) fn new(data: &'a mut Data, id: ValueId) -> Self {
         Self { data, id }
+    }
+
+    /// Coerce into [`AnyMut`] to help discriminate the value type.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nondestructive::yaml;
+    ///
+    /// let mut doc = yaml::from_bytes(r#"
+    /// Hello World
+    /// "#)?;
+    ///
+    /// assert!(matches!(doc.root_mut().into_any_mut(), yaml::AnyMut::Scalar(..)));
+    ///
+    /// let mut doc = yaml::from_bytes(r#"
+    /// number1: 10
+    /// number2: 20
+    /// "#)?;
+    ///
+    /// assert!(matches!(doc.root_mut().into_any_mut(), yaml::AnyMut::Mapping(..)));
+    ///
+    /// let mut doc = yaml::from_bytes(r#"
+    /// - 10
+    /// - 20
+    /// "#)?;
+    ///
+    /// assert!(matches!(doc.root_mut().into_any_mut(), yaml::AnyMut::Sequence(..)));
+    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn into_any_mut(self) -> AnyMut<'a> {
+        match &self.data.raw(self.id).kind {
+            RawKind::Mapping(..) => AnyMut::Mapping(MappingMut::new(self.data, self.id)),
+            RawKind::Sequence(..) => AnyMut::Sequence(SequenceMut::new(self.data, self.id)),
+            _ => AnyMut::Scalar(self),
+        }
     }
 
     /// Coerce a mumapping value as an immumapping [Value].

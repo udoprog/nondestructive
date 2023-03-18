@@ -102,7 +102,7 @@ use crate::yaml::Value;
 /// ```
 pub struct Sequence<'a> {
     data: &'a Data,
-    id: ValueId,
+    pub(crate) id: ValueId,
 }
 
 impl<'a> Sequence<'a> {

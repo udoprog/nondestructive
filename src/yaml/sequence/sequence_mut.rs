@@ -8,7 +8,7 @@ use crate::yaml::{NullKind, Separator, Sequence, ValueMut};
 /// Mutator for a sequence.
 pub struct SequenceMut<'a> {
     data: &'a mut Data,
-    id: ValueId,
+    pub(crate) id: ValueId,
 }
 
 macro_rules! push_float {

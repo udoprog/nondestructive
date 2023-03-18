@@ -4,7 +4,7 @@ use bstr::{BStr, ByteSlice};
 
 use crate::yaml::data::Data;
 use crate::yaml::raw::{RawKind, RawStringKind};
-use crate::yaml::{Mapping, Sequence};
+use crate::yaml::{Any, Mapping, Sequence};
 
 use super::data::ValueId;
 
@@ -120,6 +120,42 @@ macro_rules! as_number {
 impl<'a> Value<'a> {
     pub(crate) fn new(data: &'a Data, id: ValueId) -> Self {
         Self { data, id }
+    }
+
+    /// Coerce into [`Any`] to help discriminate the value type.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nondestructive::yaml;
+    ///
+    /// let doc = yaml::from_bytes(r#"
+    /// Hello World
+    /// "#)?;
+    ///
+    /// assert!(matches!(doc.root().into_any(), yaml::Any::Scalar(..)));
+    ///
+    /// let doc = yaml::from_bytes(r#"
+    /// number1: 10
+    /// number2: 20
+    /// "#)?;
+    ///
+    /// assert!(matches!(doc.root().into_any(), yaml::Any::Mapping(..)));
+    ///
+    /// let doc = yaml::from_bytes(r#"
+    /// - 10
+    /// - 20
+    /// "#)?;
+    ///
+    /// assert!(matches!(doc.root().into_any(), yaml::Any::Sequence(..)));
+    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn into_any(self) -> Any<'a> {
+        match &self.data.raw(self.id).kind {
+            RawKind::Mapping(..) => Any::Mapping(Mapping::new(self.data, self.id)),
+            RawKind::Sequence(..) => Any::Sequence(Sequence::new(self.data, self.id)),
+            _ => Any::Scalar(self),
+        }
     }
 
     /// Get the opaque [`ValueId`] associated with this value.
