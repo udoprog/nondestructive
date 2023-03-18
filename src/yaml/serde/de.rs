@@ -4,7 +4,7 @@ use serde::Deserializer;
 
 use crate::yaml::raw::RawKind;
 use crate::yaml::serde::{Error, RawNumberHint};
-use crate::yaml::{list, table, Document, List, Table, Value};
+use crate::yaml::{mapping, sequence, Document, Mapping, Sequence, Value};
 
 impl<'de, 'a: 'de> IntoDeserializer<'de, Error> for &'a Document {
     type Deserializer = Value<'de>;
@@ -60,12 +60,12 @@ impl<'de> Deserializer<'de> for Value<'de> {
                     visitor.visit_borrowed_bytes(string)
                 }
             }
-            RawKind::Table(..) => {
-                visitor.visit_map(TableIter::new(Table::new(self.data, self.id).into_iter()))
-            }
-            RawKind::List(..) => {
-                visitor.visit_seq(ListIter::new(List::new(self.data, self.id).into_iter()))
-            }
+            RawKind::Mapping(..) => visitor.visit_map(MappingIter::new(
+                Mapping::new(self.data, self.id).into_iter(),
+            )),
+            RawKind::Sequence(..) => visitor.visit_seq(SequenceIter::new(
+                Sequence::new(self.data, self.id).into_iter(),
+            )),
         }
     }
 
@@ -293,8 +293,8 @@ impl<'de> Deserializer<'de> for Value<'de> {
     where
         V: Visitor<'de>,
     {
-        match self.as_list() {
-            Some(value) => visitor.visit_seq(ListIter::new(value.into_iter())),
+        match self.as_sequence() {
+            Some(value) => visitor.visit_seq(SequenceIter::new(value.into_iter())),
             None => self.deserialize_any(visitor),
         }
     }
@@ -304,8 +304,8 @@ impl<'de> Deserializer<'de> for Value<'de> {
     where
         V: Visitor<'de>,
     {
-        match self.as_list() {
-            Some(value) => visitor.visit_seq(ListIter::new(value.into_iter())),
+        match self.as_sequence() {
+            Some(value) => visitor.visit_seq(SequenceIter::new(value.into_iter())),
             None => self.deserialize_any(visitor),
         }
     }
@@ -328,8 +328,8 @@ impl<'de> Deserializer<'de> for Value<'de> {
     where
         V: Visitor<'de>,
     {
-        match self.as_table() {
-            Some(value) => visitor.visit_map(TableIter::new(value.into_iter())),
+        match self.as_mapping() {
+            Some(value) => visitor.visit_map(MappingIter::new(value.into_iter())),
             None => self.deserialize_any(visitor),
         }
     }
@@ -647,19 +647,19 @@ impl<'de> Deserializer<'de> for BStrDeserializer<'de> {
     }
 }
 
-struct TableIter<'de> {
-    iter: table::Iter<'de>,
+struct MappingIter<'de> {
+    iter: mapping::Iter<'de>,
     value: Option<Value<'de>>,
 }
 
-impl<'de> TableIter<'de> {
+impl<'de> MappingIter<'de> {
     #[inline]
-    fn new(iter: table::Iter<'de>) -> Self {
+    fn new(iter: mapping::Iter<'de>) -> Self {
         Self { iter, value: None }
     }
 }
 
-impl<'de> MapAccess<'de> for TableIter<'de> {
+impl<'de> MapAccess<'de> for MappingIter<'de> {
     type Error = Error;
 
     #[inline]
@@ -688,18 +688,18 @@ impl<'de> MapAccess<'de> for TableIter<'de> {
     }
 }
 
-struct ListIter<'a> {
-    iter: list::Iter<'a>,
+struct SequenceIter<'a> {
+    iter: sequence::Iter<'a>,
 }
 
-impl<'de> ListIter<'de> {
+impl<'de> SequenceIter<'de> {
     #[inline]
-    fn new(iter: list::Iter<'de>) -> Self {
+    fn new(iter: sequence::Iter<'de>) -> Self {
         Self { iter }
     }
 }
 
-impl<'de> SeqAccess<'de> for ListIter<'de> {
+impl<'de> SeqAccess<'de> for SequenceIter<'de> {
     type Error = Error;
 
     #[inline]

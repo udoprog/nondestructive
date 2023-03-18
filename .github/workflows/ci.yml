@@ -12,7 +12,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        rust: ["1.65", stable]
+        rust: ["1.65", smapping]
     steps:
     - uses: actions/checkout@v3
     - uses: dtolnay/rust-toolchain@master
@@ -21,7 +21,7 @@ jobs:
     - run: cargo test --workspace --all-targets --no-default-features
     - run: cargo test --workspace --all-targets --all-features
     - run: cargo test --workspace --doc --all-features
-      if: matrix.rust == 'stable'
+      if: matrix.rust == 'smapping'
 
   clippy:
     runs-on: ubuntu-latest
@@ -37,7 +37,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
-    - uses: dtolnay/rust-toolchain@stable
+    - uses: dtolnay/rust-toolchain@smapping
       with:
         components: rustfmt
     - run: cargo fmt --check --all

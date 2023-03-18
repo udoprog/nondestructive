@@ -1,21 +1,21 @@
 use crate::yaml::data::{Data, ValueId};
 use crate::yaml::raw::{new_bool, new_string, RawKind, RawNumber};
 use crate::yaml::serde;
-use crate::yaml::{ListMut, NullKind, TableMut, Value};
+use crate::yaml::{MappingMut, NullKind, SequenceMut, Value};
 
-/// A mutable value inside of a document.
+/// A mumapping value inside of a document.
 pub struct ValueMut<'a> {
     data: &'a mut Data,
     id: ValueId,
 }
 
 impl<'a> ValueMut<'a> {
-    /// Construct a new mutable value.
+    /// Construct a new mumapping value.
     pub(crate) fn new(data: &'a mut Data, id: ValueId) -> Self {
         Self { data, id }
     }
 
-    /// Coerce a mutable value as an immutable [Value].
+    /// Coerce a mumapping value as an immumapping [Value].
     ///
     /// This is useful to be able to directly use methods only available on
     /// [Value].
@@ -28,18 +28,18 @@ impl<'a> ValueMut<'a> {
     /// let mut doc = yaml::from_bytes(r#"
     /// number1: 10
     /// number2: 20
-    /// table:
+    /// mapping:
     ///   inner: 400
     /// string3: "I am a quoted string!"
     /// "#)?;
     ///
-    /// let mut root = doc.root_mut().into_table_mut().ok_or("missing root table")?;
+    /// let mut root = doc.root_mut().into_mapping_mut().ok_or("missing root mapping")?;
     ///
     /// assert_eq!(root.get_mut("number1").and_then(|v| v.as_ref().as_u32()), Some(10));
     /// assert_eq!(root.get_mut("number2").and_then(|v| v.as_ref().as_u32()), Some(20));
     ///
-    /// let mut table = root.get_mut("table").and_then(|v| v.into_table_mut()).ok_or("missing inner table")?;
-    /// assert_eq!(table.get_mut("inner").and_then(|v| v.as_ref().as_u32()), Some(400));
+    /// let mut mapping = root.get_mut("mapping").and_then(|v| v.into_mapping_mut()).ok_or("missing inner mapping")?;
+    /// assert_eq!(mapping.get_mut("inner").and_then(|v| v.as_ref().as_u32()), Some(400));
     ///
     /// assert_eq!(root.get_mut("string3").and_then(|v| v.into_ref().as_str()), Some("I am a quoted string!"));
     /// # Ok::<_, Box<dyn std::error::Error>>(())
@@ -50,7 +50,7 @@ impl<'a> ValueMut<'a> {
         Value::new(self.data, self.id)
     }
 
-    /// Coerce a mutable value into an immutable [Value] with the lifetime of
+    /// Coerce a mumapping value into an immumapping [Value] with the lifetime of
     /// the current reference.
     ///
     /// This is useful to be able to directly use methods only available on
@@ -64,18 +64,18 @@ impl<'a> ValueMut<'a> {
     /// let mut doc = yaml::from_bytes(r#"
     /// number1: 10
     /// number2: 20
-    /// table:
+    /// mapping:
     ///   inner: 400
     /// string3: "I am a quoted string!"
     /// "#)?;
     ///
-    /// let mut root = doc.root_mut().into_table_mut().ok_or("missing root table")?;
+    /// let mut root = doc.root_mut().into_mapping_mut().ok_or("missing root mapping")?;
     ///
     /// assert_eq!(root.get_mut("number1").and_then(|v| v.into_ref().as_u32()), Some(10));
     /// assert_eq!(root.get_mut("number2").and_then(|v| v.into_ref().as_u32()), Some(20));
     ///
-    /// let mut table = root.get_mut("table").and_then(|v| v.into_table_mut()).ok_or("missing inner table")?;
-    /// assert_eq!(table.get_mut("inner").and_then(|v| v.into_ref().as_u32()), Some(400));
+    /// let mut mapping = root.get_mut("mapping").and_then(|v| v.into_mapping_mut()).ok_or("missing inner mapping")?;
+    /// assert_eq!(mapping.get_mut("inner").and_then(|v| v.into_ref().as_u32()), Some(400));
     ///
     /// assert_eq!(root.get_mut("string3").and_then(|v| v.into_ref().as_str()), Some("I am a quoted string!"));
     /// # Ok::<_, Box<dyn std::error::Error>>(())
@@ -86,7 +86,7 @@ impl<'a> ValueMut<'a> {
         Value::new(self.data, self.id)
     }
 
-    /// Convert the value into a mutable [`TableMut`].
+    /// Convert the value into a mumapping [`MappingMut`].
     ///
     /// # Examples
     ///
@@ -96,34 +96,34 @@ impl<'a> ValueMut<'a> {
     /// let mut doc = yaml::from_bytes(r#"
     ///   number1: 10
     ///   number2: 20
-    ///   table:
+    ///   mapping:
     ///     inner: 400
     ///   string3: "I am a quoted string!"
     /// "#)?;
     ///
     /// let mut root = doc.root_mut();
-    /// let mut root = root.as_table_mut().ok_or("missing root table")?;
-    /// root.get_mut("number2").ok_or("missing inner table")?.set_u32(30);
+    /// let mut root = root.as_mapping_mut().ok_or("missing root mapping")?;
+    /// root.get_mut("number2").ok_or("missing inner mapping")?.set_u32(30);
     ///
     /// assert_eq!(
     /// doc.to_string(),
     /// r#"
     ///   number1: 10
     ///   number2: 30
-    ///   table:
+    ///   mapping:
     ///     inner: 400
     ///   string3: "I am a quoted string!"
     /// "#);
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
-    pub fn as_table_mut(&mut self) -> Option<TableMut<'_>> {
+    pub fn as_mapping_mut(&mut self) -> Option<MappingMut<'_>> {
         match &mut self.data.raw_mut(self.id).kind {
-            RawKind::Table(..) => Some(TableMut::new(self.data, self.id)),
+            RawKind::Mapping(..) => Some(MappingMut::new(self.data, self.id)),
             _ => None,
         }
     }
 
-    /// Convert the value into a mutable [`TableMut`] with the same lifetime as
+    /// Convert the value into a mumapping [`MappingMut`] with the same lifetime as
     /// the one associated with this value.
     ///
     /// # Examples
@@ -134,34 +134,34 @@ impl<'a> ValueMut<'a> {
     /// let mut doc = yaml::from_bytes(r#"
     ///   number1: 10
     ///   number2: 20
-    ///   table:
+    ///   mapping:
     ///     inner: 400
     ///   string3: "I am a quoted string!"
     /// "#)?;
     ///
-    /// let mut root = doc.root_mut().into_table_mut().ok_or("missing root table")?;
-    /// root.get_mut("number2").ok_or("missing inner table")?.set_u32(30);
-    /// root.get_mut("string3").ok_or("missing inner table")?.set_string("i-am-a-bare-string");
+    /// let mut root = doc.root_mut().into_mapping_mut().ok_or("missing root mapping")?;
+    /// root.get_mut("number2").ok_or("missing inner mapping")?.set_u32(30);
+    /// root.get_mut("string3").ok_or("missing inner mapping")?.set_string("i-am-a-bare-string");
     ///
     /// assert_eq!(
     /// doc.to_string(),
     /// r#"
     ///   number1: 10
     ///   number2: 30
-    ///   table:
+    ///   mapping:
     ///     inner: 400
     ///   string3: i-am-a-bare-string
     /// "#);
     ///
-    /// let mut root = doc.root_mut().into_table_mut().ok_or("missing root table")?;
-    /// root.get_mut("string3").ok_or("missing inner table")?.set_string("It's \n a good day!");
+    /// let mut root = doc.root_mut().into_mapping_mut().ok_or("missing root mapping")?;
+    /// root.get_mut("string3").ok_or("missing inner mapping")?.set_string("It's \n a good day!");
     ///
     /// assert_eq!(
     /// doc.to_string(),
     /// r#"
     ///   number1: 10
     ///   number2: 30
-    ///   table:
+    ///   mapping:
     ///     inner: 400
     ///   string3: "It's \n a good day!"
     /// "#);
@@ -170,14 +170,14 @@ impl<'a> ValueMut<'a> {
     /// ```
     #[must_use]
     #[inline]
-    pub fn into_table_mut(self) -> Option<TableMut<'a>> {
+    pub fn into_mapping_mut(self) -> Option<MappingMut<'a>> {
         match &mut self.data.raw_mut(self.id).kind {
-            RawKind::Table(..) => Some(TableMut::new(self.data, self.id)),
+            RawKind::Mapping(..) => Some(MappingMut::new(self.data, self.id)),
             _ => None,
         }
     }
 
-    /// Convert the value into a mutable [`ListMut`].
+    /// Convert the value into a mumapping [`SequenceMut`].
     ///
     /// # Examples
     ///
@@ -192,8 +192,8 @@ impl<'a> ValueMut<'a> {
     /// "#)?;
     ///
     /// let mut root = doc.root_mut();
-    /// let mut root = root.as_list_mut().ok_or("missing root list")?;
-    /// root.get_mut(1).ok_or("missing inner table")?.set_u32(30);
+    /// let mut root = root.as_sequence_mut().ok_or("missing root sequence")?;
+    /// root.get_mut(1).ok_or("missing inner mapping")?.set_u32(30);
     ///
     /// assert_eq!(
     /// doc.to_string(),
@@ -205,14 +205,14 @@ impl<'a> ValueMut<'a> {
     /// "#);
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
-    pub fn as_list_mut(&mut self) -> Option<ListMut<'_>> {
+    pub fn as_sequence_mut(&mut self) -> Option<SequenceMut<'_>> {
         match &mut self.data.raw_mut(self.id).kind {
-            RawKind::List(..) => Some(ListMut::new(self.data, self.id)),
+            RawKind::Sequence(..) => Some(SequenceMut::new(self.data, self.id)),
             _ => None,
         }
     }
 
-    /// Convert the value into a mutable [`ListMut`] with the same lifetime as
+    /// Convert the value into a mumapping [`SequenceMut`] with the same lifetime as
     /// the one associated with this value.
     ///
     /// # Examples
@@ -228,8 +228,8 @@ impl<'a> ValueMut<'a> {
     /// "#)?;
     ///
     /// let mut root = doc.root_mut();
-    /// let mut root = root.into_list_mut().ok_or("missing root list")?;
-    /// root.get_mut(1).ok_or("missing inner table")?.set_u32(30);
+    /// let mut root = root.into_sequence_mut().ok_or("missing root sequence")?;
+    /// root.get_mut(1).ok_or("missing inner mapping")?.set_u32(30);
     ///
     /// assert_eq!(
     /// doc.to_string(),
@@ -243,9 +243,9 @@ impl<'a> ValueMut<'a> {
     /// ```
     #[must_use]
     #[inline]
-    pub fn into_list_mut(self) -> Option<ListMut<'a>> {
+    pub fn into_sequence_mut(self) -> Option<SequenceMut<'a>> {
         match &mut self.data.raw_mut(self.id).kind {
-            RawKind::List(..) => Some(ListMut::new(self.data, self.id)),
+            RawKind::Sequence(..) => Some(SequenceMut::new(self.data, self.id)),
             _ => None,
         }
     }

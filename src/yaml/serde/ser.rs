@@ -5,7 +5,7 @@ use serde::Serialize;
 
 use crate::yaml::raw::RawKind;
 use crate::yaml::serde::RawNumberHint;
-use crate::yaml::{Document, List, Table, Value};
+use crate::yaml::{Document, Mapping, Sequence, Value};
 
 impl Serialize for Document {
     #[inline]
@@ -83,13 +83,13 @@ impl Serialize for Value<'_> {
                     serializer.serialize_bytes(string)
                 }
             }
-            RawKind::Table(..) => Table::new(self.data, self.id).serialize(serializer),
-            RawKind::List(..) => List::new(self.data, self.id).serialize(serializer),
+            RawKind::Mapping(..) => Mapping::new(self.data, self.id).serialize(serializer),
+            RawKind::Sequence(..) => Sequence::new(self.data, self.id).serialize(serializer),
         }
     }
 }
 
-impl Serialize for List<'_> {
+impl Serialize for Sequence<'_> {
     #[inline]
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -105,7 +105,7 @@ impl Serialize for List<'_> {
     }
 }
 
-impl Serialize for Table<'_> {
+impl Serialize for Mapping<'_> {
     #[inline]
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where

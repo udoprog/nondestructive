@@ -3,10 +3,10 @@ use core::mem;
 use crate::yaml::data::{Data, ValueId};
 use crate::yaml::raw::{new_bool, new_string, RawKind, RawNumber};
 use crate::yaml::serde;
-use crate::yaml::{List, NullKind, Separator, ValueMut};
+use crate::yaml::{NullKind, Separator, Sequence, ValueMut};
 
-/// Mutator for a list.
-pub struct ListMut<'a> {
+/// Mutator for a sequence.
+pub struct SequenceMut<'a> {
     data: &'a mut Data,
     id: ValueId,
 }
@@ -24,7 +24,7 @@ macro_rules! push_float {
         /// - 10
         /// "#)?;
         ///
-        /// let mut value = doc.root_mut().into_list_mut().ok_or("not a list")?;
+        /// let mut value = doc.root_mut().into_sequence_mut().ok_or("not a sequence")?;
         ///
         #[doc = concat!("value.", stringify!($name), "(", stringify!($lit), ");")]
         /// assert_eq!(
@@ -39,7 +39,7 @@ macro_rules! push_float {
             let mut buffer = ryu::Buffer::new();
             let number = self.data.insert_str(buffer.format(value));
             let value = RawKind::Number(RawNumber::new(number, serde::$hint));
-            push(self.data, self.id, Separator::Auto, value);
+            self._push(Separator::Auto, value);
         }
     };
 }
@@ -56,7 +56,7 @@ macro_rules! push_number {
         /// let mut doc = yaml::from_bytes(r#"
         /// - 10
         /// "#)?;
-        /// let mut value = doc.root_mut().into_list_mut().ok_or("not a list")?;
+        /// let mut value = doc.root_mut().into_sequence_mut().ok_or("not a sequence")?;
         ///
         #[doc = concat!("value.", stringify!($name), "(", stringify!($lit), ");")]
         ///
@@ -72,20 +72,44 @@ macro_rules! push_number {
             let mut buffer = itoa::Buffer::new();
             let number = self.data.insert_str(buffer.format(value));
             let value = RawKind::Number(RawNumber::new(number, serde::$hint));
-            push(self.data, self.id, Separator::Auto, value);
+            self._push(Separator::Auto, value);
         }
     };
 }
 
-impl<'a> ListMut<'a> {
+impl<'a> SequenceMut<'a> {
     pub(crate) fn new(data: &'a mut Data, id: ValueId) -> Self {
         Self { data, id }
     }
 
-    /// Coerce a mutable list as an immutable [List].
+    /// Push a value on the sequence.
+    fn _push(&mut self, separator: Separator, value: RawKind) -> ValueId {
+        use crate::yaml::raw::{Raw, RawSequenceItem};
+
+        let separator = match separator {
+            Separator::Auto => match self.data.sequence(self.id).items.last() {
+                Some(last) => last.separator,
+                None => self.data.insert_str(" "),
+            },
+            Separator::Custom(string) => self.data.insert_str(string),
+        };
+
+        let indent = self.data.layout(self.id).indent;
+        let value = self.data.insert_raw(Raw::new(value, indent));
+        let raw = self.data.sequence_mut(self.id);
+        let prefix = (!raw.items.is_empty()).then_some(indent);
+        raw.items.push(RawSequenceItem {
+            prefix,
+            separator,
+            value,
+        });
+        value
+    }
+
+    /// Coerce a mumapping sequence as an immumapping [Sequence].
     ///
     /// This is useful to be able to directly use methods only available on
-    /// [List].
+    /// [Sequence].
     ///
     /// # Examples
     ///
@@ -100,7 +124,7 @@ impl<'a> ListMut<'a> {
     /// "#,
     /// )?;
     ///
-    /// let root = doc.root_mut().into_list_mut().ok_or("missing root list")?;
+    /// let root = doc.root_mut().into_sequence_mut().ok_or("missing root sequence")?;
     /// let root = root.as_ref();
     ///
     /// assert_eq!(root.get(0).and_then(|v| v.as_str()), Some("one"));
@@ -110,11 +134,11 @@ impl<'a> ListMut<'a> {
     /// ```
     #[must_use]
     #[inline]
-    pub fn as_ref(&self) -> List<'_> {
-        List::new(self.data, self.id)
+    pub fn as_ref(&self) -> Sequence<'_> {
+        Sequence::new(self.data, self.id)
     }
 
-    /// Coerce a mutable list into an immutable [List] with the lifetime of the
+    /// Coerce a mumapping sequence into an immumapping [Sequence] with the lifetime of the
     /// current reference.
     ///
     /// # Examples
@@ -130,7 +154,7 @@ impl<'a> ListMut<'a> {
     /// "#,
     /// )?;
     ///
-    /// let root = doc.root_mut().into_list_mut().ok_or("missing root list")?.into_ref();
+    /// let root = doc.root_mut().into_sequence_mut().ok_or("missing root sequence")?.into_ref();
     ///
     /// assert_eq!(root.get(0).and_then(|v| v.as_str()), Some("one"));
     /// assert_eq!(root.get(1).and_then(|v| v.as_str()), Some("two"));
@@ -139,11 +163,11 @@ impl<'a> ListMut<'a> {
     /// ```
     #[must_use]
     #[inline]
-    pub fn into_ref(self) -> List<'a> {
-        List::new(self.data, self.id)
+    pub fn into_ref(self) -> Sequence<'a> {
+        Sequence::new(self.data, self.id)
     }
 
-    /// Get a value mutably from the table.
+    /// Get a value mutably from the mapping.
     ///
     /// # Examples
     ///
@@ -158,8 +182,8 @@ impl<'a> ListMut<'a> {
     /// "#)?;
     ///
     /// let mut root = doc.root_mut();
-    /// let mut root = root.as_list_mut().ok_or("missing root list")?;
-    /// root.get_mut(1).ok_or("missing inner table")?.set_u32(30);
+    /// let mut root = root.as_sequence_mut().ok_or("missing root sequence")?;
+    /// root.get_mut(1).ok_or("missing inner mapping")?.set_u32(30);
     ///
     /// assert_eq!(
     /// doc.to_string(),
@@ -172,15 +196,15 @@ impl<'a> ListMut<'a> {
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     pub fn get_mut(&mut self, index: usize) -> Option<ValueMut<'_>> {
-        if let Some(item) = self.data.list(self.id).items.get(index) {
+        if let Some(item) = self.data.sequence(self.id).items.get(index) {
             return Some(ValueMut::new(self.data, item.value));
         }
 
         None
     }
 
-    /// Remove the given index from the list, returning a boolean indicating if
-    /// it existed in the list or not.
+    /// Remove the given index from the sequence, returning a boolean indicating if
+    /// it existed in the sequence or not.
     ///
     /// # Examples
     ///
@@ -195,7 +219,7 @@ impl<'a> ListMut<'a> {
     /// "#)?;
     ///
     /// let mut root = doc.root_mut();
-    /// let mut root = root.as_list_mut().ok_or("missing root list")?;
+    /// let mut root = root.as_sequence_mut().ok_or("missing root sequence")?;
     ///
     /// assert!(!root.remove(4));
     /// assert!(root.remove(2));
@@ -210,7 +234,7 @@ impl<'a> ListMut<'a> {
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     pub fn remove(&mut self, index: usize) -> bool {
-        let raw = self.data.list_mut(self.id);
+        let raw = self.data.sequence_mut(self.id);
 
         if raw.items.len() <= index {
             return false;
@@ -221,7 +245,7 @@ impl<'a> ListMut<'a> {
         true
     }
 
-    /// Clear all the elements in a list.
+    /// Clear all the elements in a sequence.
     ///
     /// # Examples
     ///
@@ -236,7 +260,7 @@ impl<'a> ListMut<'a> {
     /// "#)?;
     ///
     /// let mut root = doc.root_mut();
-    /// let mut root = root.as_list_mut().ok_or("missing root list")?;
+    /// let mut root = root.as_sequence_mut().ok_or("missing root sequence")?;
     ///
     /// root.clear();
     ///
@@ -244,13 +268,13 @@ impl<'a> ListMut<'a> {
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     pub fn clear(&mut self) {
-        let mut items = mem::take(&mut self.data.list_mut(self.id).items);
+        let mut items = mem::take(&mut self.data.sequence_mut(self.id).items);
 
         for item in items.drain(..) {
             self.data.drop(item.value);
         }
 
-        self.data.list_mut(self.id).items = items;
+        self.data.sequence_mut(self.id).items = items;
     }
 
     /// Push a new null value and return a [`ValueMut`] to the newly pushed value.
@@ -269,7 +293,7 @@ impl<'a> ListMut<'a> {
     ///     "#,
     /// )?;
     ///
-    /// let mut root = doc.root_mut().into_list_mut().ok_or("missing root list")?;
+    /// let mut root = doc.root_mut().into_sequence_mut().ok_or("missing root sequence")?;
     /// root.push(yaml::Separator::Custom("   ")).set_bool(true);
     ///
     /// assert_eq! {
@@ -283,12 +307,7 @@ impl<'a> ListMut<'a> {
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     pub fn push(&mut self, separator: Separator<'_>) -> ValueMut<'_> {
-        let value = push(
-            self.data,
-            self.id,
-            separator,
-            RawKind::Null(NullKind::Empty),
-        );
+        let value = self._push(separator, RawKind::Null(NullKind::Empty));
         ValueMut::new(self.data, value)
     }
 
@@ -302,8 +321,8 @@ impl<'a> ListMut<'a> {
     /// let mut doc = yaml::from_bytes(r#"
     ///   - - 10
     /// "#)?;
-    /// let mut value = doc.root_mut().into_list_mut().ok_or("not a list")?;
-    /// let mut value = value.get_mut(0).and_then(|v| v.into_list_mut()).expect("missing inner");
+    /// let mut value = doc.root_mut().into_sequence_mut().ok_or("not a sequence")?;
+    /// let mut value = value.get_mut(0).and_then(|v| v.into_sequence_mut()).expect("missing inner");
     /// value.push_string("nice string");
     ///
     /// assert_eq!(
@@ -319,7 +338,7 @@ impl<'a> ListMut<'a> {
         S: AsRef<str>,
     {
         let string = new_string(self.data, string);
-        push(self.data, self.id, Separator::Auto, string);
+        self._push(Separator::Auto, string);
     }
 
     /// Push a bool.
@@ -332,8 +351,8 @@ impl<'a> ListMut<'a> {
     /// let mut doc = yaml::from_bytes(r#"
     ///   - - 10
     /// "#)?;
-    /// let mut value = doc.root_mut().into_list_mut().ok_or("not a list")?;
-    /// let mut value = value.get_mut(0).and_then(|v| v.into_list_mut()).expect("missing inner");
+    /// let mut value = doc.root_mut().into_sequence_mut().ok_or("not a sequence")?;
+    /// let mut value = value.get_mut(0).and_then(|v| v.into_sequence_mut()).expect("missing inner");
     /// value.push_bool(false);
     ///
     /// assert_eq!(
@@ -346,7 +365,7 @@ impl<'a> ListMut<'a> {
     /// ```
     pub fn push_bool(&mut self, value: bool) {
         let value = new_bool(self.data, value);
-        push(self.data, self.id, Separator::Auto, value);
+        self._push(Separator::Auto, value);
     }
 
     push_float!(push_f32, f32, "32-bit float", 10.42, F32);
@@ -361,28 +380,4 @@ impl<'a> ListMut<'a> {
     push_number!(push_i64, i64, "64-bit signed integer", -42, I64);
     push_number!(push_u128, u128, "128-bit unsigned integer", 42, U128);
     push_number!(push_i128, i128, "128-bit signed integer", -42, I128);
-}
-
-/// Push a value on the list.
-pub(crate) fn push(data: &mut Data, id: ValueId, separator: Separator, value: RawKind) -> ValueId {
-    use crate::yaml::raw::{Raw, RawListItem};
-
-    let separator = match separator {
-        Separator::Auto => match data.list(id).items.last() {
-            Some(last) => last.separator,
-            None => data.insert_str(" "),
-        },
-        Separator::Custom(string) => data.insert_str(string),
-    };
-
-    let indent = data.layout(id).indent;
-    let value = data.insert_raw(Raw::new(value, indent));
-    let raw = data.list_mut(id);
-    let prefix = (!raw.items.is_empty()).then_some(indent);
-    raw.items.push(RawListItem {
-        prefix,
-        separator,
-        value,
-    });
-    value
 }

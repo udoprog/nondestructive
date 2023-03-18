@@ -1,10 +1,10 @@
 use core::fmt;
 
 use crate::yaml::data::{Data, ValueId};
-use crate::yaml::list::Iter;
+use crate::yaml::sequence::Iter;
 use crate::yaml::Value;
 
-/// Accessor for a list.
+/// Accessor for a sequence.
 ///
 /// # Examples
 ///
@@ -19,7 +19,7 @@ use crate::yaml::Value;
 ///     "#,
 /// )?;
 ///
-/// let root = doc.root().as_list().ok_or("missing root list")?;
+/// let root = doc.root().as_sequence().ok_or("missing root sequence")?;
 ///
 /// assert_eq!(root.get(0).and_then(|v| v.as_str()), Some("one"));
 /// assert_eq!(root.get(1).and_then(|v| v.as_str()), Some("two"));
@@ -43,21 +43,21 @@ use crate::yaml::Value;
 ///     "#,
 /// )?;
 ///
-/// let root = doc.root().as_list().ok_or("missing root list")?;
+/// let root = doc.root().as_sequence().ok_or("missing root sequence")?;
 ///
 /// assert_eq!(root.get(0).and_then(|v| v.as_str()), Some("one"));
 /// assert_eq!(root.get(1).and_then(|v| v.as_str()), Some("two"));
 ///
 /// let three = root
 ///     .get(2)
-///     .and_then(|v| v.as_list())
+///     .and_then(|v| v.as_sequence())
 ///     .ok_or("missing three")?;
 ///
 /// assert_eq!(three.get(0).and_then(|v| v.as_str()), Some("three"));
 ///
 /// let four = three
 ///     .get(1)
-///     .and_then(|v| v.as_table())
+///     .and_then(|v| v.as_mapping())
 ///     .ok_or("missing four")?;
 ///
 /// assert_eq!(four.get("four").and_then(|v| v.as_u32()), Some(2));
@@ -67,7 +67,7 @@ use crate::yaml::Value;
 /// # Ok::<_, Box<dyn std::error::Error>>(())
 /// ```
 ///
-/// Lists can also be defined in an inline form:
+/// Sequences can also be defined in an inline form:
 ///
 /// ```
 /// use nondestructive::yaml;
@@ -76,9 +76,9 @@ use crate::yaml::Value;
 /// assert_eq!(doc.to_string(), "[]");
 ///
 /// let doc = yaml::from_bytes("[,]")?;
-/// let list = doc.root().as_list().ok_or("missing root list")?;
-/// assert!(!list.is_empty());
-/// assert_eq!(list.len(), 1);
+/// let sequence = doc.root().as_sequence().ok_or("missing root sequence")?;
+/// assert!(!sequence.is_empty());
+/// assert_eq!(sequence.len(), 1);
 /// assert_eq!(doc.to_string(), "[,]");
 ///
 /// let doc = yaml::from_bytes(
@@ -87,7 +87,7 @@ use crate::yaml::Value;
 ///     "#,
 /// )?;
 ///
-/// let root = doc.root().as_list().ok_or("missing root list")?;
+/// let root = doc.root().as_sequence().ok_or("missing root sequence")?;
 /// assert_eq!(root.get(0).and_then(|v| v.as_str()), Some("one"));
 /// assert_eq!(root.get(1).and_then(|v| v.as_str()), Some("two"));
 /// assert_eq!(root.get(2).and_then(|v| v.as_u32()), Some(3));
@@ -100,17 +100,17 @@ use crate::yaml::Value;
 /// );
 /// # Ok::<_, Box<dyn std::error::Error>>(())
 /// ```
-pub struct List<'a> {
+pub struct Sequence<'a> {
     data: &'a Data,
     id: ValueId,
 }
 
-impl<'a> List<'a> {
+impl<'a> Sequence<'a> {
     pub(crate) fn new(data: &'a Data, id: ValueId) -> Self {
         Self { data, id }
     }
 
-    /// Get the opaque [`ValueId`] associated with this list.
+    /// Get the opaque [`ValueId`] associated with this sequence.
     ///
     /// # Examples
     ///
@@ -122,12 +122,12 @@ impl<'a> List<'a> {
     /// - [1, 2, 3]
     /// "#)?;
     ///
-    /// let root = doc.root().as_list().ok_or("missing list")?;
-    /// let second = root.get(1).and_then(|v| v.as_list()).ok_or("missing second")?;
+    /// let root = doc.root().as_sequence().ok_or("missing sequence")?;
+    /// let second = root.get(1).and_then(|v| v.as_sequence()).ok_or("missing second")?;
     /// let id = second.id();
     ///
     /// // Reference the same value again using the id.
-    /// let second = doc.value(id).as_list().ok_or("missing id")?;
+    /// let second = doc.value(id).as_sequence().ok_or("missing id")?;
     /// assert!(second.iter().flat_map(|v| v.as_u32()).eq([1, 2, 3]));
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
@@ -135,7 +135,7 @@ impl<'a> List<'a> {
         self.id
     }
 
-    /// Get the length of the list.
+    /// Get the length of the sequence.
     ///
     /// # Examples
     ///
@@ -150,17 +150,17 @@ impl<'a> List<'a> {
     ///     "#,
     /// )?;
     ///
-    /// let root = doc.root().as_list().ok_or("missing root list")?;
+    /// let root = doc.root().as_sequence().ok_or("missing root sequence")?;
     /// assert_eq!(root.len(), 3);
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     #[must_use]
     #[inline]
     pub fn len(&self) -> usize {
-        self.data.list(self.id).items.len()
+        self.data.sequence(self.id).items.len()
     }
 
-    /// Test if the list is empty.
+    /// Test if the sequence is empty.
     ///
     /// # Examples
     ///
@@ -175,17 +175,17 @@ impl<'a> List<'a> {
     ///     "#,
     /// )?;
     ///
-    /// let root = doc.root().as_list().ok_or("missing root list")?;
+    /// let root = doc.root().as_sequence().ok_or("missing root sequence")?;
     /// assert!(!root.is_empty());
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     #[must_use]
     #[inline]
     pub fn is_empty(&self) -> bool {
-        self.data.list(self.id).items.is_empty()
+        self.data.sequence(self.id).items.is_empty()
     }
 
-    /// Get a value from the list.
+    /// Get a value from the sequence.
     ///
     /// # Examples
     ///
@@ -200,7 +200,7 @@ impl<'a> List<'a> {
     ///     "#,
     /// )?;
     ///
-    /// let root = doc.root().as_list().ok_or("missing root list")?;
+    /// let root = doc.root().as_sequence().ok_or("missing root sequence")?;
     ///
     /// assert_eq!(root.get(0).and_then(|v| v.as_str()), Some("one"));
     /// assert_eq!(root.get(1).and_then(|v| v.as_str()), Some("two"));
@@ -210,11 +210,11 @@ impl<'a> List<'a> {
     #[must_use]
     #[inline]
     pub fn get(&self, index: usize) -> Option<Value<'_>> {
-        let item = self.data.list(self.id).items.get(index)?;
+        let item = self.data.sequence(self.id).items.get(index)?;
         Some(Value::new(self.data, item.value))
     }
 
-    /// Returns an iterator over the list.
+    /// Returns an iterator over the sequence.
     ///
     /// # Examples
     ///
@@ -229,32 +229,32 @@ impl<'a> List<'a> {
     ///     "#,
     /// )?;
     ///
-    /// let root = doc.root().as_list().ok_or("missing root list")?;
+    /// let root = doc.root().as_sequence().ok_or("missing root sequence")?;
     /// root.iter().flat_map(|v| v.as_str()).eq(["one", "two", "three"]);
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     #[must_use]
     #[inline]
     pub fn iter(&self) -> Iter<'_> {
-        Iter::new(self.data, &self.data.list(self.id).items)
+        Iter::new(self.data, &self.data.sequence(self.id).items)
     }
 }
 
-impl fmt::Display for List<'_> {
+impl fmt::Display for Sequence<'_> {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.data.list(self.id).display(self.data, f)
+        self.data.sequence(self.id).display(self.data, f)
     }
 }
 
-impl fmt::Debug for List<'_> {
+impl fmt::Debug for Sequence<'_> {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_list().entries(self.iter()).finish()
     }
 }
 
-/// Returns an iterator over the [List].
+/// Returns an iterator over the [Sequence].
 ///
 /// # Examples
 ///
@@ -269,16 +269,16 @@ impl fmt::Debug for List<'_> {
 ///     "#,
 /// )?;
 ///
-/// let root = doc.root().as_list().ok_or("missing root list")?;
+/// let root = doc.root().as_sequence().ok_or("missing root sequence")?;
 /// root.into_iter().flat_map(|v| v.as_str()).eq(["one", "two", "three"]);
 /// # Ok::<_, Box<dyn std::error::Error>>(())
 /// ```
-impl<'a> IntoIterator for List<'a> {
+impl<'a> IntoIterator for Sequence<'a> {
     type Item = Value<'a>;
     type IntoIter = Iter<'a>;
 
     #[inline]
     fn into_iter(self) -> Self::IntoIter {
-        Iter::new(self.data, &self.data.list(self.id).items)
+        Iter::new(self.data, &self.data.sequence(self.id).items)
     }
 }

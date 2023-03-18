@@ -4,11 +4,11 @@ use bstr::{BStr, ByteSlice};
 
 use crate::yaml::data::Data;
 use crate::yaml::raw::{RawKind, RawStringKind};
-use crate::yaml::{List, Table};
+use crate::yaml::{Mapping, Sequence};
 
 use super::data::ValueId;
 
-/// Separator to use when separating the value from its key or list marker.
+/// Separator to use when separating the value from its key or sequence marker.
 ///
 /// ```yaml
 /// -   hello
@@ -139,7 +139,7 @@ impl<'a> Value<'a> {
     /// second: [1, 2, 3]
     /// "#)?;
     ///
-    /// let root = doc.root().as_table().ok_or("missing table")?;
+    /// let root = doc.root().as_mapping().ok_or("missing mapping")?;
     /// let second = root.get("second").ok_or("missing second")?;
     /// let id = second.id();
     ///
@@ -168,7 +168,7 @@ impl<'a> Value<'a> {
     /// - 'It''s the same string!'
     /// "#)?;
     ///
-    /// let array = doc.root().as_list().ok_or("expected list")?;
+    /// let array = doc.root().as_sequence().ok_or("expected sequence")?;
     ///
     /// for item in array {
     ///     assert_eq!(item.as_bstr(), Some(BStr::new("It's the same string!")));
@@ -203,7 +203,7 @@ impl<'a> Value<'a> {
     /// - 'It''s the same string!'
     /// "#)?;
     ///
-    /// let array = doc.root().as_list().ok_or("expected list")?;
+    /// let array = doc.root().as_sequence().ok_or("expected sequence")?;
     ///
     /// for item in array {
     ///     assert_eq!(item.as_str(), Some("It's the same string!"));
@@ -249,7 +249,7 @@ impl<'a> Value<'a> {
         }
     }
 
-    /// Get the value as a [`Table`].
+    /// Get the value as a [`Mapping`].
     ///
     /// # Examples
     ///
@@ -259,32 +259,32 @@ impl<'a> Value<'a> {
     /// let doc = yaml::from_bytes(r#"
     /// number1: 10
     /// number2: 20
-    /// table:
+    /// mapping:
     ///   inner: 400
     /// string3: "I am a quoted string!"
     /// "#)?;
     ///
-    /// let root = doc.root().as_table().ok_or("missing root table")?;
+    /// let root = doc.root().as_mapping().ok_or("missing root mapping")?;
     ///
     /// assert_eq!(root.get("number1").and_then(|v| v.as_u32()), Some(10));
     /// assert_eq!(root.get("number2").and_then(|v| v.as_u32()), Some(20));
     ///
-    /// let table = root.get("table").and_then(|v| v.as_table()).ok_or("missing inner table")?;
-    /// assert_eq!(table.get("inner").and_then(|v| v.as_u32()), Some(400));
+    /// let mapping = root.get("mapping").and_then(|v| v.as_mapping()).ok_or("missing inner mapping")?;
+    /// assert_eq!(mapping.get("inner").and_then(|v| v.as_u32()), Some(400));
     ///
     /// assert_eq!(root.get("string3").and_then(|v| v.as_str()), Some("I am a quoted string!"));
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     #[must_use]
     #[inline]
-    pub fn as_table(&self) -> Option<Table<'a>> {
+    pub fn as_mapping(&self) -> Option<Mapping<'a>> {
         match &self.data.raw(self.id).kind {
-            RawKind::Table(..) => Some(Table::new(self.data, self.id)),
+            RawKind::Mapping(..) => Some(Mapping::new(self.data, self.id)),
             _ => None,
         }
     }
 
-    /// Get the value as a [`List`].
+    /// Get the value as a [`Sequence`].
     ///
     /// # Examples
     ///
@@ -299,7 +299,7 @@ impl<'a> Value<'a> {
     ///     "#,
     /// )?;
     ///
-    /// let root = doc.root().as_list().ok_or("missing root list")?;
+    /// let root = doc.root().as_sequence().ok_or("missing root sequence")?;
     ///
     /// assert_eq!(root.get(0).and_then(|v| v.as_str()), Some("one"));
     /// assert_eq!(root.get(1).and_then(|v| v.as_str()), Some("two"));
@@ -308,9 +308,9 @@ impl<'a> Value<'a> {
     /// ```
     #[must_use]
     #[inline]
-    pub fn as_list(&self) -> Option<List<'a>> {
+    pub fn as_sequence(&self) -> Option<Sequence<'a>> {
         match &self.data.raw(self.id).kind {
-            RawKind::List(..) => Some(List::new(self.data, self.id)),
+            RawKind::Sequence(..) => Some(Sequence::new(self.data, self.id)),
             _ => None,
         }
     }

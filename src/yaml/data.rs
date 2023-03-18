@@ -7,7 +7,7 @@ use std::num::NonZeroUsize;
 use bstr::BStr;
 use twox_hash::xxh3::{Hash128, HasherExt};
 
-use crate::yaml::raw::{Layout, Raw, RawKind, RawList, RawTable};
+use crate::yaml::raw::{Layout, Raw, RawKind, RawMapping, RawSequence};
 
 /// The unique hash of a string.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -22,13 +22,13 @@ impl fmt::Display for StringId {
 
 /// An opaque identifier for a value inside of a [`Document`].
 ///
-/// Is constructed through [`Value::id`], [`Table::id`], or [`List::id`] and can
+/// Is constructed through [`Value::id`], [`Mapping::id`], or [`Sequence::id`] and can
 /// be converted into a [`Value`] again through [`Document::value`] or
 /// [`Document::value_mut`].
 ///
 /// [`Value::id`]: crate::yaml::Value::id
-/// [`Table::id`]: crate::yaml::Table::id
-/// [`List::id`]: crate::yaml::List::id
+/// [`Mapping::id`]: crate::yaml::Mapping::id
+/// [`Sequence::id`]: crate::yaml::Sequence::id
 /// [`Value`]: crate::yaml::Value
 /// [`Document`]: crate::yaml::Document
 /// [`Document::value`]: crate::yaml::Document::value
@@ -112,55 +112,55 @@ impl Data {
     }
 
     #[inline]
-    pub(crate) fn list(&self, index: ValueId) -> &RawList {
+    pub(crate) fn sequence(&self, index: ValueId) -> &RawSequence {
         if let Some(Raw {
-            kind: RawKind::List(raw),
+            kind: RawKind::Sequence(raw),
             ..
         }) = self.slab.get(index.get())
         {
             return raw;
         }
 
-        panic!("expected list at {index}")
+        panic!("expected sequence at {index}")
     }
 
     #[inline]
-    pub(crate) fn list_mut(&mut self, index: ValueId) -> &mut RawList {
+    pub(crate) fn sequence_mut(&mut self, index: ValueId) -> &mut RawSequence {
         if let Some(Raw {
-            kind: RawKind::List(raw),
+            kind: RawKind::Sequence(raw),
             ..
         }) = self.slab.get_mut(index.get())
         {
             return raw;
         }
 
-        panic!("expected list at {index}")
+        panic!("expected sequence at {index}")
     }
 
     #[inline]
-    pub(crate) fn table(&self, index: ValueId) -> &RawTable {
+    pub(crate) fn mapping(&self, index: ValueId) -> &RawMapping {
         if let Some(Raw {
-            kind: RawKind::Table(raw),
+            kind: RawKind::Mapping(raw),
             ..
         }) = self.slab.get(index.get())
         {
             return raw;
         }
 
-        panic!("expected table at {index}")
+        panic!("expected mapping at {index}")
     }
 
     #[inline]
-    pub(crate) fn table_mut(&mut self, index: ValueId) -> &mut RawTable {
+    pub(crate) fn mapping_mut(&mut self, index: ValueId) -> &mut RawMapping {
         if let Some(Raw {
-            kind: RawKind::Table(raw),
+            kind: RawKind::Mapping(raw),
             ..
         }) = self.slab.get_mut(index.get())
         {
             return raw;
         }
 
-        panic!("expected table at {index}")
+        panic!("expected mapping at {index}")
     }
 
     /// Insert a raw value and return its identifier.
@@ -185,13 +185,13 @@ impl Data {
     #[inline]
     pub(crate) fn drop_kind(&mut self, kind: RawKind) {
         match kind {
-            RawKind::Table(raw) => {
+            RawKind::Mapping(raw) => {
                 for item in raw.items {
                     let item = self.slab.remove(item.value.get());
                     self.drop_kind(item.kind);
                 }
             }
-            RawKind::List(raw) => {
+            RawKind::Sequence(raw) => {
                 for item in raw.items {
                     let item = self.slab.remove(item.value.get());
                     self.drop_kind(item.kind);

@@ -1,20 +1,22 @@
 use core::slice;
 
+use bstr::BStr;
+
 use crate::yaml::data::Data;
-use crate::yaml::raw::RawListItem;
+use crate::yaml::raw::RawMappingItem;
 use crate::yaml::Value;
 
-/// An immutable iterator over a [`List`][crate::yaml::list::List].
+/// An immumapping iterator over a [`Mapping`][crate::yaml::mapping::Mapping].
 ///
-/// See [`List::iter`][crate::yaml::list::List::iter].
+/// See [`Mapping::iter`][crate::yaml::mapping::Mapping::iter].
 pub struct Iter<'a> {
     data: &'a Data,
-    iter: slice::Iter<'a, RawListItem>,
+    iter: slice::Iter<'a, RawMappingItem>,
 }
 
 impl<'a> Iter<'a> {
     #[inline]
-    pub(crate) fn new(data: &'a Data, slice: &'a [RawListItem]) -> Self {
+    pub(crate) fn new(data: &'a Data, slice: &'a [RawMappingItem]) -> Self {
         Self {
             data,
             iter: slice.iter(),
@@ -23,18 +25,22 @@ impl<'a> Iter<'a> {
 }
 
 impl<'a> Iterator for Iter<'a> {
-    type Item = Value<'a>;
+    type Item = (&'a BStr, Value<'a>);
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         let item = self.iter.next()?;
-        Some(Value::new(self.data, item.value))
+        let key = self.data.str(&item.key.string);
+        let value = Value::new(self.data, item.value);
+        Some((key, value))
     }
 
     #[inline]
     fn nth(&mut self, n: usize) -> Option<Self::Item> {
         let item = self.iter.nth(n)?;
-        Some(Value::new(self.data, item.value))
+        let key = self.data.str(&item.key.string);
+        let value = Value::new(self.data, item.value);
+        Some((key, value))
     }
 
     #[inline]
@@ -47,13 +53,17 @@ impl DoubleEndedIterator for Iter<'_> {
     #[inline]
     fn next_back(&mut self) -> Option<Self::Item> {
         let item = self.iter.next_back()?;
-        Some(Value::new(self.data, item.value))
+        let key = self.data.str(&item.key.string);
+        let value = Value::new(self.data, item.value);
+        Some((key, value))
     }
 
     #[inline]
     fn nth_back(&mut self, n: usize) -> Option<Self::Item> {
         let item = self.iter.nth(n)?;
-        Some(Value::new(self.data, item.value))
+        let key = self.data.str(&item.key.string);
+        let value = Value::new(self.data, item.value);
+        Some((key, value))
     }
 }
 

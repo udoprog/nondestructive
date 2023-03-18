@@ -3,9 +3,9 @@ use core::mem;
 use crate::yaml::data::{Data, ValueId};
 use crate::yaml::raw::{new_bool, new_string, RawKind, RawNumber};
 use crate::yaml::serde;
-use crate::yaml::{NullKind, Separator, Table, ValueMut};
+use crate::yaml::{Mapping, NullKind, Separator, ValueMut};
 
-/// Mutator for a table.
+/// Mutator for a mapping.
 ///
 /// # Examples
 ///
@@ -15,34 +15,34 @@ use crate::yaml::{NullKind, Separator, Table, ValueMut};
 /// let mut doc = yaml::from_bytes(r#"
 ///   number1: 10
 ///   number2: 20
-///   table:
+///   mapping:
 ///     inner: 400
 ///   string3: "I am a quoted string!"
 /// "#)?;
 ///
-/// let mut root = doc.root_mut().into_table_mut().ok_or("missing root table")?;
+/// let mut root = doc.root_mut().into_mapping_mut().ok_or("missing root mapping")?;
 ///
 /// assert_eq!(root.as_ref().get("number1").and_then(|v| v.as_u32()), Some(10));
 /// assert_eq!(root.as_ref().get("number2").and_then(|v| v.as_u32()), Some(20));
 /// assert_eq!(root.as_ref().get("string3").and_then(|v| v.as_str()), Some("I am a quoted string!"));
 ///
-/// let table = root.get_mut("table").and_then(|v| v.into_table_mut()).ok_or("missing inner table")?;
-/// assert_eq!(table.as_ref().get("inner").and_then(|v| v.as_u32()), Some(400));
+/// let mapping = root.get_mut("mapping").and_then(|v| v.into_mapping_mut()).ok_or("missing inner mapping")?;
+/// assert_eq!(mapping.as_ref().get("inner").and_then(|v| v.as_u32()), Some(400));
 ///
-/// root.get_mut("number2").ok_or("missing inner table")?.set_u32(30);
+/// root.get_mut("number2").ok_or("missing inner mapping")?.set_u32(30);
 ///
 /// assert_eq!(
 /// doc.to_string(),
 /// r#"
 ///   number1: 10
 ///   number2: 30
-///   table:
+///   mapping:
 ///     inner: 400
 ///   string3: "I am a quoted string!"
 /// "#);
 /// # Ok::<_, Box<dyn std::error::Error>>(())
 /// ```
-pub struct TableMut<'a> {
+pub struct MappingMut<'a> {
     data: &'a mut Data,
     id: ValueId,
 }
@@ -60,7 +60,7 @@ macro_rules! insert_float {
         ///   number1: 10
         /// "#)?;
         ///
-        /// let mut value = doc.root_mut().into_table_mut().ok_or("not a table")?;
+        /// let mut value = doc.root_mut().into_mapping_mut().ok_or("not a mapping")?;
         #[doc = concat!("value.", stringify!($name), "(\"number2\", ", stringify!($lit), ");")]
         ///
         /// assert_eq!(
@@ -75,7 +75,7 @@ macro_rules! insert_float {
             let mut buffer = ryu::Buffer::new();
             let number = self.data.insert_str(buffer.format(value));
             let value = RawKind::Number(RawNumber::new(number, serde::$hint));
-            insert(self.data, self.id, key, Separator::Auto, value);
+            self._insert(key, Separator::Auto, value);
         }
     };
 }
@@ -92,7 +92,7 @@ macro_rules! insert_number {
         /// let mut doc = yaml::from_bytes(r#"
         ///   number1: 10
         /// "#)?;
-        /// let mut value = doc.root_mut().into_table_mut().ok_or("not a table")?;
+        /// let mut value = doc.root_mut().into_mapping_mut().ok_or("not a mapping")?;
         ///
         #[doc = concat!("value.", stringify!($name), "(\"number2\", ", stringify!($lit), ");")]
         ///
@@ -108,20 +108,63 @@ macro_rules! insert_number {
             let mut buffer = itoa::Buffer::new();
             let number = self.data.insert_str(buffer.format(value));
             let value = RawKind::Number(RawNumber::new(number, serde::$hint));
-            insert(self.data, self.id, key, Separator::Auto, value);
+            self._insert(key, Separator::Auto, value);
         }
     };
 }
 
-impl<'a> TableMut<'a> {
+impl<'a> MappingMut<'a> {
     pub(crate) fn new(data: &'a mut Data, id: ValueId) -> Self {
         Self { data, id }
     }
 
-    /// Coerce a mutable table as an immutable [Table].
+    /// Insert a value into the mapping.
+    fn _insert(&mut self, key: &str, separator: Separator<'_>, value: RawKind) -> ValueId {
+        use crate::yaml::raw::{Raw, RawMappingItem, RawString, RawStringKind};
+
+        let key = self.data.insert_str(key);
+
+        if let Some(id) = self
+            .data
+            .mapping(self.id)
+            .items
+            .iter()
+            .find(|c| c.key.string == key)
+            .map(|item| item.value)
+        {
+            self.data.replace_raw(id, value);
+            return id;
+        }
+
+        let key = RawString::new(RawStringKind::Bare, key);
+
+        let separator = match separator {
+            Separator::Auto => match self.data.mapping(self.id).items.last() {
+                Some(last) => last.separator,
+                None => self.data.insert_str(" "),
+            },
+            Separator::Custom(separator) => self.data.insert_str(separator),
+        };
+
+        let indent = self.data.layout(self.id).indent;
+        let value = self.data.insert_raw(Raw::new(value, indent));
+        let raw = self.data.mapping_mut(self.id);
+        let prefix = (!raw.items.is_empty()).then_some(indent);
+
+        raw.items.push(RawMappingItem {
+            prefix,
+            key,
+            separator,
+            value,
+        });
+
+        value
+    }
+
+    /// Coerce a mumapping mapping as an immumapping [Mapping].
     ///
     /// This is useful to be able to directly use methods only available on
-    /// [Table].
+    /// [Mapping].
     ///
     /// # Examples
     ///
@@ -131,30 +174,30 @@ impl<'a> TableMut<'a> {
     /// let mut doc = yaml::from_bytes(r#"
     ///   number1: 10
     ///   number2: 20
-    ///   table:
+    ///   mapping:
     ///     inner: 400
     ///   string3: "I am a quoted string!"
     /// "#)?;
     ///
     /// let mut root = doc.root_mut();
-    /// let root = root.as_table_mut().ok_or("missing root table")?;
+    /// let root = root.as_mapping_mut().ok_or("missing root mapping")?;
     /// let root = root.as_ref();
     ///
     /// assert_eq!(root.get("number1").and_then(|v| v.as_u32()), Some(10));
     /// assert_eq!(root.get("number2").and_then(|v| v.as_u32()), Some(20));
     /// assert_eq!(root.get("string3").and_then(|v| v.as_str()), Some("I am a quoted string!"));
     ///
-    /// let table = root.get("table").and_then(|v| v.as_table()).ok_or("missing inner table")?;
-    /// assert_eq!(table.get("inner").and_then(|v| v.as_u32()), Some(400));
+    /// let mapping = root.get("mapping").and_then(|v| v.as_mapping()).ok_or("missing inner mapping")?;
+    /// assert_eq!(mapping.get("inner").and_then(|v| v.as_u32()), Some(400));
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     #[must_use]
     #[inline]
-    pub fn as_ref(&self) -> Table<'_> {
-        Table::new(self.data, self.id)
+    pub fn as_ref(&self) -> Mapping<'_> {
+        Mapping::new(self.data, self.id)
     }
 
-    /// Coerce a mutable table into an immutable [Table] with the lifetime of
+    /// Coerce a mumapping mapping into an immumapping [Mapping] with the lifetime of
     /// the current reference.
     ///
     /// # Examples
@@ -165,29 +208,29 @@ impl<'a> TableMut<'a> {
     /// let mut doc = yaml::from_bytes(r#"
     ///   number1: 10
     ///   number2: 20
-    ///   table:
+    ///   mapping:
     ///     inner: 400
     ///   string3: "I am a quoted string!"
     /// "#)?;
     ///
     /// let mut root = doc.root_mut();
-    /// let root = root.as_table_mut().map(|t| t.into_ref()).ok_or("missing root table")?;
+    /// let root = root.as_mapping_mut().map(|t| t.into_ref()).ok_or("missing root mapping")?;
     ///
     /// assert_eq!(root.get("number1").and_then(|v| v.as_u32()), Some(10));
     /// assert_eq!(root.get("number2").and_then(|v| v.as_u32()), Some(20));
     /// assert_eq!(root.get("string3").and_then(|v| v.as_str()), Some("I am a quoted string!"));
     ///
-    /// let table = root.get("table").and_then(|v| v.as_table()).ok_or("missing inner table")?;
-    /// assert_eq!(table.get("inner").and_then(|v| v.as_u32()), Some(400));
+    /// let mapping = root.get("mapping").and_then(|v| v.as_mapping()).ok_or("missing inner mapping")?;
+    /// assert_eq!(mapping.get("inner").and_then(|v| v.as_u32()), Some(400));
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     #[must_use]
     #[inline]
-    pub fn into_ref(self) -> Table<'a> {
-        Table::new(self.data, self.id)
+    pub fn into_ref(self) -> Mapping<'a> {
+        Mapping::new(self.data, self.id)
     }
 
-    /// Get a value mutably from the table.
+    /// Get a value mutably from the mapping.
     ///
     /// # Examples
     ///
@@ -197,28 +240,28 @@ impl<'a> TableMut<'a> {
     /// let mut doc = yaml::from_bytes(r#"
     ///   number1: 10
     ///   number2: 20
-    ///   table:
+    ///   mapping:
     ///     inner: 400
     ///   string3: "I am a quoted string!"
     /// "#)?;
     ///
     /// let mut root = doc.root_mut();
-    /// let mut root = root.as_table_mut().ok_or("missing root table")?;
-    /// root.get_mut("number2").ok_or("missing inner table")?.set_u32(30);
+    /// let mut root = root.as_mapping_mut().ok_or("missing root mapping")?;
+    /// root.get_mut("number2").ok_or("missing inner mapping")?.set_u32(30);
     ///
     /// assert_eq!(
     /// doc.to_string(),
     /// r#"
     ///   number1: 10
     ///   number2: 30
-    ///   table:
+    ///   mapping:
     ///     inner: 400
     ///   string3: "I am a quoted string!"
     /// "#);
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     pub fn get_mut(&mut self, key: &str) -> Option<ValueMut<'_>> {
-        for item in &self.data.table(self.id).items {
+        for item in &self.data.mapping(self.id).items {
             if self.data.str(&item.key.string) == key {
                 return Some(ValueMut::new(self.data, item.value));
             }
@@ -227,8 +270,8 @@ impl<'a> TableMut<'a> {
         None
     }
 
-    /// Remove the given value from the table, returning a boolean indicating if
-    /// it existed in the list or not.
+    /// Remove the given value from the mapping, returning a boolean indicating if
+    /// it existed in the sequence or not.
     ///
     /// # Examples
     ///
@@ -238,17 +281,17 @@ impl<'a> TableMut<'a> {
     /// let mut doc = yaml::from_bytes(r#"
     ///   number1: 10
     ///   number2: 20
-    ///   table:
+    ///   mapping:
     ///     inner: 400
     ///   string3: "I am a quoted string!"
     /// "#)?;
     ///
     /// let mut root = doc.root_mut();
-    /// let mut root = root.as_table_mut().ok_or("missing root table")?;
+    /// let mut root = root.as_mapping_mut().ok_or("missing root mapping")?;
     ///
     /// assert!(!root.remove("no such key"));
-    /// assert!(root.remove("table"));
-    /// assert!(!root.remove("table"));
+    /// assert!(root.remove("mapping"));
+    /// assert!(!root.remove("mapping"));
     ///
     /// assert_eq!(
     /// doc.to_string(),
@@ -262,7 +305,7 @@ impl<'a> TableMut<'a> {
     pub fn remove(&mut self, key: &str) -> bool {
         let mut index = None;
 
-        for (i, item) in self.data.table(self.id).items.iter().enumerate() {
+        for (i, item) in self.data.mapping(self.id).items.iter().enumerate() {
             if self.data.str(&item.key.string) == key {
                 index = Some(i);
                 break;
@@ -273,12 +316,12 @@ impl<'a> TableMut<'a> {
             return false;
         };
 
-        let item = self.data.table_mut(self.id).items.remove(index);
+        let item = self.data.mapping_mut(self.id).items.remove(index);
         self.data.drop(item.value);
         true
     }
 
-    /// Clear all the elements in a table.
+    /// Clear all the elements in a mapping.
     ///
     /// # Examples
     ///
@@ -288,13 +331,13 @@ impl<'a> TableMut<'a> {
     /// let mut doc = yaml::from_bytes(r#"
     ///   number1: 10
     ///   number2: 20
-    ///   table:
+    ///   mapping:
     ///     inner: 400
     ///   string3: "I am a quoted string!"
     /// "#)?;
     ///
     /// let mut root = doc.root_mut();
-    /// let mut root = root.as_table_mut().ok_or("missing root table")?;
+    /// let mut root = root.as_mapping_mut().ok_or("missing root mapping")?;
     ///
     /// root.clear();
     ///
@@ -302,13 +345,13 @@ impl<'a> TableMut<'a> {
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     pub fn clear(&mut self) {
-        let mut items = mem::take(&mut self.data.table_mut(self.id).items);
+        let mut items = mem::take(&mut self.data.mapping_mut(self.id).items);
 
         for item in items.drain(..) {
             self.data.drop(item.value);
         }
 
-        self.data.table_mut(self.id).items = items;
+        self.data.mapping_mut(self.id).items = items;
     }
 
     /// Insert a new null value and return a [`ValueMut`] to the newly inserted
@@ -328,7 +371,7 @@ impl<'a> TableMut<'a> {
     ///     "#,
     /// )?;
     ///
-    /// let mut root = doc.root_mut().into_table_mut().ok_or("missing root table")?;
+    /// let mut root = doc.root_mut().into_mapping_mut().ok_or("missing root mapping")?;
     /// root.insert("three", yaml::Separator::Custom("   ")).set_u32(3);
     ///
     /// assert_eq! {
@@ -342,13 +385,7 @@ impl<'a> TableMut<'a> {
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     pub fn insert(&mut self, key: &str, separator: Separator<'_>) -> ValueMut<'_> {
-        let value = insert(
-            self.data,
-            self.id,
-            key,
-            separator,
-            RawKind::Null(NullKind::Empty),
-        );
+        let value = self._insert(key, separator, RawKind::Null(NullKind::Empty));
         ValueMut::new(self.data, value)
     }
 
@@ -363,7 +400,7 @@ impl<'a> TableMut<'a> {
     ///   number1:  10
     /// "#)?;
     ///
-    /// let mut value = doc.root_mut().into_table_mut().ok_or("not a table")?;
+    /// let mut value = doc.root_mut().into_mapping_mut().ok_or("not a mapping")?;
     /// value.insert_str("string2", "hello");
     ///
     /// assert_eq! (
@@ -379,7 +416,7 @@ impl<'a> TableMut<'a> {
         S: AsRef<str>,
     {
         let string = new_string(self.data, string);
-        insert(self.data, self.id, key, Separator::Auto, string);
+        self._insert(key, Separator::Auto, string);
     }
 
     /// Insert a bool.
@@ -392,7 +429,7 @@ impl<'a> TableMut<'a> {
     /// let mut doc = yaml::from_bytes(r#"
     ///   number1: 10
     /// "#)?;
-    /// let mut value = doc.root_mut().into_table_mut().ok_or("not a table")?;
+    /// let mut value = doc.root_mut().into_mapping_mut().ok_or("not a mapping")?;
     /// value.insert_bool("bool2", true);
     ///
     /// assert_eq! (
@@ -405,7 +442,7 @@ impl<'a> TableMut<'a> {
     /// ```
     pub fn insert_bool(&mut self, key: &str, value: bool) {
         let value = new_bool(self.data, value);
-        insert(self.data, self.id, key, Separator::Auto, value);
+        self._insert(key, Separator::Auto, value);
     }
 
     insert_float!(insert_f32, f32, "32-bit float", 10.42, F32);
@@ -420,52 +457,4 @@ impl<'a> TableMut<'a> {
     insert_number!(insert_i64, i64, "64-bit signed integer", -42, I64);
     insert_number!(insert_u128, u128, "128-bit unsigned integer", 42, U128);
     insert_number!(insert_i128, i128, "128-bit signed integer", -42, I128);
-}
-
-/// Insert a value into the table.
-pub(crate) fn insert(
-    data: &mut Data,
-    id: ValueId,
-    key: &str,
-    separator: Separator<'_>,
-    value: RawKind,
-) -> ValueId {
-    use crate::yaml::raw::{Raw, RawString, RawStringKind, RawTableItem};
-
-    let key = data.insert_str(key);
-
-    if let Some(id) = data
-        .table(id)
-        .items
-        .iter()
-        .find(|c| c.key.string == key)
-        .map(|item| item.value)
-    {
-        data.replace_raw(id, value);
-        return id;
-    }
-
-    let key = RawString::new(RawStringKind::Bare, key);
-
-    let separator = match separator {
-        Separator::Auto => match data.table(id).items.last() {
-            Some(last) => last.separator,
-            None => data.insert_str(" "),
-        },
-        Separator::Custom(separator) => data.insert_str(separator),
-    };
-
-    let indent = data.layout(id).indent;
-    let value = data.insert_raw(Raw::new(value, indent));
-    let raw = data.table_mut(id);
-    let prefix = (!raw.items.is_empty()).then_some(indent);
-
-    raw.items.push(RawTableItem {
-        prefix,
-        key,
-        separator,
-        value,
-    });
-
-    value
 }

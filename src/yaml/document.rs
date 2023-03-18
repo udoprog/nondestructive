@@ -62,7 +62,7 @@ impl Document {
     /// second: [1, 2, 3]
     /// "#)?;
     ///
-    /// let root = doc.root().as_table().ok_or("missing table")?;
+    /// let root = doc.root().as_mapping().ok_or("missing mapping")?;
     /// let second = root.get("second").ok_or("missing second")?;
     /// let id = second.id();
     ///
@@ -95,7 +95,7 @@ impl Document {
     /// second: [1, 2, 3]
     /// "#)?;
     ///
-    /// let root = doc.root().as_table().ok_or("missing table")?;
+    /// let root = doc.root().as_mapping().ok_or("missing mapping")?;
     /// let second = root.get("second").ok_or("missing second")?;
     /// let id = second.id();
     ///

@@ -6,20 +6,20 @@ use crate::yaml;
 fn test_property_eol() -> Result<()> {
     let doc = yaml::from_bytes(
         r#"
-        table:
+        mapping:
             inner: so this is as a matter of @ course, a large document
         string3: "I am a quoted string!"
         "#,
     )?;
 
-    let root = doc.root().as_table().context("missing root table")?;
+    let root = doc.root().as_mapping().context("missing root mapping")?;
 
-    let table = root
-        .get("table")
-        .and_then(|v| v.as_table())
-        .context("missing inner table")?;
+    let mapping = root
+        .get("mapping")
+        .and_then(|v| v.as_mapping())
+        .context("missing inner mapping")?;
 
-    let string = table.get("inner").and_then(|v| v.as_str());
+    let string = mapping.get("inner").and_then(|v| v.as_str());
     assert_eq!(
         string,
         Some("so this is as a matter of @ course, a large document")
@@ -28,7 +28,7 @@ fn test_property_eol() -> Result<()> {
 }
 
 #[test]
-fn test_lists() -> Result<()> {
+fn test_sequences() -> Result<()> {
     let doc = yaml::from_bytes(
         r#"
         - one
@@ -40,21 +40,21 @@ fn test_lists() -> Result<()> {
         "#,
     )?;
 
-    let root = doc.root().as_list().context("missing root list")?;
+    let root = doc.root().as_sequence().context("missing root sequence")?;
 
     assert_eq!(root.get(0).and_then(|v| v.as_str()), Some("one"));
     assert_eq!(root.get(1).and_then(|v| v.as_str()), Some("two"));
 
     let three = root
         .get(2)
-        .and_then(|v| v.as_list())
+        .and_then(|v| v.as_sequence())
         .context("missing three")?;
 
     assert_eq!(three.get(0).and_then(|v| v.as_str()), Some("three"));
 
     let four = three
         .get(1)
-        .and_then(|v| v.as_table())
+        .and_then(|v| v.as_mapping())
         .context("missing four")?;
 
     assert_eq!(four.get("four").and_then(|v| v.as_u32()), Some(2));

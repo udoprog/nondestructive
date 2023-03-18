@@ -55,10 +55,10 @@ impl Raw {
             RawKind::String(raw) => {
                 raw.display(data, f)?;
             }
-            RawKind::Table(raw) => {
+            RawKind::Mapping(raw) => {
                 raw.display(data, f)?;
             }
-            RawKind::List(raw) => {
+            RawKind::Sequence(raw) => {
                 raw.display(data, f)?;
             }
         }
@@ -76,10 +76,10 @@ pub(crate) enum RawKind {
     Number(RawNumber),
     /// A string.
     String(RawString),
-    /// A table.
-    Table(RawTable),
-    /// A list.
-    List(RawList),
+    /// A mapping.
+    Mapping(RawMapping),
+    /// A sequence.
+    Sequence(RawSequence),
 }
 
 /// A YAML number.
@@ -255,18 +255,18 @@ impl RawString {
     }
 }
 
-/// The kind of a raw list.
+/// The kind of a raw sequence.
 #[derive(Debug, Clone)]
-pub(crate) enum RawListKind {
-    /// An expanded tabular YAML list.
+pub(crate) enum RawSequenceKind {
+    /// An expanded tabular YAML sequence.
     ///
     /// ```yaml
     /// - one
     /// - two
     /// - three
     /// ```
-    Table,
-    /// A compact inline YAML list.
+    Mapping,
+    /// A compact inline YAML sequence.
     ///
     /// ```yaml
     /// [one two three]
@@ -279,27 +279,27 @@ pub(crate) enum RawListKind {
     },
 }
 
-/// An element in a YAML list.
+/// An element in a YAML sequence.
 #[derive(Debug, Clone)]
-pub(crate) struct RawListItem {
+pub(crate) struct RawSequenceItem {
     pub(crate) prefix: Option<StringId>,
     pub(crate) separator: StringId,
     pub(crate) value: ValueId,
 }
 
-/// A YAML list.
+/// A YAML sequence.
 #[derive(Debug, Clone)]
-pub(crate) struct RawList {
-    /// The kind of a raw list.
-    pub(crate) kind: RawListKind,
-    /// Items in the list.
-    pub(crate) items: Vec<RawListItem>,
+pub(crate) struct RawSequence {
+    /// The kind of a raw sequence.
+    pub(crate) kind: RawSequenceKind,
+    /// Items in the sequence.
+    pub(crate) items: Vec<RawSequenceItem>,
 }
 
-impl RawList {
-    /// Display the list.
+impl RawSequence {
+    /// Display the sequence.
     pub(crate) fn display(&self, data: &Data, f: &mut fmt::Formatter) -> fmt::Result {
-        if let RawListKind::Inline { .. } = &self.kind {
+        if let RawSequenceKind::Inline { .. } = &self.kind {
             write!(f, "[")?;
         }
 
@@ -311,7 +311,7 @@ impl RawList {
                 write!(f, "{prefix}")?;
             }
 
-            if let RawListKind::Table = self.kind {
+            if let RawSequenceKind::Mapping = self.kind {
                 write!(f, "-")?;
             }
 
@@ -321,13 +321,13 @@ impl RawList {
             data.raw(item.value).display(data, f)?;
 
             if it.peek().is_some() {
-                if let RawListKind::Inline { .. } = self.kind {
+                if let RawSequenceKind::Inline { .. } = self.kind {
                     write!(f, ",")?;
                 }
             }
         }
 
-        if let RawListKind::Inline { trailing, suffix } = &self.kind {
+        if let RawSequenceKind::Inline { trailing, suffix } = &self.kind {
             if *trailing {
                 write!(f, ",")?;
             }
@@ -339,26 +339,26 @@ impl RawList {
     }
 }
 
-/// An element in a YAML table.
+/// An element in a YAML mapping.
 #[derive(Debug, Clone)]
-pub(crate) struct RawTableItem {
+pub(crate) struct RawMappingItem {
     pub(crate) prefix: Option<StringId>,
     pub(crate) key: RawString,
     pub(crate) separator: StringId,
     pub(crate) value: ValueId,
 }
 
-/// The kind of a raw table.
+/// The kind of a raw mapping.
 #[derive(Debug, Clone)]
-pub(crate) enum RawTableKind {
-    /// An expanded tabular YAML table.
+pub(crate) enum RawMappingKind {
+    /// An expanded tabular YAML mapping.
     ///
     /// ```yaml
     /// one: 1
     /// two: 2
     /// ```
-    Table,
-    /// A compact inline YAML table.
+    Mapping,
+    /// A compact inline YAML mapping.
     ///
     /// ```yaml
     /// {one: 1, two: 2}
@@ -371,17 +371,17 @@ pub(crate) enum RawTableKind {
     },
 }
 
-/// A YAML table.
+/// A YAML mapping.
 #[derive(Debug, Clone)]
-pub(crate) struct RawTable {
-    pub(crate) kind: RawTableKind,
-    pub(crate) items: Vec<RawTableItem>,
+pub(crate) struct RawMapping {
+    pub(crate) kind: RawMappingKind,
+    pub(crate) items: Vec<RawMappingItem>,
 }
 
-impl RawTable {
-    /// Display the table.
+impl RawMapping {
+    /// Display the mapping.
     pub(crate) fn display(&self, data: &Data, f: &mut fmt::Formatter) -> fmt::Result {
-        if let RawTableKind::Inline { .. } = &self.kind {
+        if let RawMappingKind::Inline { .. } = &self.kind {
             write!(f, "{{")?;
         }
 
@@ -400,13 +400,13 @@ impl RawTable {
             data.raw(item.value).display(data, f)?;
 
             if it.peek().is_some() {
-                if let RawTableKind::Inline { .. } = &self.kind {
+                if let RawMappingKind::Inline { .. } = &self.kind {
                     write!(f, ",")?;
                 }
             }
         }
 
-        if let RawTableKind::Inline { trailing, suffix } = &self.kind {
+        if let RawMappingKind::Inline { trailing, suffix } = &self.kind {
             if *trailing {
                 write!(f, ",")?;
             }

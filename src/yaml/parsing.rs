@@ -5,8 +5,8 @@ use bstr::ByteSlice;
 use crate::yaml::data::{Data, StringId};
 use crate::yaml::error::{Error, ErrorKind};
 use crate::yaml::raw::{
-    Raw, RawKind, RawList, RawListItem, RawListKind, RawNumber, RawString, RawStringKind, RawTable,
-    RawTableItem, RawTableKind,
+    Raw, RawKind, RawMapping, RawMappingItem, RawMappingKind, RawNumber, RawSequence,
+    RawSequenceItem, RawSequenceKind, RawString, RawStringKind,
 };
 use crate::yaml::serde;
 use crate::yaml::Document;
@@ -318,8 +318,8 @@ impl<'a> Parser<'a> {
         Ok(())
     }
 
-    /// Parse an inline list.
-    fn inline_list(&mut self, indent: &StringId) -> Result<RawKind> {
+    /// Parse an inline sequence.
+    fn inline_sequence(&mut self, indent: &StringId) -> Result<RawKind> {
         self.bump(1);
 
         let mut items = Vec::new();
@@ -336,7 +336,7 @@ impl<'a> Parser<'a> {
                 None => self.ws().0,
             };
 
-            items.push(RawListItem {
+            items.push(RawSequenceItem {
                 prefix: Some(prefix),
                 separator,
                 value: self.data.insert_raw(value),
@@ -358,13 +358,16 @@ impl<'a> Parser<'a> {
         }
 
         if !matches!(self.peek(), b']') {
-            return Err(Error::new(self.span(1), ErrorKind::ExpectedListTerminator));
+            return Err(Error::new(
+                self.span(1),
+                ErrorKind::ExpectedSequenceTerminator,
+            ));
         }
 
         self.bump(1);
 
-        Ok(RawKind::List(RawList {
-            kind: RawListKind::Inline {
+        Ok(RawKind::Sequence(RawSequence {
+            kind: RawSequenceKind::Inline {
                 trailing,
                 suffix: prefix,
             },
@@ -372,8 +375,8 @@ impl<'a> Parser<'a> {
         }))
     }
 
-    /// Parse an inline table.
-    fn inline_table(&mut self, indent: &StringId) -> Result<RawKind> {
+    /// Parse an inline mapping.
+    fn inline_mapping(&mut self, indent: &StringId) -> Result<RawKind> {
         self.bump(1);
 
         let mut items = Vec::new();
@@ -385,14 +388,14 @@ impl<'a> Parser<'a> {
             trailing = false;
 
             let Some(key) = self.key() else {
-                return Err(Error::new(self.span(1), ErrorKind::ExpectedTableSeparator));
+                return Err(Error::new(self.span(1), ErrorKind::ExpectedMappingSeparator));
             };
 
             self.bump(1);
             let separator = self.ws().0;
             let (value, new_ws) = self.value(indent, true)?;
 
-            items.push(RawTableItem {
+            items.push(RawMappingItem {
                 prefix: Some(prefix),
                 key,
                 separator,
@@ -422,13 +425,16 @@ impl<'a> Parser<'a> {
         }
 
         if !matches!(self.peek(), b'}') {
-            return Err(Error::new(self.span(1), ErrorKind::ExpectedTableTerminator));
+            return Err(Error::new(
+                self.span(1),
+                ErrorKind::ExpectedMappingTerminator,
+            ));
         }
 
         self.bump(1);
 
-        Ok(RawKind::Table(RawTable {
-            kind: RawTableKind::Inline {
+        Ok(RawKind::Mapping(RawMapping {
+            kind: RawMappingKind::Inline {
                 trailing,
                 suffix: prefix,
             },
@@ -436,15 +442,15 @@ impl<'a> Parser<'a> {
         }))
     }
 
-    /// Parse a list.
-    fn list(&mut self, indentation: &StringId) -> Result<(RawKind, StringId)> {
+    /// Parse a sequence.
+    fn sequence(&mut self, indentation: &StringId) -> Result<(RawKind, StringId)> {
         let mut items = Vec::new();
         let mut previous = None;
         let indentation_count = self.count_indent(indentation);
 
         let ws = loop {
             if !matches!(self.peek(), b'-') {
-                return Err(Error::new(self.span(1), ErrorKind::ExpectedListMarker));
+                return Err(Error::new(self.span(1), ErrorKind::ExpectedSequenceMarker));
             }
 
             self.bump(1);
@@ -464,7 +470,7 @@ impl<'a> Parser<'a> {
                 None => self.ws().0,
             };
 
-            items.push(RawListItem {
+            items.push(RawSequenceItem {
                 prefix: previous.take(),
                 separator,
                 value: self.data.insert_raw(value),
@@ -484,15 +490,15 @@ impl<'a> Parser<'a> {
         };
 
         Ok((
-            RawKind::List(RawList {
-                kind: RawListKind::Table,
+            RawKind::Sequence(RawSequence {
+                kind: RawSequenceKind::Mapping,
                 items,
             }),
             ws,
         ))
     }
 
-    /// Construct list indentation.
+    /// Construct sequence indentation.
     fn build_indentation(
         &mut self,
         len: usize,
@@ -501,7 +507,7 @@ impl<'a> Parser<'a> {
     ) -> StringId {
         self.scratch.clear();
         self.scratch.extend(self.data.str(indentation).as_bytes());
-        // Account for any extra spacing that is added, such as the list marker.
+        // Account for any extra spacing that is added, such as the sequence marker.
         self.scratch.extend(std::iter::repeat(b' ').take(len));
         self.scratch.extend(self.data.str(addition).as_bytes());
 
@@ -510,15 +516,18 @@ impl<'a> Parser<'a> {
         string
     }
 
-    /// Parse a raw table.
-    fn table(&mut self, indent: &StringId, mut key: RawString) -> Result<(RawKind, StringId)> {
+    /// Parse a raw mapping.
+    fn mapping(&mut self, indent: &StringId, mut key: RawString) -> Result<(RawKind, StringId)> {
         let mut items = Vec::new();
         let mut previous = None;
         let indent_count = self.count_indent(indent);
 
         let ws = loop {
             if !matches!(self.peek(), b':') {
-                return Err(Error::new(self.span(1), ErrorKind::ExpectedTableSeparator));
+                return Err(Error::new(
+                    self.span(1),
+                    ErrorKind::ExpectedMappingSeparator,
+                ));
             }
 
             self.bump(1);
@@ -539,7 +548,7 @@ impl<'a> Parser<'a> {
                 None => self.ws().0,
             };
 
-            items.push(RawTableItem {
+            items.push(RawMappingItem {
                 prefix: previous.take(),
                 key,
                 separator,
@@ -554,15 +563,15 @@ impl<'a> Parser<'a> {
 
             previous = Some(ws);
 
-            key = match self.next_table_key() {
+            key = match self.next_mapping_key() {
                 Some(key) => key,
                 None => break ws,
             };
         };
 
         Ok((
-            RawKind::Table(RawTable {
-                kind: RawTableKind::Table,
+            RawKind::Mapping(RawMapping {
+                kind: RawMappingKind::Mapping,
                 items,
             }),
             ws,
@@ -613,14 +622,14 @@ impl<'a> Parser<'a> {
     fn value(&mut self, indent: &StringId, inline: bool) -> Result<(Raw, Option<StringId>)> {
         let (kind, ws) = match self.peek2() {
             (b'-', b) if !inline && b.is_ascii_whitespace() => {
-                let (value, ws) = self.list(indent)?;
+                let (value, ws) = self.sequence(indent)?;
                 (value, Some(ws))
             }
             (number_first!(), _) => (self.number(), None),
             (b'"', _) => (self.double_quoted()?, None),
             (b'\'', _) => (self.single_quoted(), None),
-            (b'[', _) => (self.inline_list(indent)?, None),
-            (b'{', _) => (self.inline_table(indent)?, None),
+            (b'[', _) => (self.inline_sequence(indent)?, None),
+            (b'{', _) => (self.inline_mapping(indent)?, None),
             (b, _) if b.is_ascii_graphic() => {
                 let start = self.position;
 
@@ -629,7 +638,7 @@ impl<'a> Parser<'a> {
                         self.bump(1);
                     }
                 } else if let Some(key) = self.key() {
-                    let (value, ws) = self.table(indent, key)?;
+                    let (value, ws) = self.mapping(indent, key)?;
                     return Ok((Raw::new(value, *indent), Some(ws)));
                 }
 
@@ -643,8 +652,8 @@ impl<'a> Parser<'a> {
         Ok((Raw::new(kind, *indent), ws))
     }
 
-    /// Parse next table key.
-    fn next_table_key(&mut self) -> Option<RawString> {
+    /// Parse next mapping key.
+    fn next_mapping_key(&mut self) -> Option<RawString> {
         let start = self.position;
 
         let string = loop {

@@ -9,9 +9,9 @@
 //! In particular:
 //! * We support any form of indentation.
 //! * Input is not required to be UTF-8.
-//! * Keys in [Tables][Table] can be anything, the only requirement is that they
-//!   are succeeded by a colon (`:`).
-//! * [List] items can be anything, everything after the `-` is consumed.
+//! * Keys in [Mappings][Mapping] can be anything, the only requirement is that
+//!   they are succeeded by a colon (`:`).
+//! * [Sequence] items can be anything, everything after the `-` is consumed.
 //!
 //! This means that we will validly parse both spec and non-spec compliant YAML.
 //! They key here is that editing performed by this crate is non-destructive. So
@@ -66,11 +66,11 @@ pub use self::value::{NullKind, Separator, Value};
 mod value_mut;
 pub use self::value_mut::ValueMut;
 
-pub mod list;
-pub use self::list::{List, ListMut};
+pub mod sequence;
+pub use self::sequence::{Sequence, SequenceMut};
 
-pub mod table;
-pub use self::table::{Table, TableMut};
+pub mod mapping;
+pub use self::mapping::{Mapping, MappingMut};
 
 #[cfg(feature = "serde")]
 pub mod serde;

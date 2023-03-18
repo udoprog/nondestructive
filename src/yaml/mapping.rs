@@ -1,4 +1,4 @@
-//! A [`Table`] of values.
+//! A [`Mapping`] of values.
 //!
 //! # Examples
 //!
@@ -8,18 +8,18 @@
 //! let doc = yaml::from_bytes(r#"
 //! number1: 10
 //! number2: 20
-//! table:
+//! mapping:
 //!   inner: 400
 //! string3: "I am a quoted string!"
 //! "#)?;
 //!
-//! let root = doc.root().as_table().ok_or("missing root table")?;
+//! let root = doc.root().as_mapping().ok_or("missing root mapping")?;
 //!
 //! assert_eq!(root.get("number1").and_then(|v| v.as_u32()), Some(10));
 //! assert_eq!(root.get("number2").and_then(|v| v.as_u32()), Some(20));
 //!
-//! let table = root.get("table").and_then(|v| v.as_table()).ok_or("missing inner table")?;
-//! assert_eq!(table.get("inner").and_then(|v| v.as_u32()), Some(400));
+//! let mapping = root.get("mapping").and_then(|v| v.as_mapping()).ok_or("missing inner mapping")?;
+//! assert_eq!(mapping.get("inner").and_then(|v| v.as_u32()), Some(400));
 //!
 //! assert_eq!(root.get("string3").and_then(|v| v.as_str()), Some("I am a quoted string!"));
 //! # Ok::<_, Box<dyn std::error::Error>>(())
@@ -28,8 +28,8 @@
 mod iter;
 pub use self::iter::Iter;
 
-mod table;
-pub use self::table::Table;
+mod mapping;
+pub use self::mapping::Mapping;
 
-mod table_mut;
-pub use self::table_mut::TableMut;
+mod mapping_mut;
+pub use self::mapping_mut::MappingMut;

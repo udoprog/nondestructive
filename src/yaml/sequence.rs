@@ -1,4 +1,4 @@
-//! A [`List`] of values.
+//! A [`Sequence`] of values.
 //!
 //! # Examples
 //!
@@ -13,7 +13,7 @@
 //!     "#,
 //! )?;
 //!
-//! let root = doc.root().as_list().ok_or("missing root list")?;
+//! let root = doc.root().as_sequence().ok_or("missing root sequence")?;
 //!
 //! assert_eq!(root.get(0).and_then(|v| v.as_str()), Some("one"));
 //! assert_eq!(root.get(1).and_then(|v| v.as_str()), Some("two"));
@@ -24,8 +24,8 @@
 mod iter;
 pub use self::iter::Iter;
 
-mod list;
-pub use self::list::List;
+mod sequence;
+pub use self::sequence::Sequence;
 
-mod list_mut;
-pub use self::list_mut::ListMut;
+mod sequence_mut;
+pub use self::sequence_mut::SequenceMut;

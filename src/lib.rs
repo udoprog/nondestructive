@@ -17,22 +17,22 @@
 //! let mut doc = yaml::from_bytes(r#"
 //!   number1: 10
 //!   number2: 20
-//!   table:
+//!   mapping:
 //!     inner: 400
 //!   string3: "I am a quoted string!"
 //! "#)?;
 //!
 //! let mut root = doc.root_mut();
-//! let mut root = root.as_table_mut().ok_or("missing root table")?;
-//! root.get_mut("number2").ok_or("missing inner table")?.set_u32(30);
-//! root.get_mut("string3").ok_or("missing inner table")?.set_string("i-am-a-bare-string");
+//! let mut root = root.as_mapping_mut().ok_or("missing root mapping")?;
+//! root.get_mut("number2").ok_or("missing inner mapping")?.set_u32(30);
+//! root.get_mut("string3").ok_or("missing inner mapping")?.set_string("i-am-a-bare-string");
 //!
 //! assert_eq! {
 //! doc.to_string(),
 //! r#"
 //!   number1: 10
 //!   number2: 30
-//!   table:
+//!   mapping:
 //!     inner: 400
 //!   string3: i-am-a-bare-string
 //! "#

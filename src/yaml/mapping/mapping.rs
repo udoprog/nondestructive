@@ -3,10 +3,10 @@ use core::fmt;
 use bstr::BStr;
 
 use crate::yaml::data::{Data, ValueId};
-use crate::yaml::table::Iter;
+use crate::yaml::mapping::Iter;
 use crate::yaml::Value;
 
-/// Accessor for a table.
+/// Accessor for a mapping.
 ///
 /// # Examples
 ///
@@ -16,24 +16,24 @@ use crate::yaml::Value;
 /// let doc = yaml::from_bytes(r#"
 /// number1: 10
 /// number2: 20
-/// table:
+/// mapping:
 ///   inner: 400
 /// string3: "I am a quoted string!"
 /// "#)?;
 ///
-/// let root = doc.root().as_table().ok_or("missing root table")?;
+/// let root = doc.root().as_mapping().ok_or("missing root mapping")?;
 ///
 /// assert_eq!(root.get("number1").and_then(|v| v.as_u32()), Some(10));
 /// assert_eq!(root.get("number2").and_then(|v| v.as_u32()), Some(20));
 ///
-/// let table = root.get("table").and_then(|v| v.as_table()).ok_or("missing inner table")?;
-/// assert_eq!(table.get("inner").and_then(|v| v.as_u32()), Some(400));
+/// let mapping = root.get("mapping").and_then(|v| v.as_mapping()).ok_or("missing inner mapping")?;
+/// assert_eq!(mapping.get("inner").and_then(|v| v.as_u32()), Some(400));
 ///
 /// assert_eq!(root.get("string3").and_then(|v| v.as_str()), Some("I am a quoted string!"));
 /// # Ok::<_, Box<dyn std::error::Error>>(())
 /// ```
 ///
-/// Tables can also be defined in an inline form:
+/// Mappings can also be defined in an inline form:
 ///
 /// ```
 /// use nondestructive::yaml;
@@ -42,9 +42,9 @@ use crate::yaml::Value;
 /// assert_eq!(doc.to_string(), "{}");
 ///
 /// let doc = yaml::from_bytes("{test: 1,}")?;
-/// let table = doc.root().as_table().ok_or("missing root table")?;
-/// assert!(!table.is_empty());
-/// assert_eq!(table.len(), 1);
+/// let mapping = doc.root().as_mapping().ok_or("missing root mapping")?;
+/// assert!(!mapping.is_empty());
+/// assert_eq!(mapping.len(), 1);
 /// assert_eq!(doc.to_string(), "{test: 1,}");
 ///
 /// let doc = yaml::from_bytes(
@@ -53,7 +53,7 @@ use crate::yaml::Value;
 ///     "#,
 /// )?;
 ///
-/// let root = doc.root().as_table().ok_or("missing root table")?;
+/// let root = doc.root().as_mapping().ok_or("missing root mapping")?;
 /// assert_eq!(root.get("one").and_then(|v| v.as_str()), Some("one"));
 /// assert_eq!(root.get("two").and_then(|v| v.as_str()), Some("two"));
 /// assert_eq!(root.get("three").and_then(|v| v.as_u32()), Some(3));
@@ -66,17 +66,17 @@ use crate::yaml::Value;
 /// );
 /// # Ok::<_, Box<dyn std::error::Error>>(())
 /// ```
-pub struct Table<'a> {
+pub struct Mapping<'a> {
     data: &'a Data,
     id: ValueId,
 }
 
-impl<'a> Table<'a> {
+impl<'a> Mapping<'a> {
     pub(crate) fn new(data: &'a Data, id: ValueId) -> Self {
         Self { data, id }
     }
 
-    /// Get the opaque [`ValueId`] associated with this table.
+    /// Get the opaque [`ValueId`] associated with this mapping.
     ///
     /// # Examples
     ///
@@ -88,12 +88,12 @@ impl<'a> Table<'a> {
     /// second: [1, 2, 3]
     /// "#)?;
     ///
-    /// let root = doc.root().as_table().ok_or("missing table")?;
-    /// let second = root.get("second").and_then(|v| v.as_list()).ok_or("missing second")?;
+    /// let root = doc.root().as_mapping().ok_or("missing mapping")?;
+    /// let second = root.get("second").and_then(|v| v.as_sequence()).ok_or("missing second")?;
     /// let id = second.id();
     ///
     /// // Reference the same value again using the id.
-    /// let second = doc.value(id).as_list().ok_or("missing id")?;
+    /// let second = doc.value(id).as_sequence().ok_or("missing id")?;
     /// assert!(second.iter().flat_map(|v| v.as_u32()).eq([1, 2, 3]));
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
@@ -101,7 +101,7 @@ impl<'a> Table<'a> {
         self.id
     }
 
-    /// Get the length of the table.
+    /// Get the length of the mapping.
     ///
     /// # Examples
     ///
@@ -116,17 +116,17 @@ impl<'a> Table<'a> {
     ///     "#,
     /// )?;
     ///
-    /// let root = doc.root().as_table().ok_or("missing root table")?;
+    /// let root = doc.root().as_mapping().ok_or("missing root mapping")?;
     /// assert_eq!(root.len(), 3);
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     #[must_use]
     #[inline]
     pub fn len(&self) -> usize {
-        self.data.table(self.id).items.len()
+        self.data.mapping(self.id).items.len()
     }
 
-    /// Test if the table is empty.
+    /// Test if the mapping is empty.
     ///
     /// # Examples
     ///
@@ -141,17 +141,17 @@ impl<'a> Table<'a> {
     ///     "#,
     /// )?;
     ///
-    /// let root = doc.root().as_table().ok_or("missing root table")?;
+    /// let root = doc.root().as_mapping().ok_or("missing root mapping")?;
     /// assert!(!root.is_empty());
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     #[must_use]
     #[inline]
     pub fn is_empty(&self) -> bool {
-        self.data.table(self.id).items.is_empty()
+        self.data.mapping(self.id).items.is_empty()
     }
 
-    /// Get a value from the table by its key.
+    /// Get a value from the mapping by its key.
     ///
     /// # Examples
     ///
@@ -161,18 +161,18 @@ impl<'a> Table<'a> {
     /// let doc = yaml::from_bytes(r#"
     /// number1: 10
     /// number2: 20
-    /// table:
+    /// mapping:
     ///   inner: 400
     /// string3: "I am a quoted string!"
     /// "#)?;
     ///
-    /// let root = doc.root().as_table().ok_or("missing root table")?;
+    /// let root = doc.root().as_mapping().ok_or("missing root mapping")?;
     ///
     /// assert_eq!(root.get("number1").and_then(|v| v.as_u32()), Some(10));
     /// assert_eq!(root.get("number2").and_then(|v| v.as_u32()), Some(20));
     ///
-    /// let table = root.get("table").and_then(|v| v.as_table()).ok_or("missing inner table")?;
-    /// assert_eq!(table.get("inner").and_then(|v| v.as_u32()), Some(400));
+    /// let mapping = root.get("mapping").and_then(|v| v.as_mapping()).ok_or("missing inner mapping")?;
+    /// assert_eq!(mapping.get("inner").and_then(|v| v.as_u32()), Some(400));
     ///
     /// assert_eq!(root.get("string3").and_then(|v| v.as_str()), Some("I am a quoted string!"));
     /// # Ok::<_, Box<dyn std::error::Error>>(())
@@ -180,7 +180,7 @@ impl<'a> Table<'a> {
     #[must_use]
     #[inline]
     pub fn get(&self, key: &str) -> Option<Value<'a>> {
-        for item in &self.data.table(self.id).items {
+        for item in &self.data.mapping(self.id).items {
             if self.data.str(&item.key.string) == key {
                 return Some(Value::new(self.data, item.value));
             }
@@ -189,7 +189,7 @@ impl<'a> Table<'a> {
         None
     }
 
-    /// Returns an iterator over the [Table].
+    /// Returns an iterator over the [Mapping].
     ///
     /// # Examples
     ///
@@ -204,32 +204,32 @@ impl<'a> Table<'a> {
     ///     "#,
     /// )?;
     ///
-    /// let root = doc.root().as_table().ok_or("missing root table")?;
+    /// let root = doc.root().as_mapping().ok_or("missing root mapping")?;
     /// root.iter().flat_map(|(key, value)| value.as_u32()).eq([1, 2, 3]);
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     #[must_use]
     #[inline]
     pub fn iter(&self) -> Iter<'_> {
-        Iter::new(self.data, &self.data.table(self.id).items)
+        Iter::new(self.data, &self.data.mapping(self.id).items)
     }
 }
 
-impl fmt::Display for Table<'_> {
+impl fmt::Display for Mapping<'_> {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.data.table(self.id).display(self.data, f)
+        self.data.mapping(self.id).display(self.data, f)
     }
 }
 
-impl fmt::Debug for Table<'_> {
+impl fmt::Debug for Mapping<'_> {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_map().entries(self.iter()).finish()
     }
 }
 
-/// Returns an iterator over the [Table].
+/// Returns an iterator over the [Mapping].
 ///
 /// # Examples
 ///
@@ -244,16 +244,16 @@ impl fmt::Debug for Table<'_> {
 ///     "#,
 /// )?;
 ///
-/// let root = doc.root().as_table().ok_or("missing root table")?;
+/// let root = doc.root().as_mapping().ok_or("missing root mapping")?;
 /// root.into_iter().flat_map(|(key, value)| value.as_u32()).eq([1, 2, 3]);
 /// # Ok::<_, Box<dyn std::error::Error>>(())
 /// ```
-impl<'a> IntoIterator for Table<'a> {
+impl<'a> IntoIterator for Mapping<'a> {
     type Item = (&'a BStr, Value<'a>);
     type IntoIter = Iter<'a>;
 
     #[inline]
     fn into_iter(self) -> Self::IntoIter {
-        Iter::new(self.data, &self.data.table(self.id).items)
+        Iter::new(self.data, &self.data.mapping(self.id).items)
     }
 }
