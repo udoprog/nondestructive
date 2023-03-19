@@ -88,7 +88,7 @@ impl<'a> SequenceMut<'a> {
 
         let separator = match separator {
             Separator::Auto => match self.data.sequence(self.id).items.last() {
-                Some(last) => last.separator,
+                Some(last) => self.data.sequence_item(*last).separator,
                 None => self.data.insert_str(" "),
             },
             Separator::Custom(string) => self.data.insert_str(string),
@@ -96,13 +96,14 @@ impl<'a> SequenceMut<'a> {
 
         let indent = self.data.layout(self.id).prefix;
         let value = self.data.insert(value, indent, Some(self.id));
-        let raw = self.data.sequence_mut(self.id);
-        let prefix = (!raw.items.is_empty()).then_some(indent);
-        raw.items.push(RawSequenceItem {
-            prefix,
-            separator,
-            value,
-        });
+        let prefix = (!self.data.sequence(self.id).items.is_empty())
+            .then_some(indent)
+            .unwrap_or_else(|| self.data.insert_str(""));
+
+        let raw = Raw::SequenceItem(RawSequenceItem { separator, value });
+        let item = self.data.insert(raw, prefix, Some(self.id));
+
+        self.data.sequence_mut(self.id).items.push(item);
         value
     }
 
@@ -197,6 +198,7 @@ impl<'a> SequenceMut<'a> {
     /// ```
     pub fn get_mut(&mut self, index: usize) -> Option<ValueMut<'_>> {
         if let Some(item) = self.data.sequence(self.id).items.get(index) {
+            let item = self.data.sequence_item(*item);
             return Some(ValueMut::new(self.data, item.value));
         }
 
@@ -234,6 +236,7 @@ impl<'a> SequenceMut<'a> {
     #[must_use]
     pub fn get_into_mut(self, index: usize) -> Option<ValueMut<'a>> {
         if let Some(item) = self.data.sequence(self.id).items.get(index) {
+            let item = self.data.sequence_item(*item);
             return Some(ValueMut::new(self.data, item.value));
         }
 
@@ -278,7 +281,7 @@ impl<'a> SequenceMut<'a> {
         }
 
         let item = raw.items.remove(index);
-        self.data.drop(item.value);
+        self.data.drop(item);
         true
     }
 
@@ -308,7 +311,7 @@ impl<'a> SequenceMut<'a> {
         let mut items = mem::take(&mut self.data.sequence_mut(self.id).items);
 
         for item in items.drain(..) {
-            self.data.drop(item.value);
+            self.data.drop(item);
         }
 
         self.data.sequence_mut(self.id).items = items;

@@ -69,6 +69,8 @@ pub(crate) enum Raw {
     MappingItem(RawMappingItem),
     /// A sequence.
     Sequence(RawSequence),
+    /// A single item inside of a sequence.
+    SequenceItem(RawSequenceItem),
 }
 
 impl Raw {
@@ -97,6 +99,9 @@ impl Raw {
                 raw.display(data, f)?;
             }
             Raw::Sequence(raw) => {
+                raw.display(data, f)?;
+            }
+            Raw::SequenceItem(raw) => {
                 raw.display(data, f)?;
             }
         }
@@ -315,9 +320,17 @@ pub(crate) enum RawSequenceKind {
 /// An element in a YAML sequence.
 #[derive(Debug, Clone)]
 pub(crate) struct RawSequenceItem {
-    pub(crate) prefix: Option<StringId>,
     pub(crate) separator: StringId,
     pub(crate) value: ValueId,
+}
+
+impl RawSequenceItem {
+    fn display(&self, data: &Data, f: &mut fmt::Formatter) -> fmt::Result {
+        let separator = data.str(self.separator);
+        write!(f, "{separator}")?;
+        data.raw(self.value).display(data, f)?;
+        Ok(())
+    }
 }
 
 /// A YAML sequence.
@@ -326,7 +339,7 @@ pub(crate) struct RawSequence {
     /// The kind of a raw sequence.
     pub(crate) kind: RawSequenceKind,
     /// Items in the sequence.
-    pub(crate) items: Vec<RawSequenceItem>,
+    pub(crate) items: Vec<ValueId>,
 }
 
 impl RawSequence {
@@ -339,18 +352,13 @@ impl RawSequence {
         let mut it = self.items.iter().peekable();
 
         while let Some(item) = it.next() {
-            if let Some(prefix) = &item.prefix {
-                write!(f, "{}", data.str(*prefix))?;
-            }
+            write!(f, "{}", data.prefix(*item))?;
 
             if let RawSequenceKind::Mapping = self.kind {
                 write!(f, "-")?;
             }
 
-            let separator = data.str(item.separator);
-            write!(f, "{separator}")?;
-
-            data.raw(item.value).display(data, f)?;
+            data.sequence_item(*item).display(data, f)?;
 
             if it.peek().is_some() {
                 if let RawSequenceKind::Inline { .. } = self.kind {

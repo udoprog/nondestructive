@@ -213,6 +213,7 @@ impl<'a> Sequence<'a> {
     #[inline]
     pub fn get(&self, index: usize) -> Option<Value<'_>> {
         let item = self.data.sequence(self.id).items.get(index)?;
+        let item = self.data.sequence_item(*item);
         Some(Value::new(self.data, item.value))
     }
 

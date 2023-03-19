@@ -7,7 +7,7 @@ use std::num::NonZeroUsize;
 use bstr::BStr;
 use twox_hash::xxh3::{Hash128, HasherExt};
 
-use crate::yaml::raw::{Layout, Raw, RawMapping, RawMappingItem, RawSequence};
+use crate::yaml::raw::{Layout, Raw, RawMapping, RawMappingItem, RawSequence, RawSequenceItem};
 
 /// The unique hash of a string.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -162,6 +162,19 @@ impl Data {
     }
 
     #[inline]
+    pub(crate) fn sequence_item(&self, id: ValueId) -> &RawSequenceItem {
+        if let Some(Entry {
+            raw: Raw::SequenceItem(raw),
+            ..
+        }) = self.slab.get(id.get())
+        {
+            return raw;
+        }
+
+        panic!("expected mapping at {id}")
+    }
+
+    #[inline]
     pub(crate) fn mapping_item(&self, id: ValueId) -> &RawMappingItem {
         if let Some(Entry {
             raw: Raw::MappingItem(raw),
@@ -192,15 +205,12 @@ impl Data {
     pub(crate) fn insert(
         &mut self,
         raw: Raw,
-        indent: StringId,
+        prefix: StringId,
         parent: Option<ValueId>,
     ) -> ValueId {
         let index = self.slab.insert(Entry {
             raw,
-            layout: Layout {
-                prefix: indent,
-                parent,
-            },
+            layout: Layout { prefix, parent },
         });
         let index = NonZeroUsize::new(index.wrapping_add(1)).expect("ran out of ids");
         ValueId(index)
@@ -231,9 +241,12 @@ impl Data {
             }
             Raw::Sequence(raw) => {
                 for item in raw.items {
-                    let item = self.slab.remove(item.value.get());
-                    self.drop_kind(item.raw);
+                    self.drop(item);
                 }
+            }
+            Raw::SequenceItem(raw) => {
+                let item = self.slab.remove(raw.value.get());
+                self.drop_kind(item.raw);
             }
             _ => {}
         }

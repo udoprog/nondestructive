@@ -383,18 +383,20 @@ impl<'a> Parser<'a> {
 
         while !matches!(self.peek(), b']' | EOF) {
             trailing = false;
-            let (value, new_ws) = self.value(indent, Some(id), true)?;
+            let item_id = self.insert_null(prefix, Some(id));
+            let (value, new_ws) = self.value(indent, Some(item_id), true)?;
 
             let separator = match new_ws {
                 Some(ws) => ws,
                 None => self.ws(),
             };
 
-            items.push(RawSequenceItem {
-                prefix: Some(prefix),
-                separator,
-                value,
-            });
+            self.data.replace(
+                item_id,
+                Raw::SequenceItem(RawSequenceItem { separator, value }),
+            );
+
+            items.push(item_id);
 
             if last {
                 prefix = self.ws();
@@ -522,7 +524,8 @@ impl<'a> Parser<'a> {
         let id = self.insert_null(indent, parent);
 
         let mut items = Vec::new();
-        let mut previous = None;
+        let empty = self.data.insert_str("");
+        let mut previous = empty;
         let indent_count = self.count_indent(indent);
 
         let ws = loop {
@@ -536,30 +539,31 @@ impl<'a> Parser<'a> {
                 new_indent
             };
 
-            let (value, ws) = self.value(new_indent, Some(id), false)?;
+            let item_id = self.insert_null(previous, Some(id));
+            let (value, ws) = self.value(new_indent, Some(item_id), false)?;
 
             let ws = match ws {
                 Some(suffix) => suffix,
                 None => self.ws(),
             };
 
-            items.push(RawSequenceItem {
-                prefix: previous.take(),
-                separator: sep,
-                value,
-            });
+            self.data.replace(
+                item_id,
+                Raw::SequenceItem(RawSequenceItem {
+                    separator: sep,
+                    value,
+                }),
+            );
+
+            items.push(item_id);
 
             let current_indent = self.indentation(ws);
 
-            if self.count_indent(current_indent) != indent_count {
+            if self.count_indent(current_indent) != indent_count || !matches!(self.peek(), b'-') {
                 break ws;
             }
 
-            if !matches!(self.peek(), b'-') {
-                break ws;
-            }
-
-            previous = Some(ws);
+            previous = ws;
         };
 
         self.data.replace(

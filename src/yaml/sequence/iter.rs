@@ -1,7 +1,6 @@
 use core::slice;
 
-use crate::yaml::data::Data;
-use crate::yaml::raw::RawSequenceItem;
+use crate::yaml::data::{Data, ValueId};
 use crate::yaml::Value;
 
 /// An immutable iterator over a [`Sequence`][crate::yaml::sequence::Sequence].
@@ -9,12 +8,12 @@ use crate::yaml::Value;
 /// See [`Sequence::iter`][crate::yaml::sequence::Sequence::iter].
 pub struct Iter<'a> {
     data: &'a Data,
-    iter: slice::Iter<'a, RawSequenceItem>,
+    iter: slice::Iter<'a, ValueId>,
 }
 
 impl<'a> Iter<'a> {
     #[inline]
-    pub(crate) fn new(data: &'a Data, slice: &'a [RawSequenceItem]) -> Self {
+    pub(crate) fn new(data: &'a Data, slice: &'a [ValueId]) -> Self {
         Self {
             data,
             iter: slice.iter(),
@@ -27,13 +26,13 @@ impl<'a> Iterator for Iter<'a> {
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
-        let item = self.iter.next()?;
+        let item = self.data.sequence_item(*self.iter.next()?);
         Some(Value::new(self.data, item.value))
     }
 
     #[inline]
     fn nth(&mut self, n: usize) -> Option<Self::Item> {
-        let item = self.iter.nth(n)?;
+        let item = self.data.sequence_item(*self.iter.nth(n)?);
         Some(Value::new(self.data, item.value))
     }
 
@@ -46,13 +45,13 @@ impl<'a> Iterator for Iter<'a> {
 impl DoubleEndedIterator for Iter<'_> {
     #[inline]
     fn next_back(&mut self) -> Option<Self::Item> {
-        let item = self.iter.next_back()?;
+        let item = self.data.sequence_item(*self.iter.next_back()?);
         Some(Value::new(self.data, item.value))
     }
 
     #[inline]
     fn nth_back(&mut self, n: usize) -> Option<Self::Item> {
-        let item = self.iter.nth(n)?;
+        let item = self.data.sequence_item(*self.iter.nth(n)?);
         Some(Value::new(self.data, item.value))
     }
 }
