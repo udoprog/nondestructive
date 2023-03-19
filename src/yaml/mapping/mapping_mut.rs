@@ -129,7 +129,8 @@ impl<'a> MappingMut<'a> {
             .mapping(self.id)
             .items
             .iter()
-            .find(|c| c.key.string == key)
+            .map(|id| self.data.mapping_item(*id))
+            .find(|item| item.key.string == key)
             .map(|item| item.value)
         {
             self.data.replace(id, value);
@@ -140,24 +141,28 @@ impl<'a> MappingMut<'a> {
 
         let separator = match separator {
             Separator::Auto => match self.data.mapping(self.id).items.last() {
-                Some(last) => last.separator,
+                Some(last) => {
+                    let item = self.data.mapping_item(*last);
+                    item.separator
+                }
                 None => self.data.insert_str(" "),
             },
             Separator::Custom(separator) => self.data.insert_str(separator),
         };
 
-        let indent = self.data.layout(self.id).indent;
+        let indent = self.data.layout(self.id).prefix;
         let value = self.data.insert(value, indent, Some(self.id));
-        let raw = self.data.mapping_mut(self.id);
-        let prefix = (!raw.items.is_empty()).then_some(indent);
+        let prefix = (!self.data.mapping(self.id).items.is_empty())
+            .then_some(indent)
+            .unwrap_or_else(|| self.data.insert_str(""));
 
-        raw.items.push(RawMappingItem {
-            prefix,
+        let item = Raw::MappingItem(RawMappingItem {
             key,
             separator,
             value,
         });
-
+        let item = self.data.insert(item, prefix, Some(self.id));
+        self.data.mapping_mut(self.id).items.push(item);
         value
     }
 
@@ -262,7 +267,9 @@ impl<'a> MappingMut<'a> {
     /// ```
     pub fn get_mut(&mut self, key: &str) -> Option<ValueMut<'_>> {
         for item in &self.data.mapping(self.id).items {
-            if self.data.str(&item.key.string) == key {
+            let item = self.data.mapping_item(*item);
+
+            if self.data.str(item.key.string) == key {
                 return Some(ValueMut::new(self.data, item.value));
             }
         }
@@ -304,7 +311,9 @@ impl<'a> MappingMut<'a> {
     #[must_use]
     pub fn get_into_mut(self, key: &str) -> Option<ValueMut<'a>> {
         for item in &self.data.mapping(self.id).items {
-            if self.data.str(&item.key.string) == key {
+            let item = self.data.mapping_item(*item);
+
+            if self.data.str(item.key.string) == key {
                 return Some(ValueMut::new(self.data, item.value));
             }
         }
@@ -348,7 +357,9 @@ impl<'a> MappingMut<'a> {
         let mut index = None;
 
         for (i, item) in self.data.mapping(self.id).items.iter().enumerate() {
-            if self.data.str(&item.key.string) == key {
+            let item = self.data.mapping_item(*item);
+
+            if self.data.str(item.key.string) == key {
                 index = Some(i);
                 break;
             }
@@ -359,7 +370,7 @@ impl<'a> MappingMut<'a> {
         };
 
         let item = self.data.mapping_mut(self.id).items.remove(index);
-        self.data.drop(item.value);
+        self.data.drop(item);
         true
     }
 
@@ -390,7 +401,7 @@ impl<'a> MappingMut<'a> {
         let mut items = mem::take(&mut self.data.mapping_mut(self.id).items);
 
         for item in items.drain(..) {
-            self.data.drop(item.value);
+            self.data.drop(item);
         }
 
         self.data.mapping_mut(self.id).items = items;

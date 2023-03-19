@@ -182,7 +182,9 @@ impl<'a> Mapping<'a> {
     #[must_use]
     pub fn get(&self, key: &str) -> Option<Value<'a>> {
         for item in &self.data.mapping(self.id).items {
-            if self.data.str(&item.key.string) == key {
+            let item = self.data.mapping_item(*item);
+
+            if self.data.str(item.key.string) == key {
                 return Some(Value::new(self.data, item.value));
             }
         }

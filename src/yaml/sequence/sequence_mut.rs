@@ -94,7 +94,7 @@ impl<'a> SequenceMut<'a> {
             Separator::Custom(string) => self.data.insert_str(string),
         };
 
-        let indent = self.data.layout(self.id).indent;
+        let indent = self.data.layout(self.id).prefix;
         let value = self.data.insert(value, indent, Some(self.id));
         let raw = self.data.sequence_mut(self.id);
         let prefix = (!raw.items.is_empty()).then_some(indent);

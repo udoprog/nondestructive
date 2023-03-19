@@ -53,7 +53,7 @@ impl<'de> Deserializer<'de> for Value<'de> {
                 RawNumberHint::Signed128 => self.deserialize_i128(visitor),
             },
             Raw::String(raw) => {
-                let string = self.data.str(&raw.string);
+                let string = self.data.str(raw.string);
 
                 if let Ok(string) = string.to_str() {
                     visitor.visit_borrowed_str(string)

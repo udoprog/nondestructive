@@ -137,9 +137,9 @@ impl Document {
 
 impl fmt::Display for Document {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.data.str(&self.prefix).fmt(f)?;
+        self.data.str(self.prefix).fmt(f)?;
         self.data.raw(self.root).display(&self.data, f)?;
-        self.data.str(&self.suffix).fmt(f)?;
+        self.data.str(self.suffix).fmt(f)?;
         Ok(())
     }
 }

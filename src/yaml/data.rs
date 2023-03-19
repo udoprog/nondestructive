@@ -7,7 +7,7 @@ use std::num::NonZeroUsize;
 use bstr::BStr;
 use twox_hash::xxh3::{Hash128, HasherExt};
 
-use crate::yaml::raw::{Layout, Raw, RawMapping, RawSequence};
+use crate::yaml::raw::{Layout, Raw, RawMapping, RawMappingItem, RawSequence};
 
 /// The unique hash of a string.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -66,8 +66,8 @@ pub(crate) struct Data {
 impl Data {
     /// Get a string.
     #[inline]
-    pub(crate) fn str(&self, id: &StringId) -> &BStr {
-        let Some(string) = self.strings.get(id) else {
+    pub(crate) fn str(&self, id: StringId) -> &BStr {
+        let Some(string) = self.strings.get(&id) else {
             panic!("missing string with id {id}");
         };
 
@@ -91,82 +91,100 @@ impl Data {
     }
 
     #[inline]
-    pub(crate) fn layout(&self, index: ValueId) -> &Layout {
-        if let Some(raw) = self.slab.get(index.get()) {
+    pub(crate) fn layout(&self, id: ValueId) -> &Layout {
+        if let Some(raw) = self.slab.get(id.get()) {
             return &raw.layout;
         }
 
-        panic!("expected raw at {index}")
+        panic!("expected raw at {id}")
     }
 
     #[inline]
-    pub(crate) fn raw(&self, index: ValueId) -> &Raw {
-        if let Some(raw) = self.slab.get(index.get()) {
+    pub(crate) fn prefix(&self, id: ValueId) -> &BStr {
+        self.str(self.layout(id).prefix)
+    }
+
+    #[inline]
+    pub(crate) fn raw(&self, id: ValueId) -> &Raw {
+        if let Some(raw) = self.slab.get(id.get()) {
             return &raw.raw;
         }
 
-        panic!("expected raw at {index}")
+        panic!("expected raw at {id}")
     }
 
     #[inline]
-    pub(crate) fn raw_mut(&mut self, index: ValueId) -> &mut Raw {
-        if let Some(raw) = self.slab.get_mut(index.get()) {
+    pub(crate) fn raw_mut(&mut self, id: ValueId) -> &mut Raw {
+        if let Some(raw) = self.slab.get_mut(id.get()) {
             return &mut raw.raw;
         }
 
-        panic!("expected raw at {index}")
+        panic!("expected raw at {id}")
     }
 
     #[inline]
-    pub(crate) fn sequence(&self, index: ValueId) -> &RawSequence {
+    pub(crate) fn sequence(&self, id: ValueId) -> &RawSequence {
         if let Some(Entry {
             raw: Raw::Sequence(raw),
             ..
-        }) = self.slab.get(index.get())
+        }) = self.slab.get(id.get())
         {
             return raw;
         }
 
-        panic!("expected sequence at {index}")
+        panic!("expected sequence at {id}")
     }
 
     #[inline]
-    pub(crate) fn sequence_mut(&mut self, index: ValueId) -> &mut RawSequence {
+    pub(crate) fn sequence_mut(&mut self, id: ValueId) -> &mut RawSequence {
         if let Some(Entry {
             raw: Raw::Sequence(raw),
             ..
-        }) = self.slab.get_mut(index.get())
+        }) = self.slab.get_mut(id.get())
         {
             return raw;
         }
 
-        panic!("expected sequence at {index}")
+        panic!("expected sequence at {id}")
     }
 
     #[inline]
-    pub(crate) fn mapping(&self, index: ValueId) -> &RawMapping {
+    pub(crate) fn mapping(&self, id: ValueId) -> &RawMapping {
         if let Some(Entry {
             raw: Raw::Mapping(raw),
             ..
-        }) = self.slab.get(index.get())
+        }) = self.slab.get(id.get())
         {
             return raw;
         }
 
-        panic!("expected mapping at {index}")
+        panic!("expected mapping at {id}")
     }
 
     #[inline]
-    pub(crate) fn mapping_mut(&mut self, index: ValueId) -> &mut RawMapping {
+    pub(crate) fn mapping_item(&self, id: ValueId) -> &RawMappingItem {
         if let Some(Entry {
-            raw: Raw::Mapping(raw),
+            raw: Raw::MappingItem(raw),
             ..
-        }) = self.slab.get_mut(index.get())
+        }) = self.slab.get(id.get())
         {
             return raw;
         }
 
-        panic!("expected mapping at {index}")
+        panic!("expected mapping at {id}")
+    }
+
+    #[inline]
+    pub(crate) fn mapping_mut(&mut self, id: ValueId) -> &mut RawMapping {
+        if let Some(Entry {
+            raw: Raw::Mapping(raw),
+            ..
+        }) = self.slab.get_mut(id.get())
+        {
+            return raw;
+        }
+
+        panic!("expected mapping at {id}")
     }
 
     /// Insert a raw value and return its identifier.
@@ -179,7 +197,10 @@ impl Data {
     ) -> ValueId {
         let index = self.slab.insert(Entry {
             raw,
-            layout: Layout { indent, parent },
+            layout: Layout {
+                prefix: indent,
+                parent,
+            },
         });
         let index = NonZeroUsize::new(index.wrapping_add(1)).expect("ran out of ids");
         ValueId(index)
@@ -201,9 +222,12 @@ impl Data {
         match raw {
             Raw::Mapping(raw) => {
                 for item in raw.items {
-                    let item = self.slab.remove(item.value.get());
-                    self.drop_kind(item.raw);
+                    self.drop(item);
                 }
+            }
+            Raw::MappingItem(raw) => {
+                let item = self.slab.remove(raw.value.get());
+                self.drop_kind(item.raw);
             }
             Raw::Sequence(raw) => {
                 for item in raw.items {
@@ -231,7 +255,7 @@ impl Data {
             return;
         };
 
-        value.layout.indent = indent;
+        value.layout.prefix = indent;
         let removed = mem::replace(&mut value.raw, raw);
         self.drop_kind(removed);
     }

@@ -46,7 +46,7 @@ pub(crate) fn make_sequence() -> Raw {
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct Layout {
     /// Reference to the indentation just preceeding the current value.
-    pub(crate) indent: StringId,
+    pub(crate) prefix: StringId,
     /// Reference to the parent of a value.
     #[allow(unused)]
     pub(crate) parent: Option<ValueId>,
@@ -65,6 +65,8 @@ pub(crate) enum Raw {
     String(RawString),
     /// A mapping.
     Mapping(RawMapping),
+    /// A single item inside of a mapping.
+    MappingItem(RawMappingItem),
     /// A sequence.
     Sequence(RawSequence),
 }
@@ -91,6 +93,9 @@ impl Raw {
             Raw::Mapping(raw) => {
                 raw.display(data, f)?;
             }
+            Raw::MappingItem(raw) => {
+                raw.display(data, f)?;
+            }
             Raw::Sequence(raw) => {
                 raw.display(data, f)?;
             }
@@ -115,7 +120,7 @@ impl RawNumber {
     }
 
     fn display(&self, data: &Data, f: &mut fmt::Formatter) -> fmt::Result {
-        let number = data.str(&self.string);
+        let number = data.str(self.string);
         write!(f, "{number}")
     }
 }
@@ -258,23 +263,23 @@ impl RawString {
 
         match &self.kind {
             RawStringKind::Bare => {
-                let string = data.str(&self.string);
+                let string = data.str(self.string);
                 write!(f, "{string}")?;
             }
             RawStringKind::DoubleQuoted => {
-                let string = data.str(&self.string);
+                let string = data.str(self.string);
                 escape_double_quoted(string, f)?;
             }
             RawStringKind::SingleQuoted => {
-                let string = data.str(&self.string);
+                let string = data.str(self.string);
                 escape_single_quoted(string, f)?;
             }
             RawStringKind::Original(original) => {
-                let string = data.str(original);
+                let string = data.str(*original);
                 write!(f, "{string}")?;
             }
             RawStringKind::Multiline(prefix, original) => {
-                let string = data.str(original);
+                let string = data.str(*original);
                 write!(f, "{}{string}", char::from(*prefix))?;
             }
         }
@@ -335,15 +340,14 @@ impl RawSequence {
 
         while let Some(item) = it.next() {
             if let Some(prefix) = &item.prefix {
-                let prefix = data.str(prefix);
-                write!(f, "{prefix}")?;
+                write!(f, "{}", data.str(*prefix))?;
             }
 
             if let RawSequenceKind::Mapping = self.kind {
                 write!(f, "-")?;
             }
 
-            let separator = data.str(&item.separator);
+            let separator = data.str(item.separator);
             write!(f, "{separator}")?;
 
             data.raw(item.value).display(data, f)?;
@@ -360,7 +364,7 @@ impl RawSequence {
                 write!(f, ",")?;
             }
 
-            write!(f, "{}]", data.str(suffix))?;
+            write!(f, "{}]", data.str(*suffix))?;
         }
 
         Ok(())
@@ -370,10 +374,20 @@ impl RawSequence {
 /// An element in a YAML mapping.
 #[derive(Debug, Clone)]
 pub(crate) struct RawMappingItem {
-    pub(crate) prefix: Option<StringId>,
     pub(crate) key: RawString,
     pub(crate) separator: StringId,
     pub(crate) value: ValueId,
+}
+
+impl RawMappingItem {
+    fn display(&self, data: &Data, f: &mut fmt::Formatter) -> fmt::Result {
+        let key = data.str(self.key.string);
+        let separator = data.str(self.separator);
+        write!(f, "{key}:{separator}")?;
+
+        data.raw(self.value).display(data, f)?;
+        Ok(())
+    }
 }
 
 /// The kind of a raw mapping.
@@ -403,7 +417,7 @@ pub(crate) enum RawMappingKind {
 #[derive(Debug, Clone)]
 pub(crate) struct RawMapping {
     pub(crate) kind: RawMappingKind,
-    pub(crate) items: Vec<RawMappingItem>,
+    pub(crate) items: Vec<ValueId>,
 }
 
 impl RawMapping {
@@ -415,17 +429,11 @@ impl RawMapping {
 
         let mut it = self.items.iter().peekable();
 
-        while let Some(item) = it.next() {
-            if let Some(prefix) = &item.prefix {
-                let prefix = data.str(prefix);
-                write!(f, "{prefix}")?;
-            }
+        while let Some(id) = it.next() {
+            let item = data.mapping_item(*id);
+            write!(f, "{}", data.prefix(*id))?;
 
-            let key = data.str(&item.key.string);
-            let separator = data.str(&item.separator);
-            write!(f, "{key}:{separator}")?;
-
-            data.raw(item.value).display(data, f)?;
+            item.display(data, f)?;
 
             if it.peek().is_some() {
                 if let RawMappingKind::Inline { .. } = &self.kind {
@@ -439,7 +447,7 @@ impl RawMapping {
                 write!(f, ",")?;
             }
 
-            let suffix = data.str(suffix);
+            let suffix = data.str(*suffix);
             write!(f, "{suffix}}}")?;
         }
 
