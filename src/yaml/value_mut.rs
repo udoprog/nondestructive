@@ -1,9 +1,7 @@
-use bstr::ByteSlice;
-
 use crate::yaml::data::{Data, ValueId};
-use crate::yaml::raw::{self, Raw, NEWLINE};
+use crate::yaml::raw::{self, Raw};
 use crate::yaml::serde;
-use crate::yaml::{AnyMut, MappingMut, NullKind, SequenceMut, Value};
+use crate::yaml::{AnyMut, MappingMut, Null, SequenceMut, Value};
 
 use super::data::StringId;
 
@@ -343,21 +341,21 @@ impl<'a> ValueMut<'a> {
     /// use nondestructive::yaml;
     ///
     /// let mut doc = yaml::from_bytes("  string")?;
-    /// doc.root_mut().set_null(yaml::NullKind::Keyword);
+    /// doc.root_mut().set_null(yaml::Null::Keyword);
     /// assert_eq!(doc.to_string(), "  null");
     ///
     /// let mut doc = yaml::from_bytes("  string")?;
-    /// doc.root_mut().set_null(yaml::NullKind::Tilde);
+    /// doc.root_mut().set_null(yaml::Null::Tilde);
     /// assert_eq!(doc.to_string(), "  ~");
     ///
     /// let mut doc = yaml::from_bytes("  string")?;
-    /// doc.root_mut().set_null(yaml::NullKind::Empty);
+    /// doc.root_mut().set_null(yaml::Null::Empty);
     /// assert_eq!(doc.to_string(), "  ");
     ///
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     #[inline]
-    pub fn set_null(&mut self, kind: NullKind) {
+    pub fn set_null(&mut self, kind: Null) {
         self.data.replace(self.id, Raw::Null(kind));
     }
 
@@ -435,12 +433,23 @@ impl<'a> ValueMut<'a> {
     /// ```
     /// use nondestructive::yaml;
     ///
-    /// let mut doc = yaml::from_bytes("  string")?;
+    /// let mut doc = yaml::from_bytes(
+    ///     r#"
+    ///     string
+    ///     "#
+    /// )?;
+    ///
     /// let mut mapping = doc.root_mut().make_mapping();
     /// mapping.insert_u32("first", 1);
     /// mapping.insert_u32("second", 2);
     ///
-    /// assert_eq!(doc.to_string(), "  first: 1\n  second: 2");
+    /// assert_eq!(
+    ///     doc.to_string(),
+    ///     r#"
+    ///     first: 1
+    ///     second: 2
+    ///     "#
+    /// );
     ///
     /// let mut doc = yaml::from_bytes(
     ///     r#"
@@ -451,24 +460,29 @@ impl<'a> ValueMut<'a> {
     /// mapping.insert_u32("second", 2);
     /// mapping.insert_u32("third", 3);
     ///
-    /// // TODO: support this
-    /// // assert_eq!(
-    /// //     doc.to_string(),
-    /// //     r#"
-    /// //     first:
-    /// //         second: 2
-    /// //         third: 3
-    /// //     "#
-    /// // );
+    /// assert_eq!(
+    ///     doc.to_string(),
+    ///     r#"
+    ///     first:
+    ///       second: 2
+    ///       third: 3
+    ///     "#
+    /// );
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     #[inline]
     #[must_use]
     pub fn make_mapping(mut self) -> MappingMut<'a> {
         if !matches!(self.data.raw(self.id), Raw::Mapping(..)) {
-            let indent = self.build_indent();
-            let value = raw::make_mapping();
-            self.data.replace_with_indent(self.id, value, indent);
+            let (indent, prefix) = self.make_indent_prefix();
+
+            let value = Raw::Mapping(raw::Mapping {
+                indent,
+                kind: raw::MappingKind::Mapping,
+                items: Vec::new(),
+            });
+
+            self.data.replace_with(self.id, value, prefix);
         }
 
         MappingMut::new(self.data, self.id)
@@ -481,78 +495,84 @@ impl<'a> ValueMut<'a> {
     /// ```
     /// use nondestructive::yaml;
     ///
-    /// let mut doc = yaml::from_bytes("  string")?;
-    /// let mut mapping = doc.root_mut().make_sequence();
-    /// mapping.push_u32(1);
-    /// mapping.push_u32(2);
+    /// let mut doc = yaml::from_bytes(
+    ///     r#"
+    ///     string
+    ///     "#
+    /// )?;
+    /// let mut sequence = doc.root_mut().make_sequence();
+    /// sequence.push_u32(1);
+    /// sequence.push_u32(2);
     ///
-    /// assert_eq!(doc.to_string(), "  - 1\n  - 2");
+    /// assert_eq!(
+    ///     doc.to_string(),
+    ///     r#"
+    ///     - 2
+    ///     - 3
+    ///     "#
+    /// );
     ///
     /// let mut doc = yaml::from_bytes(
     ///     r#"
     ///     first: second
     ///     "#
     /// )?;
-    /// let mut mapping = doc.root_mut().into_mapping_mut().and_then(|m| Some(m.get_into_mut("first")?.make_sequence())).ok_or("missing first")?;
-    /// mapping.push_u32(2);
-    /// mapping.push_u32(3);
+    /// let mut sequence = doc.root_mut().into_mapping_mut().and_then(|m| Some(m.get_into_mut("first")?.make_sequence())).ok_or("missing first")?;
+    /// sequence.push_u32(2);
+    /// sequence.push_u32(3);
     ///
-    /// // TODO: support this
-    /// // assert_eq!(
-    /// //     doc.to_string(),
-    /// //     r#"
-    /// //     first:
-    /// //       - 2
-    /// //       - 3
-    /// //     "#
-    /// // );
+    /// assert_eq!(
+    ///     doc.to_string(),
+    ///     r#"
+    ///     first:
+    ///       - 2
+    ///       - 3
+    ///     "#
+    /// );
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     #[inline]
     #[must_use]
     pub fn make_sequence(mut self) -> SequenceMut<'a> {
         if !matches!(self.data.raw(self.id), Raw::Sequence(..)) {
-            let indent = self.build_indent();
-            let value = raw::make_sequence();
-            self.data.replace_with_indent(self.id, value, indent);
+            let (indent, prefix) = self.make_indent_prefix();
+
+            let raw = Raw::Sequence(raw::Sequence {
+                indent,
+                kind: raw::SequenceKind::Mapping,
+                items: Vec::new(),
+            });
+
+            self.data.replace_with(self.id, raw, prefix);
         }
 
         SequenceMut::new(self.data, self.id)
     }
 
-    /// Make indentation for mappings and sequences.
-    ///
-    /// This is a bit of a handsful, but the gist is that we need to calculate
-    /// the new indentation to use for elements in this mapping.
-    ///
-    /// If we have a parent node, we extend the indentation of the parent node,
-    /// else we take the indentation from the current node, ensuring that it
-    /// starts with a newline.
-    fn build_indent(&mut self) -> StringId {
-        let mut new_indent = Vec::new();
-        new_indent.push(NEWLINE);
+    fn make_indent_prefix(&mut self) -> (usize, StringId) {
+        let container = self
+            .data
+            .layout(self.id)
+            .parent
+            .and_then(|id| Some(self.data.layout(id).parent?))
+            .map(|id| self.data.raw(id));
 
-        match *self.data.layout(self.id) {
-            raw::Layout {
-                parent: Some(id), ..
-            } => {
-                let indent = self.data.layout(id).prefix;
-                new_indent.extend_from_slice(self.data.str(indent));
-                new_indent.extend_from_slice(b"  ");
-            }
-            raw::Layout {
-                prefix: indent,
-                parent: None,
-            } => {
-                let string = self.data.str(indent);
-                let string = match string.as_bytes() {
-                    [NEWLINE, rest @ ..] => rest,
-                    string => string,
-                };
-                new_indent.extend_from_slice(string);
-            }
+        let (container, indent) = match container {
+            Some(Raw::Mapping(raw)) => (true, raw.indent.saturating_add(2)),
+            Some(Raw::Sequence(raw)) => (true, raw.indent.saturating_add(2)),
+            _ => (false, 0),
         };
 
-        self.data.insert_str(new_indent)
+        let mut prefix = Vec::new();
+
+        if container {
+            prefix.push(raw::NEWLINE);
+        }
+
+        for _ in 0..indent {
+            prefix.push(raw::SPACE);
+        }
+
+        (indent, self.data.insert_str(prefix))
     }
 }

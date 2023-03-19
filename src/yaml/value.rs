@@ -36,7 +36,7 @@ pub enum Separator<'a> {
 /// The kind of a null value.
 #[derive(Debug, Clone, Copy)]
 #[non_exhaustive]
-pub enum NullKind {
+pub enum Null {
     /// A keyword `null` value.
     Keyword,
     /// A tilde `~` null value.
@@ -45,16 +45,16 @@ pub enum NullKind {
     Empty,
 }
 
-impl NullKind {
+impl Null {
     pub(crate) fn display(self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            NullKind::Keyword => {
+            Null::Keyword => {
                 write!(f, "null")?;
             }
-            NullKind::Tilde => {
+            Null::Tilde => {
                 write!(f, "~")?;
             }
-            NullKind::Empty => {
+            Null::Empty => {
                 // empty values count as null.
             }
         }

@@ -254,22 +254,25 @@ impl Data {
     }
 
     /// Replace a raw value.
-    pub(crate) fn replace(&mut self, id: ValueId, raw: raw::Raw) {
+    pub(crate) fn replace<T>(&mut self, id: ValueId, raw: T)
+    where
+        T: Into<raw::Raw>,
+    {
         let Some(value) = self.slab.get_mut(id.get()) else {
             return;
         };
 
-        let removed = mem::replace(&mut value.raw, raw);
+        let removed = mem::replace(&mut value.raw, raw.into());
         self.drop_kind(removed);
     }
 
     /// Replace with indentation.
-    pub(crate) fn replace_with_indent(&mut self, id: ValueId, raw: raw::Raw, indent: StringId) {
+    pub(crate) fn replace_with(&mut self, id: ValueId, raw: raw::Raw, prefix: StringId) {
         let Some(value) = self.slab.get_mut(id.get()) else {
             return;
         };
 
-        value.layout.prefix = indent;
+        value.layout.prefix = prefix;
         let removed = mem::replace(&mut value.raw, raw);
         self.drop_kind(removed);
     }

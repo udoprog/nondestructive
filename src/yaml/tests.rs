@@ -1,6 +1,8 @@
 mod actions;
 mod escape;
+mod mapping;
 mod multiline;
+mod sequence;
 
 use anyhow::{Context, Result};
 
@@ -21,14 +23,14 @@ fn make_mapping() -> Result<()> {
     mapping.insert_u32("second", 2);
     mapping.insert_u32("third", 3);
 
-    // assert_eq!(
-    //     doc.to_string(),
-    //     r#"
-    //     first:
-    //         second: 2
-    //         third: 3
-    //     "#
-    // );
+    assert_eq!(
+        doc.to_string(),
+        r#"
+        first:
+          second: 2
+          third: 3
+        "#
+    );
     Ok(())
 }
 

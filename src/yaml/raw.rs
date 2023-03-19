@@ -4,11 +4,10 @@ use bstr::ByteSlice;
 
 use crate::yaml::data::{Data, StringId, ValueId};
 use crate::yaml::serde::RawNumberHint;
-use crate::yaml::NullKind;
+use crate::yaml::Null;
 
 /// Newline character used in YAML.
 pub(crate) const NEWLINE: u8 = b'\n';
-
 /// Space character used in YAML.
 pub(crate) const SPACE: u8 = b' ';
 
@@ -27,22 +26,6 @@ where
     Raw::String(String::new(kind, string))
 }
 
-/// Make a mapping.
-pub(crate) fn make_mapping() -> Raw {
-    Raw::Mapping(Mapping {
-        kind: MappingKind::Mapping,
-        items: Vec::new(),
-    })
-}
-
-/// Make a sequence.
-pub(crate) fn make_sequence() -> Raw {
-    Raw::Sequence(Sequence {
-        kind: SequenceKind::Mapping,
-        items: Vec::new(),
-    })
-}
-
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct Layout {
     /// Reference to the indentation just preceeding the current value.
@@ -56,7 +39,7 @@ pub(crate) struct Layout {
 #[derive(Debug, Clone)]
 pub(crate) enum Raw {
     /// A null value.
-    Null(NullKind),
+    Null(Null),
     /// A boolean value.
     Boolean(bool),
     /// A single number.
@@ -79,8 +62,8 @@ impl Raw {
             Raw::Null(raw) => {
                 raw.display(f)?;
             }
-            Raw::Boolean(value) => {
-                if *value {
+            Raw::Boolean(raw) => {
+                if *raw {
                     write!(f, "true")?;
                 } else {
                     write!(f, "false")?;
@@ -109,6 +92,22 @@ impl Raw {
         Ok(())
     }
 }
+
+macro_rules! from {
+    ($ident:ident) => {
+        impl From<$ident> for Raw {
+            #[inline]
+            fn from(value: $ident) -> Self {
+                Raw::$ident(value)
+            }
+        }
+    };
+}
+
+from!(Mapping);
+from!(MappingItem);
+from!(Sequence);
+from!(SequenceItem);
 
 /// A YAML number.
 #[derive(Debug, Clone)]
@@ -320,6 +319,8 @@ pub(crate) enum SequenceKind {
 /// A YAML sequence.
 #[derive(Debug, Clone)]
 pub(crate) struct Sequence {
+    /// Indentation used for this sequence.
+    pub(crate) indent: usize,
     /// The kind of a raw sequence.
     pub(crate) kind: SequenceKind,
     /// Items in the sequence.
@@ -366,14 +367,12 @@ impl Sequence {
 /// An element in a YAML sequence.
 #[derive(Debug, Clone)]
 pub(crate) struct SequenceItem {
-    pub(crate) separator: StringId,
     pub(crate) value: ValueId,
 }
 
 impl SequenceItem {
     fn display(&self, data: &Data, f: &mut fmt::Formatter) -> fmt::Result {
-        let separator = data.str(self.separator);
-        write!(f, "{separator}")?;
+        write!(f, "{}", data.prefix(self.value))?;
         data.raw(self.value).display(data, f)?;
         Ok(())
     }
@@ -405,6 +404,7 @@ pub(crate) enum MappingKind {
 /// A YAML mapping.
 #[derive(Debug, Clone)]
 pub(crate) struct Mapping {
+    pub(crate) indent: usize,
     pub(crate) kind: MappingKind,
     pub(crate) items: Vec<ValueId>,
 }
@@ -421,7 +421,6 @@ impl Mapping {
         while let Some(id) = it.next() {
             let item = data.mapping_item(*id);
             write!(f, "{}", data.prefix(*id))?;
-
             item.display(data, f)?;
 
             if it.peek().is_some() {
@@ -448,16 +447,14 @@ impl Mapping {
 #[derive(Debug, Clone)]
 pub(crate) struct MappingItem {
     pub(crate) key: String,
-    pub(crate) separator: StringId,
     pub(crate) value: ValueId,
 }
 
 impl MappingItem {
     fn display(&self, data: &Data, f: &mut fmt::Formatter) -> fmt::Result {
         let key = data.str(self.key.string);
-        let separator = data.str(self.separator);
-        write!(f, "{key}:{separator}")?;
-
+        write!(f, "{key}:")?;
+        write!(f, "{}", data.prefix(self.value))?;
         data.raw(self.value).display(data, f)?;
         Ok(())
     }

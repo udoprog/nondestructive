@@ -1,9 +1,9 @@
 use core::mem;
 
-use crate::yaml::data::{Data, ValueId};
+use crate::yaml::data::{Data, StringId, ValueId};
 use crate::yaml::raw::{self, new_bool, new_string, Raw};
 use crate::yaml::serde;
-use crate::yaml::{NullKind, Separator, Sequence, ValueMut};
+use crate::yaml::{Null, Separator, Sequence, ValueMut};
 
 /// Mutator for a sequence.
 pub struct SequenceMut<'a> {
@@ -82,26 +82,47 @@ impl<'a> SequenceMut<'a> {
         Self { data, id }
     }
 
+    /// Make insertion prefix.
+    fn make_prefix(&mut self) -> StringId {
+        let mut out = Vec::new();
+        out.push(raw::NEWLINE);
+
+        for _ in 0..self.data.sequence(self.id).indent {
+            out.push(raw::SPACE);
+        }
+
+        self.data.insert_str(out)
+    }
+
     /// Push a value on the sequence.
     fn _push(&mut self, separator: Separator, value: Raw) -> ValueId {
-        let separator = match separator {
-            Separator::Auto => match self.data.sequence(self.id).items.last() {
-                Some(last) => self.data.sequence_item(*last).separator,
-                None => self.data.insert_str(" "),
-            },
-            Separator::Custom(string) => self.data.insert_str(string),
+        let item_prefix = if self.data.sequence(self.id).items.last().is_some() {
+            self.make_prefix()
+        } else {
+            self.data.insert_str("")
         };
 
-        let indent = self.data.layout(self.id).prefix;
-        let value = self.data.insert(value, indent, Some(self.id));
-        let prefix = (!self.data.sequence(self.id).items.is_empty())
-            .then_some(indent)
-            .unwrap_or_else(|| self.data.insert_str(""));
+        let item_id = self
+            .data
+            .insert(Raw::Null(Null::Empty), item_prefix, Some(self.id));
 
-        let raw = Raw::SequenceItem(raw::SequenceItem { separator, value });
-        let item = self.data.insert(raw, prefix, Some(self.id));
+        let value_prefix = match separator {
+            Separator::Auto => match self.data.sequence(self.id).items.last() {
+                Some(last) => {
+                    self.data
+                        .layout(self.data.sequence_item(*last).value)
+                        .prefix
+                }
+                None => self.data.insert_str(" "),
+            },
+            Separator::Custom(separator) => self.data.insert_str(separator),
+        };
 
-        self.data.sequence_mut(self.id).items.push(item);
+        let value = self.data.insert(value, value_prefix, Some(item_id));
+
+        self.data
+            .replace(item_id, Raw::SequenceItem(raw::SequenceItem { value }));
+        self.data.sequence_mut(self.id).items.push(item_id);
         value
     }
 
@@ -166,7 +187,7 @@ impl<'a> SequenceMut<'a> {
         Sequence::new(self.data, self.id)
     }
 
-    /// Get a value mutably from the mapping.
+    /// Get a value mutably from the sequence.
     ///
     /// # Examples
     ///
@@ -182,7 +203,7 @@ impl<'a> SequenceMut<'a> {
     ///
     /// let mut root = doc.root_mut();
     /// let mut root = root.as_sequence_mut().ok_or("missing root sequence")?;
-    /// root.get_mut(1).ok_or("missing inner mapping")?.set_u32(30);
+    /// root.get_mut(1).ok_or("missing inner sequence")?.set_u32(30);
     ///
     /// assert_eq!(
     /// doc.to_string(),
@@ -203,7 +224,7 @@ impl<'a> SequenceMut<'a> {
         None
     }
 
-    /// Get a value mutably from the mapping.
+    /// Get a value mutably from the sequence.
     ///
     /// # Examples
     ///
@@ -345,7 +366,7 @@ impl<'a> SequenceMut<'a> {
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     pub fn push(&mut self, separator: Separator<'_>) -> ValueMut<'_> {
-        let value = self._push(separator, Raw::Null(NullKind::Empty));
+        let value = self._push(separator, Raw::Null(Null::Empty));
         ValueMut::new(self.data, value)
     }
 

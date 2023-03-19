@@ -67,7 +67,7 @@ pub use self::document::Document;
 mod raw;
 
 mod value;
-pub use self::value::{NullKind, Separator, Value};
+pub use self::value::{Null, Separator, Value};
 
 mod value_mut;
 pub use self::value_mut::ValueMut;

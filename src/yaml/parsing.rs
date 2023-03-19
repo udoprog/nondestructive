@@ -2,9 +2,9 @@ use bstr::ByteSlice;
 
 use crate::yaml::data::{Data, StringId, ValueId};
 use crate::yaml::error::{Error, ErrorKind};
-use crate::yaml::raw::{self, Raw, NEWLINE, SPACE};
+use crate::yaml::raw::{self, Raw};
 use crate::yaml::serde;
-use crate::yaml::{Document, NullKind};
+use crate::yaml::{Document, Null};
 
 type Result<T, E = Error> = std::result::Result<T, E>;
 
@@ -20,7 +20,7 @@ macro_rules! ctl {
 /// Ascii whitespace matching.
 macro_rules! ws {
     () => {
-        b'\t' | NEWLINE | b'\x0C' | b'\r' | SPACE
+        b'\t' | raw::NEWLINE | b'\x0C' | b'\r' | raw::SPACE
     };
 }
 
@@ -47,15 +47,14 @@ impl<'a> Parser<'a> {
     /// Parses a single value, and returns its kind.
     pub(crate) fn parse(mut self) -> Result<Document> {
         let prefix = self.ws();
-        let indent = self.indentation(prefix);
-        let (root, suffix) = self.value(indent, None, false)?;
+        let (root, suffix) = self.value(prefix, None, false)?;
 
         let suffix = match suffix {
             Some(suffix) => suffix,
             None => self.ws(),
         };
 
-        Ok(Document::new(prefix, suffix, root, self.data))
+        Ok(Document::new(suffix, root, self.data))
     }
 
     /// Test if eof.
@@ -130,13 +129,13 @@ impl<'a> Parser<'a> {
         loop {
             match self.peek() {
                 b'#' => {
-                    self.find(NEWLINE);
+                    self.find(raw::NEWLINE);
                 }
                 ws!() => {}
                 _ => break,
             }
 
-            nl = nl.wrapping_add(u32::from(matches!(self.peek(), NEWLINE)));
+            nl = nl.wrapping_add(u32::from(matches!(self.peek(), raw::NEWLINE)));
             self.bump(1);
         }
 
@@ -191,8 +190,8 @@ impl<'a> Parser<'a> {
     }
 
     /// Insert a null value as a placeholder.
-    fn insert_null(&mut self, indent: StringId, parent: Option<ValueId>) -> ValueId {
-        self.data.insert(Raw::Null(NullKind::Empty), indent, parent)
+    fn placeholder(&mut self, prefix: StringId, parent: Option<ValueId>) -> ValueId {
+        self.data.insert(Raw::Null(Null::Empty), prefix, parent)
     }
 
     /// Read a double-quoted string.
@@ -313,7 +312,7 @@ impl<'a> Parser<'a> {
     /// Unescape into the scratch buffer.
     fn unescape(&mut self, start: usize) -> Result<()> {
         let b = match self.peek() {
-            b'n' => NEWLINE,
+            b'n' => raw::NEWLINE,
             b'0' => b'\x00',
             b'a' => b'\x07',
             b'b' => b'\x08',
@@ -371,35 +370,29 @@ impl<'a> Parser<'a> {
     }
 
     /// Parse an inline sequence.
-    fn inline_sequence(&mut self, indent: StringId, parent: Option<ValueId>) -> Result<ValueId> {
-        let id = self.insert_null(indent, parent);
+    fn inline_sequence(&mut self, prefix: StringId, parent: Option<ValueId>) -> Result<ValueId> {
+        let id = self.placeholder(prefix, parent);
 
         self.bump(1);
 
         let mut items = Vec::new();
         let mut last = false;
         let mut trailing = false;
-        let mut prefix = self.ws();
+        let mut item_prefix = self.ws();
 
         while !matches!(self.peek(), b']' | EOF) {
             trailing = false;
-            let item_id = self.insert_null(prefix, Some(id));
-            let (value, new_ws) = self.value(indent, Some(item_id), true)?;
 
-            let separator = match new_ws {
-                Some(ws) => ws,
-                None => self.ws(),
-            };
+            let item_id = self.placeholder(item_prefix, Some(id));
+            let value_prefix = self.ws();
+            let (value, next_prefix) = self.value(value_prefix, Some(item_id), true)?;
 
-            self.data.replace(
-                item_id,
-                Raw::SequenceItem(raw::SequenceItem { separator, value }),
-            );
+            self.data.replace(item_id, raw::SequenceItem { value });
 
             items.push(item_id);
 
             if last {
-                prefix = self.ws();
+                item_prefix = next_prefix.unwrap_or_else(|| self.ws());
                 break;
             }
 
@@ -410,12 +403,12 @@ impl<'a> Parser<'a> {
                 last = true;
             }
 
-            prefix = self.ws();
+            item_prefix = next_prefix.unwrap_or_else(|| self.ws());
         }
 
         if !matches!(self.peek(), b']') {
             return Err(Error::new(
-                self.span_back(prefix)..self.n,
+                self.span_back(item_prefix)..self.n,
                 ErrorKind::BadSequenceTerminator,
             ));
         }
@@ -424,29 +417,29 @@ impl<'a> Parser<'a> {
 
         self.data.replace(
             id,
-            Raw::Sequence(raw::Sequence {
+            raw::Sequence {
+                indent: 0,
                 kind: raw::SequenceKind::Inline {
                     trailing,
-                    suffix: prefix,
+                    suffix: item_prefix,
                 },
                 items,
-            }),
+            },
         );
 
         Ok(id)
     }
 
     /// Parse an inline mapping.
-    fn inline_mapping(&mut self, indent: StringId, parent: Option<ValueId>) -> Result<ValueId> {
-        let id = self.insert_null(indent, parent);
-
+    fn inline_mapping(&mut self, prefix: StringId, parent: Option<ValueId>) -> Result<ValueId> {
+        let id = self.placeholder(prefix, parent);
         self.bump(1);
 
         let mut items = Vec::new();
         let mut last = false;
         let mut trailing = false;
         let mut start = self.n;
-        let mut prefix = self.ws();
+        let mut item_prefix = self.ws();
 
         while !matches!(self.peek(), b'}' | EOF) {
             trailing = false;
@@ -455,28 +448,17 @@ impl<'a> Parser<'a> {
                 return Err(Error::new(start..self.n, ErrorKind::BadMappingSeparator));
             };
 
+            let item_id = self.placeholder(item_prefix, Some(id));
             self.bump(1);
-            let separator = self.ws();
-            let item_id = self.insert_null(prefix, Some(id));
-            let (value, new_ws) = self.value(indent, Some(item_id), true)?;
+            let value_prefix = self.ws();
+            let (value, next_prefix) = self.value(value_prefix, Some(item_id), true)?;
 
-            self.data.replace(
-                item_id,
-                Raw::MappingItem(raw::MappingItem {
-                    key,
-                    separator,
-                    value,
-                }),
-            );
-
+            self.data.replace(item_id, raw::MappingItem { key, value });
             items.push(item_id);
 
-            if last {
-                prefix = match new_ws {
-                    Some(ws) => ws,
-                    None => self.ws(),
-                };
+            item_prefix = next_prefix.unwrap_or_else(|| self.ws());
 
+            if last {
                 break;
             }
 
@@ -488,11 +470,7 @@ impl<'a> Parser<'a> {
             }
 
             start = self.n;
-
-            prefix = match new_ws {
-                Some(ws) => ws,
-                None => self.ws(),
-            };
+            item_prefix = self.ws();
         }
 
         if !matches!(self.peek(), b'}') {
@@ -503,13 +481,14 @@ impl<'a> Parser<'a> {
 
         self.data.replace(
             id,
-            Raw::Mapping(raw::Mapping {
+            raw::Mapping {
+                indent: 0,
                 items,
                 kind: raw::MappingKind::Inline {
                     trailing,
-                    suffix: prefix,
+                    suffix: item_prefix,
                 },
-            }),
+            },
         );
 
         Ok(id)
@@ -518,176 +497,130 @@ impl<'a> Parser<'a> {
     /// Parse a sequence.
     fn sequence(
         &mut self,
-        indent: StringId,
+        prefix: StringId,
         parent: Option<ValueId>,
-    ) -> Result<(ValueId, StringId)> {
-        let id = self.insert_null(indent, parent);
+    ) -> Result<(ValueId, Option<StringId>)> {
+        let empty = self.data.insert_str("");
+        let mapping_id = self.placeholder(prefix, parent);
 
         let mut items = Vec::new();
-        let empty = self.data.insert_str("");
-        let mut previous = empty;
-        let indent_count = self.count_indent(indent);
+        let mut previous_ws = None;
+        let indent = self.indent();
 
-        let ws = loop {
+        loop {
+            let item_prefix = previous_ws.take().unwrap_or(empty);
+            let item_id = self.placeholder(item_prefix, Some(mapping_id));
+
             self.bump(1);
-            let (sep, nl) = self.ws_nl();
-            let new_indent = self.indentation(sep);
 
-            let new_indent = if nl == 0 {
-                self.build_indentation(1, indent, new_indent)
-            } else {
-                new_indent
-            };
+            let value_prefix = self.ws();
+            let (value, ws) = self.value(value_prefix, Some(item_id), false)?;
 
-            let item_id = self.insert_null(previous, Some(id));
-            let (value, ws) = self.value(new_indent, Some(item_id), false)?;
-
-            let ws = match ws {
-                Some(suffix) => suffix,
-                None => self.ws(),
-            };
-
-            self.data.replace(
-                item_id,
-                Raw::SequenceItem(raw::SequenceItem {
-                    separator: sep,
-                    value,
-                }),
-            );
+            self.data.replace(item_id, raw::SequenceItem { value });
 
             items.push(item_id);
 
-            let current_indent = self.indentation(ws);
+            let ws = ws.unwrap_or_else(|| self.ws());
+            previous_ws = Some(ws);
 
-            if self.count_indent(current_indent) != indent_count || !matches!(self.peek(), b'-') {
-                break ws;
+            if self.indent() != indent || !matches!(self.peek(), b'-') {
+                break;
             }
-
-            previous = ws;
-        };
+        }
 
         self.data.replace(
-            id,
-            Raw::Sequence(raw::Sequence {
+            mapping_id,
+            raw::Sequence {
+                indent,
                 kind: raw::SequenceKind::Mapping,
                 items,
-            }),
+            },
         );
 
-        Ok((id, ws))
-    }
-
-    /// Construct sequence indentation.
-    fn build_indentation(&mut self, len: usize, indent: StringId, addition: StringId) -> StringId {
-        self.scratch.clear();
-        self.scratch.extend(self.data.str(indent).as_bytes());
-        // Account for any extra spacing that is added, such as the sequence marker.
-        self.scratch.extend(std::iter::repeat(SPACE).take(len));
-        self.scratch.extend(self.data.str(addition).as_bytes());
-
-        let string = self.data.insert_str(&self.scratch);
-        self.scratch.clear();
-        string
+        Ok((mapping_id, previous_ws))
     }
 
     /// Parse a raw mapping.
     fn mapping(
         &mut self,
         mut start: usize,
-        indent: StringId,
+        prefix: StringId,
         parent: Option<ValueId>,
-        mut key: raw::String,
-    ) -> Result<(ValueId, StringId)> {
-        let id = self.insert_null(indent, parent);
+        key: raw::String,
+    ) -> Result<(ValueId, Option<StringId>)> {
+        let empty = self.data.insert_str("");
+        let mapping_id = self.placeholder(prefix, parent);
 
         let mut items = Vec::new();
-        let empty = self.data.insert_str("");
-        let mut previous = empty;
-        let indent_count = self.count_indent(indent);
+        let mut previous_ws = None;
+        let mut current_key = Some(key);
 
-        let ws = loop {
+        let indent = self.indent_from(start);
+
+        while let Some(key) = current_key.take() {
             if !matches!(self.peek(), b':') {
                 self.bump(1);
                 return Err(Error::new(start..self.n, ErrorKind::BadMappingSeparator));
             }
 
+            let item_prefix = previous_ws.take().unwrap_or(empty);
+            let item_id = self.placeholder(item_prefix, Some(mapping_id));
+
             self.bump(1);
-            let (separator, nl) = self.ws_nl();
-            let new_indent = self.indentation(separator);
 
-            let new_indent = if nl == 0 {
-                let len = self.data.str(key.string).len();
-                self.build_indentation(len.saturating_add(1), indent, new_indent)
-            } else {
-                new_indent
-            };
+            let value_prefix = self.ws();
+            let (value, ws) = self.value(value_prefix, Some(item_id), false)?;
 
-            let item_id = self.insert_null(previous, Some(id));
-            let (value, ws) = self.value(new_indent, Some(item_id), false)?;
-
-            let ws = match ws {
-                Some(ws) => ws,
-                None => self.ws(),
-            };
-
-            self.data.replace(
-                item_id,
-                Raw::MappingItem(raw::MappingItem {
-                    key,
-                    separator,
-                    value,
-                }),
-            );
-
+            self.data.replace(item_id, raw::MappingItem { key, value });
             items.push(item_id);
 
-            let current_indentation = self.indentation(ws);
+            let ws = ws.unwrap_or_else(|| self.ws());
+            previous_ws = Some(ws);
 
-            if self.count_indent(current_indentation) != indent_count {
-                break ws;
+            if self.indent() != indent {
+                break;
             }
 
-            previous = ws;
             start = self.n;
-
-            key = match self.next_mapping_key() {
-                Some(key) => key,
-                None => break ws,
-            };
-        };
+            current_key = self.next_mapping_key();
+        }
 
         self.data.replace(
-            id,
-            Raw::Mapping(raw::Mapping {
+            mapping_id,
+            raw::Mapping {
+                indent,
                 kind: raw::MappingKind::Mapping,
                 items,
-            }),
+            },
         );
 
-        Ok((id, ws))
+        Ok((mapping_id, previous_ws))
     }
 
-    /// Find level of indentation.
-    fn indentation(&mut self, string: StringId) -> StringId {
-        let string = self.data.str(string);
-        let indent = string.rfind(b"\n").unwrap_or(0);
-        let indent = &string[indent..];
-        self.scratch.extend(indent.as_bytes());
-        let string = self.data.insert_str(&self.scratch);
-        self.scratch.clear();
-        string
+    /// Count indentation up until the current cursor.
+    #[inline]
+    fn indent(&self) -> usize {
+        self.indent_from(self.n)
     }
 
-    /// Count indentation level for the given string.
-    fn count_indent(&self, string: StringId) -> usize {
-        let string = self.data.str(string);
-        let n = string.rfind(b"\n").map_or(0, |n| n.wrapping_add(1));
-        string[n..].chars().count()
+    /// Count indentation up until the current cursor.
+    fn indent_from(&self, to: usize) -> usize {
+        let string = self.input.get(..to).unwrap_or_default();
+
+        let string = match memchr::memrchr(raw::NEWLINE, string) {
+            Some(n) => n
+                .checked_add(1)
+                .and_then(|n| string.get(n..))
+                .unwrap_or_default(),
+            None => self.input,
+        };
+
+        string.chars().count()
     }
 
     /// Process a key up until `:` or end of the current line.
     fn key_or_eol(&mut self, start: usize) -> Option<raw::String> {
-        self.find2(b':', NEWLINE);
+        self.find2(b':', raw::NEWLINE);
 
         if self.peek() == b':' {
             let key = self.data.insert_str(self.string(start));
@@ -720,7 +653,7 @@ impl<'a> Parser<'a> {
         let (mut ws, nl) = self.ws_nl();
 
         if nl == 0 {
-            self.find(NEWLINE);
+            self.find(raw::NEWLINE);
             let out = self.input.get(start..self.n).unwrap_or_default().trim();
             self.scratch.extend_from_slice(out);
 
@@ -732,18 +665,18 @@ impl<'a> Parser<'a> {
         }
 
         let mut end = self.n;
-        let indent = self.count_indent(ws);
+        let indent = self.indent();
 
         while !self.is_eof() {
             let s = self.n;
-            self.find(NEWLINE);
+            self.find(raw::NEWLINE);
             let out = self.input.get(s..self.n).unwrap_or_default().trim();
             self.scratch.extend_from_slice(out);
 
             end = self.n;
             ws = self.ws();
 
-            if self.count_indent(ws) < indent {
+            if self.indent() < indent {
                 break;
             }
 
@@ -763,22 +696,21 @@ impl<'a> Parser<'a> {
     /// Consume a single value.
     fn value(
         &mut self,
-        indent: StringId,
+        prefix: StringId,
         parent: Option<ValueId>,
         inline: bool,
     ) -> Result<(ValueId, Option<StringId>)> {
-        let (kind, ws) = match self.peek2() {
+        let (raw, ws) = match self.peek2() {
             (b'-', ws!()) if !inline => {
-                let (value, ws) = self.sequence(indent, parent)?;
-                return Ok((value, Some(ws)));
+                return self.sequence(prefix, parent);
             }
             (b'"', _) => (self.double_quoted()?, None),
             (b'\'', _) => (self.single_quoted(), None),
-            (b'[', _) => return Ok((self.inline_sequence(indent, parent)?, None)),
-            (b'{', _) => return Ok((self.inline_mapping(indent, parent)?, None)),
-            (b'~', _) => (Raw::Null(NullKind::Tilde), None),
-            (b'|', _) => self.multiline_string(NEWLINE),
-            (b'>', _) => self.multiline_string(SPACE),
+            (b'[', _) => return Ok((self.inline_sequence(prefix, parent)?, None)),
+            (b'{', _) => return Ok((self.inline_mapping(prefix, parent)?, None)),
+            (b'~', _) => (Raw::Null(Null::Tilde), None),
+            (b'|', _) => self.multiline_string(raw::NEWLINE),
+            (b'>', _) => self.multiline_string(raw::SPACE),
             _ => {
                 'default: {
                     let start = self.n;
@@ -794,15 +726,14 @@ impl<'a> Parser<'a> {
                             self.bump(1);
                         }
                     } else if let Some(key) = self.key_or_eol(start) {
-                        let (value, ws) = self.mapping(start, indent, parent, key)?;
-                        return Ok((value, Some(ws)));
+                        return self.mapping(start, prefix, parent, key);
                     }
 
                     // NB: calling `key_or_eol` will have consumed up until end
                     // of line for us, so use the current span as the production
                     // string.
                     match self.string(start) {
-                        b"null" => (Raw::Null(NullKind::Keyword), None),
+                        b"null" => (Raw::Null(Null::Keyword), None),
                         b"true" => (Raw::Boolean(true), None),
                         b"false" => (Raw::Boolean(false), None),
                         string => {
@@ -815,7 +746,7 @@ impl<'a> Parser<'a> {
             }
         };
 
-        let value = self.data.insert(kind, indent, parent);
+        let value = self.data.insert(raw, prefix, parent);
         Ok((value, ws))
     }
 

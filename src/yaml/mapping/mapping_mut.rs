@@ -1,9 +1,9 @@
 use core::mem;
 
-use crate::yaml::data::{Data, ValueId};
+use crate::yaml::data::{Data, StringId, ValueId};
 use crate::yaml::raw::{self, new_bool, new_string, Raw};
 use crate::yaml::serde;
-use crate::yaml::{Mapping, NullKind, Separator, ValueMut};
+use crate::yaml::{Mapping, Null, Separator, ValueMut};
 
 /// Mutator for a mapping.
 ///
@@ -118,6 +118,18 @@ impl<'a> MappingMut<'a> {
         Self { data, id }
     }
 
+    /// Make insertion prefix.
+    fn make_prefix(&mut self) -> StringId {
+        let mut out = Vec::new();
+        out.push(raw::NEWLINE);
+
+        for _ in 0..self.data.mapping(self.id).indent {
+            out.push(raw::SPACE);
+        }
+
+        self.data.insert_str(out)
+    }
+
     /// Insert a value into the mapping.
     fn _insert(&mut self, key: &str, separator: Separator<'_>, value: Raw) -> ValueId {
         let key = self.data.insert_str(key);
@@ -137,30 +149,29 @@ impl<'a> MappingMut<'a> {
 
         let key = raw::String::new(raw::StringKind::Bare, key);
 
-        let separator = match separator {
+        let item_prefix = if self.data.mapping(self.id).items.last().is_some() {
+            self.make_prefix()
+        } else {
+            self.data.insert_str("")
+        };
+
+        let item_id = self
+            .data
+            .insert(Raw::Null(Null::Empty), item_prefix, Some(self.id));
+
+        let value_prefix = match separator {
             Separator::Auto => match self.data.mapping(self.id).items.last() {
-                Some(last) => {
-                    let item = self.data.mapping_item(*last);
-                    item.separator
-                }
+                Some(last) => self.data.layout(self.data.mapping_item(*last).value).prefix,
                 None => self.data.insert_str(" "),
             },
             Separator::Custom(separator) => self.data.insert_str(separator),
         };
 
-        let indent = self.data.layout(self.id).prefix;
-        let value = self.data.insert(value, indent, Some(self.id));
-        let prefix = (!self.data.mapping(self.id).items.is_empty())
-            .then_some(indent)
-            .unwrap_or_else(|| self.data.insert_str(""));
+        let value = self.data.insert(value, value_prefix, Some(item_id));
 
-        let item = Raw::MappingItem(raw::MappingItem {
-            key,
-            separator,
-            value,
-        });
-        let item = self.data.insert(item, prefix, Some(self.id));
-        self.data.mapping_mut(self.id).items.push(item);
+        self.data
+            .replace(item_id, Raw::MappingItem(raw::MappingItem { key, value }));
+        self.data.mapping_mut(self.id).items.push(item_id);
         value
     }
 
@@ -436,7 +447,7 @@ impl<'a> MappingMut<'a> {
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     pub fn insert(&mut self, key: &str, separator: Separator<'_>) -> ValueMut<'_> {
-        let value = self._insert(key, separator, Raw::Null(NullKind::Empty));
+        let value = self._insert(key, separator, Raw::Null(Null::Empty));
         ValueMut::new(self.data, value)
     }
 
