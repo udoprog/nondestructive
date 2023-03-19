@@ -443,20 +443,33 @@ impl<'a> ValueMut<'a> {
     /// mapping.insert_u32("second", 2);
     ///
     /// assert_eq!(doc.to_string(), "  first: 1\n  second: 2");
+    ///
+    /// let mut doc = yaml::from_bytes(r#"
+    /// first: second
+    /// "#)?;
+    /// let mut mapping = doc.root_mut().into_mapping_mut().and_then(|m| Some(m.get_into_mut("first")?.make_mapping())).ok_or("missing first")?;
+    /// mapping.insert_u32("second", 2);
+    /// mapping.insert_u32("third", 3);
+    ///
+    /// assert_eq!(
+    /// doc.to_string(),
+    /// r#"
+    /// first:
+    ///   second: 2
+    ///   third: 3
+    /// "#);
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     #[inline]
     #[must_use]
     pub fn make_mapping(mut self) -> MappingMut<'a> {
-        let indent = self.build_indent();
-
-        if let Raw::Mapping(..) = self.data.raw_mut(self.id) {
-            MappingMut::new(self.data, self.id)
-        } else {
+        if !matches!(self.data.raw(self.id), Raw::Mapping(..)) {
+            let indent = self.build_indent();
             let value = make_mapping();
             self.data.replace_with_indent(self.id, value, indent);
-            MappingMut::new(self.data, self.id)
         }
+
+        MappingMut::new(self.data, self.id)
     }
 
     /// Make the value into a sequence, unless it already is one.
@@ -472,20 +485,33 @@ impl<'a> ValueMut<'a> {
     /// mapping.push_u32(2);
     ///
     /// assert_eq!(doc.to_string(), "  - 1\n  - 2");
+    ///
+    /// let mut doc = yaml::from_bytes(r#"
+    /// first: second
+    /// "#)?;
+    /// let mut mapping = doc.root_mut().into_mapping_mut().and_then(|m| Some(m.get_into_mut("first")?.make_sequence())).ok_or("missing first")?;
+    /// mapping.push_u32(2);
+    /// mapping.push_u32(3);
+    ///
+    /// assert_eq!(
+    /// doc.to_string(),
+    /// r#"
+    /// first:
+    ///   - 2
+    ///   - 3
+    /// "#);
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     #[inline]
     #[must_use]
     pub fn make_sequence(mut self) -> SequenceMut<'a> {
-        let indent = self.build_indent();
-
-        if let Raw::Sequence(..) = self.data.raw_mut(self.id) {
-            SequenceMut::new(self.data, self.id)
-        } else {
+        if !matches!(self.data.raw(self.id), Raw::Sequence(..)) {
+            let indent = self.build_indent();
             let value = make_sequence();
             self.data.replace_with_indent(self.id, value, indent);
-            SequenceMut::new(self.data, self.id)
         }
+
+        SequenceMut::new(self.data, self.id)
     }
 
     /// Make indentation for mappings and sequences.
