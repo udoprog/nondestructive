@@ -1,6 +1,36 @@
+mod actions;
+mod escape;
+mod multiline;
+
 use anyhow::{Context, Result};
 
 use crate::yaml;
+
+#[test]
+fn make_mapping() -> Result<()> {
+    let mut doc = yaml::from_bytes(
+        r#"
+    first: second
+    "#,
+    )?;
+    let mut mapping = doc
+        .root_mut()
+        .into_mapping_mut()
+        .and_then(|m| Some(m.get_into_mut("first")?.make_mapping()))
+        .context("missing first")?;
+    mapping.insert_u32("second", 2);
+    mapping.insert_u32("third", 3);
+
+    assert_eq!(
+        doc.to_string(),
+        r#"
+    first:
+      second: 2
+      third: 3
+    "#
+    );
+    Ok(())
+}
 
 #[test]
 fn test_property_eol() -> Result<()> {
@@ -61,203 +91,5 @@ fn test_sequences() -> Result<()> {
     assert_eq!(four.get("five").and_then(|v| v.as_u32()), Some(1));
 
     assert_eq!(root.get(3).and_then(|v| v.as_str()), Some("six"));
-    Ok(())
-}
-
-/// Just roundtrip a fairly complex document to ensure it's correctly processed.
-#[test]
-fn test_actions() -> Result<()> {
-    const ACTION: &str = include_str!("tests/actions.yaml");
-    let doc = yaml::from_bytes(ACTION)?;
-    assert_eq!(doc.to_string(), ACTION);
-    Ok(())
-}
-
-#[test]
-fn test_double_quoted_escapes() -> Result<()> {
-    macro_rules! test {
-        ($from:expr, $to:expr) => {
-            let doc = yaml::from_bytes($from)?;
-            assert_eq!(doc.root().as_str(), Some($to));
-        };
-    }
-
-    test!("\"a \\n b\"", "a \n b");
-    test!("\"a \\0 b\"", "a \x00 b");
-    test!("\"a \\a b\"", "a \x07 b");
-    test!("\"a \\b b\"", "a \x08 b");
-    test!("\"a \\t b\"", "a \x09 b");
-    test!("\"a \\v b\"", "a \x0b b");
-    test!("\"a \\f b\"", "a \x0c b");
-    test!("\"a \\r b\"", "a \r b");
-    test!("\"a \\e b\"", "a \x1b b");
-    test!("\"a \\\\ b\"", "a \" b");
-
-    test!("\"a \\x77 b\"", "a \x77 b");
-    test!("\"a \\u79c1 b\"", "a 私 b");
-    Ok(())
-}
-
-#[test]
-fn test_single_quoted_escapes() -> Result<()> {
-    macro_rules! test {
-        ($from:expr, $to:expr) => {
-            let doc = yaml::from_bytes($from)?;
-            assert_eq!(doc.root().as_str(), Some($to));
-        };
-    }
-
-    test!("'It is a party!'", "It is a party!");
-    test!("'It''s a party!'", "It's a party!");
-    Ok(())
-}
-
-#[test]
-fn test_multiline_string_newlines() -> Result<()> {
-    let doc = yaml::from_bytes(
-        r#"
-        first: |
-          foo
-
-          bar
-          baz
-        second: 2
-        "#,
-    )?;
-
-    let root = doc.root().as_mapping().context("missing root mapping")?;
-
-    assert_eq!(
-        root.get("first").and_then(|v| v.as_str()),
-        Some("foo\nbar\nbaz")
-    );
-    assert_eq!(root.get("second").and_then(|v| v.as_u32()), Some(2));
-
-    assert_eq!(
-        doc.to_string(),
-        r#"
-        first: |
-          foo
-
-          bar
-          baz
-        second: 2
-        "#
-    );
-
-    let doc = yaml::from_bytes(
-        r#"
-        first: | foo
-
-          bar
-          baz
-        second: 2
-        "#,
-    )?;
-
-    let root = doc.root().as_mapping().context("missing root mapping")?;
-
-    assert_eq!(
-        root.get("first").and_then(|v| v.as_str()),
-        Some("foo\nbar\nbaz")
-    );
-    assert_eq!(root.get("second").and_then(|v| v.as_u32()), Some(2));
-
-    assert_eq!(
-        doc.to_string(),
-        r#"
-        first: | foo
-
-          bar
-          baz
-        second: 2
-        "#,
-    );
-
-    Ok(())
-}
-
-#[test]
-fn test_multiline_string_spaces() -> Result<()> {
-    let mut doc = yaml::from_bytes(
-        r#"
-        first: > foo
-
-          bar
-          baz
-        second: 2
-        "#,
-    )?;
-
-    assert_eq!(
-        doc.root()
-            .as_mapping()
-            .and_then(|m| m.get("first")?.as_str()),
-        Some("foo bar baz")
-    );
-    assert_eq!(
-        doc.root()
-            .as_mapping()
-            .and_then(|m| m.get("second")?.as_u32()),
-        Some(2)
-    );
-
-    assert_eq!(
-        doc.to_string(),
-        r#"
-        first: > foo
-
-          bar
-          baz
-        second: 2
-        "#
-    );
-
-    if let Some(mut v) = doc
-        .root_mut()
-        .as_mapping_mut()
-        .and_then(|m| m.get_into_mut("first"))
-    {
-        v.set_string("removed");
-    }
-
-    assert_eq!(
-        doc.to_string(),
-        r#"
-        first: removed
-        second: 2
-        "#
-    );
-
-    let doc = yaml::from_bytes(
-        r#"
-        first: >
-          foo
-
-          bar
-          baz
-        second: 2
-    "#,
-    )?;
-
-    assert_eq!(
-        doc.root()
-            .as_mapping()
-            .and_then(|m| m.get("first")?.as_str()),
-        Some("foo bar baz")
-    );
-
-    assert_eq!(
-        doc.to_string(),
-        r#"
-        first: >
-          foo
-
-          bar
-          baz
-        second: 2
-    "#
-    );
-
     Ok(())
 }
