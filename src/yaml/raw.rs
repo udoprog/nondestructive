@@ -22,23 +22,23 @@ pub(crate) fn new_string<S>(data: &mut Data, string: S) -> Raw
 where
     S: AsRef<str>,
 {
-    let kind = RawStringKind::detect(string.as_ref());
+    let kind = StringKind::detect(string.as_ref());
     let string = data.insert_str(string.as_ref());
-    Raw::String(RawString::new(kind, string))
+    Raw::String(String::new(kind, string))
 }
 
 /// Make a mapping.
 pub(crate) fn make_mapping() -> Raw {
-    Raw::Mapping(RawMapping {
-        kind: RawMappingKind::Mapping,
+    Raw::Mapping(Mapping {
+        kind: MappingKind::Mapping,
         items: Vec::new(),
     })
 }
 
 /// Make a sequence.
 pub(crate) fn make_sequence() -> Raw {
-    Raw::Sequence(RawSequence {
-        kind: RawSequenceKind::Mapping,
+    Raw::Sequence(Sequence {
+        kind: SequenceKind::Mapping,
         items: Vec::new(),
     })
 }
@@ -60,17 +60,17 @@ pub(crate) enum Raw {
     /// A boolean value.
     Boolean(bool),
     /// A single number.
-    Number(RawNumber),
+    Number(Number),
     /// A string.
-    String(RawString),
+    String(String),
     /// A mapping.
-    Mapping(RawMapping),
+    Mapping(Mapping),
     /// A single item inside of a mapping.
-    MappingItem(RawMappingItem),
+    MappingItem(MappingItem),
     /// A sequence.
-    Sequence(RawSequence),
+    Sequence(Sequence),
     /// A single item inside of a sequence.
-    SequenceItem(RawSequenceItem),
+    SequenceItem(SequenceItem),
 }
 
 impl Raw {
@@ -112,28 +112,28 @@ impl Raw {
 
 /// A YAML number.
 #[derive(Debug, Clone)]
-pub(crate) struct RawNumber {
+pub(crate) struct Number {
     pub(crate) string: StringId,
     #[cfg_attr(not(feature = "serde"), allow(unused))]
     pub(crate) hint: RawNumberHint,
 }
 
-impl RawNumber {
+impl Number {
     /// A simple number.
     pub(crate) fn new(string: StringId, hint: RawNumberHint) -> Self {
         Self { string, hint }
     }
 
+    #[inline]
     fn display(&self, data: &Data, f: &mut fmt::Formatter) -> fmt::Result {
-        let number = data.str(self.string);
-        write!(f, "{number}")
+        write!(f, "{}", data.str(self.string))
     }
 }
 
 /// The kind of string value.
 #[derive(Debug, Clone, Copy)]
 #[non_exhaustive]
-pub(crate) enum RawStringKind {
+pub(crate) enum StringKind {
     /// A bare string without quotes, such as `hello-world`.
     Bare,
     /// A single-quoted string.
@@ -146,25 +146,25 @@ pub(crate) enum RawStringKind {
     Multiline(u8, StringId),
 }
 
-impl RawStringKind {
+impl StringKind {
     /// Detect the appropriate kind to use for the given string.
-    pub(crate) fn detect(string: &str) -> RawStringKind {
+    pub(crate) fn detect(string: &str) -> StringKind {
         if matches!(string, "true" | "false" | "null") {
-            return RawStringKind::SingleQuoted;
+            return StringKind::SingleQuoted;
         }
 
-        let mut kind = RawStringKind::Bare;
+        let mut kind = StringKind::Bare;
 
         for c in string.chars() {
             match c {
                 '\'' => {
-                    return RawStringKind::DoubleQuoted;
+                    return StringKind::DoubleQuoted;
                 }
                 ':' => {
-                    kind = RawStringKind::SingleQuoted;
+                    kind = StringKind::SingleQuoted;
                 }
                 b if b.is_control() => {
-                    return RawStringKind::DoubleQuoted;
+                    return StringKind::DoubleQuoted;
                 }
                 _ => {}
             }
@@ -176,16 +176,16 @@ impl RawStringKind {
 
 /// A YAML string.
 #[derive(Debug, Clone)]
-pub(crate) struct RawString {
+pub(crate) struct String {
     /// The kind of the string.
-    pub(crate) kind: RawStringKind,
+    pub(crate) kind: StringKind,
     /// The content of the string.
     pub(crate) string: StringId,
 }
 
-impl RawString {
+impl String {
     /// A simple number.
-    pub(crate) fn new(kind: RawStringKind, string: StringId) -> Self {
+    pub(crate) fn new(kind: StringKind, string: StringId) -> Self {
         Self { kind, string }
     }
 
@@ -267,23 +267,23 @@ impl RawString {
         }
 
         match &self.kind {
-            RawStringKind::Bare => {
+            StringKind::Bare => {
                 let string = data.str(self.string);
                 write!(f, "{string}")?;
             }
-            RawStringKind::DoubleQuoted => {
+            StringKind::DoubleQuoted => {
                 let string = data.str(self.string);
                 escape_double_quoted(string, f)?;
             }
-            RawStringKind::SingleQuoted => {
+            StringKind::SingleQuoted => {
                 let string = data.str(self.string);
                 escape_single_quoted(string, f)?;
             }
-            RawStringKind::Original(original) => {
+            StringKind::Original(original) => {
                 let string = data.str(*original);
                 write!(f, "{string}")?;
             }
-            RawStringKind::Multiline(prefix, original) => {
+            StringKind::Multiline(prefix, original) => {
                 let string = data.str(*original);
                 write!(f, "{}{string}", char::from(*prefix))?;
             }
@@ -295,7 +295,7 @@ impl RawString {
 
 /// The kind of a raw sequence.
 #[derive(Debug, Clone)]
-pub(crate) enum RawSequenceKind {
+pub(crate) enum SequenceKind {
     /// An expanded tabular YAML sequence.
     ///
     /// ```yaml
@@ -317,35 +317,19 @@ pub(crate) enum RawSequenceKind {
     },
 }
 
-/// An element in a YAML sequence.
-#[derive(Debug, Clone)]
-pub(crate) struct RawSequenceItem {
-    pub(crate) separator: StringId,
-    pub(crate) value: ValueId,
-}
-
-impl RawSequenceItem {
-    fn display(&self, data: &Data, f: &mut fmt::Formatter) -> fmt::Result {
-        let separator = data.str(self.separator);
-        write!(f, "{separator}")?;
-        data.raw(self.value).display(data, f)?;
-        Ok(())
-    }
-}
-
 /// A YAML sequence.
 #[derive(Debug, Clone)]
-pub(crate) struct RawSequence {
+pub(crate) struct Sequence {
     /// The kind of a raw sequence.
-    pub(crate) kind: RawSequenceKind,
+    pub(crate) kind: SequenceKind,
     /// Items in the sequence.
     pub(crate) items: Vec<ValueId>,
 }
 
-impl RawSequence {
+impl Sequence {
     /// Display the sequence.
     pub(crate) fn display(&self, data: &Data, f: &mut fmt::Formatter) -> fmt::Result {
-        if let RawSequenceKind::Inline { .. } = &self.kind {
+        if let SequenceKind::Inline { .. } = &self.kind {
             write!(f, "[")?;
         }
 
@@ -354,20 +338,20 @@ impl RawSequence {
         while let Some(item) = it.next() {
             write!(f, "{}", data.prefix(*item))?;
 
-            if let RawSequenceKind::Mapping = self.kind {
+            if let SequenceKind::Mapping = self.kind {
                 write!(f, "-")?;
             }
 
             data.sequence_item(*item).display(data, f)?;
 
             if it.peek().is_some() {
-                if let RawSequenceKind::Inline { .. } = self.kind {
+                if let SequenceKind::Inline { .. } = self.kind {
                     write!(f, ",")?;
                 }
             }
         }
 
-        if let RawSequenceKind::Inline { trailing, suffix } = &self.kind {
+        if let SequenceKind::Inline { trailing, suffix } = &self.kind {
             if *trailing {
                 write!(f, ",")?;
             }
@@ -379,20 +363,17 @@ impl RawSequence {
     }
 }
 
-/// An element in a YAML mapping.
+/// An element in a YAML sequence.
 #[derive(Debug, Clone)]
-pub(crate) struct RawMappingItem {
-    pub(crate) key: RawString,
+pub(crate) struct SequenceItem {
     pub(crate) separator: StringId,
     pub(crate) value: ValueId,
 }
 
-impl RawMappingItem {
+impl SequenceItem {
     fn display(&self, data: &Data, f: &mut fmt::Formatter) -> fmt::Result {
-        let key = data.str(self.key.string);
         let separator = data.str(self.separator);
-        write!(f, "{key}:{separator}")?;
-
+        write!(f, "{separator}")?;
         data.raw(self.value).display(data, f)?;
         Ok(())
     }
@@ -400,7 +381,7 @@ impl RawMappingItem {
 
 /// The kind of a raw mapping.
 #[derive(Debug, Clone)]
-pub(crate) enum RawMappingKind {
+pub(crate) enum MappingKind {
     /// An expanded tabular YAML mapping.
     ///
     /// ```yaml
@@ -423,15 +404,15 @@ pub(crate) enum RawMappingKind {
 
 /// A YAML mapping.
 #[derive(Debug, Clone)]
-pub(crate) struct RawMapping {
-    pub(crate) kind: RawMappingKind,
+pub(crate) struct Mapping {
+    pub(crate) kind: MappingKind,
     pub(crate) items: Vec<ValueId>,
 }
 
-impl RawMapping {
+impl Mapping {
     /// Display the mapping.
     pub(crate) fn display(&self, data: &Data, f: &mut fmt::Formatter) -> fmt::Result {
-        if let RawMappingKind::Inline { .. } = &self.kind {
+        if let MappingKind::Inline { .. } = &self.kind {
             write!(f, "{{")?;
         }
 
@@ -444,13 +425,13 @@ impl RawMapping {
             item.display(data, f)?;
 
             if it.peek().is_some() {
-                if let RawMappingKind::Inline { .. } = &self.kind {
+                if let MappingKind::Inline { .. } = &self.kind {
                     write!(f, ",")?;
                 }
             }
         }
 
-        if let RawMappingKind::Inline { trailing, suffix } = &self.kind {
+        if let MappingKind::Inline { trailing, suffix } = &self.kind {
             if *trailing {
                 write!(f, ",")?;
             }
@@ -459,6 +440,25 @@ impl RawMapping {
             write!(f, "{suffix}}}")?;
         }
 
+        Ok(())
+    }
+}
+
+/// An element in a YAML mapping.
+#[derive(Debug, Clone)]
+pub(crate) struct MappingItem {
+    pub(crate) key: String,
+    pub(crate) separator: StringId,
+    pub(crate) value: ValueId,
+}
+
+impl MappingItem {
+    fn display(&self, data: &Data, f: &mut fmt::Formatter) -> fmt::Result {
+        let key = data.str(self.key.string);
+        let separator = data.str(self.separator);
+        write!(f, "{key}:{separator}")?;
+
+        data.raw(self.value).display(data, f)?;
         Ok(())
     }
 }

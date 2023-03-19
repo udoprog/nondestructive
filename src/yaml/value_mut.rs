@@ -1,9 +1,7 @@
 use bstr::ByteSlice;
 
 use crate::yaml::data::{Data, ValueId};
-use crate::yaml::raw::{
-    make_mapping, make_sequence, new_bool, new_string, Layout, Raw, RawNumber, NEWLINE,
-};
+use crate::yaml::raw::{self, Raw, NEWLINE};
 use crate::yaml::serde;
 use crate::yaml::{AnyMut, MappingMut, NullKind, SequenceMut, Value};
 
@@ -309,7 +307,7 @@ macro_rules! set_float {
         pub fn $name(&mut self, value: $ty) {
             let mut buffer = ryu::Buffer::new();
             let string = self.data.insert_str(buffer.format(value));
-            self.data.replace(self.id, Raw::Number(RawNumber::new(string, serde::$hint)));
+            self.data.replace(self.id, Raw::Number(raw::Number::new(string, serde::$hint)));
         }
     };
 }
@@ -331,7 +329,7 @@ macro_rules! set_number {
         pub fn $name(&mut self, value: $ty) {
             let mut buffer = itoa::Buffer::new();
             let string = self.data.insert_str(buffer.format(value));
-            self.data.replace(self.id, Raw::Number(RawNumber::new(string, serde::$hint)));
+            self.data.replace(self.id, Raw::Number(raw::Number::new(string, serde::$hint)));
         }
     };
 }
@@ -396,7 +394,7 @@ impl<'a> ValueMut<'a> {
     where
         S: AsRef<str>,
     {
-        let value = new_string(self.data, string);
+        let value = raw::new_string(self.data, string);
         self.data.replace(self.id, value);
     }
 
@@ -413,7 +411,7 @@ impl<'a> ValueMut<'a> {
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     pub fn set_bool(&mut self, value: bool) {
-        let value = new_bool(value);
+        let value = raw::new_bool(value);
         self.data.replace(self.id, value);
     }
 
@@ -469,7 +467,7 @@ impl<'a> ValueMut<'a> {
     pub fn make_mapping(mut self) -> MappingMut<'a> {
         if !matches!(self.data.raw(self.id), Raw::Mapping(..)) {
             let indent = self.build_indent();
-            let value = make_mapping();
+            let value = raw::make_mapping();
             self.data.replace_with_indent(self.id, value, indent);
         }
 
@@ -515,7 +513,7 @@ impl<'a> ValueMut<'a> {
     pub fn make_sequence(mut self) -> SequenceMut<'a> {
         if !matches!(self.data.raw(self.id), Raw::Sequence(..)) {
             let indent = self.build_indent();
-            let value = make_sequence();
+            let value = raw::make_sequence();
             self.data.replace_with_indent(self.id, value, indent);
         }
 
@@ -535,14 +533,14 @@ impl<'a> ValueMut<'a> {
         new_indent.push(NEWLINE);
 
         match *self.data.layout(self.id) {
-            Layout {
+            raw::Layout {
                 parent: Some(id), ..
             } => {
                 let indent = self.data.layout(id).prefix;
                 new_indent.extend_from_slice(self.data.str(indent));
                 new_indent.extend_from_slice(b"  ");
             }
-            Layout {
+            raw::Layout {
                 prefix: indent,
                 parent: None,
             } => {

@@ -1,7 +1,7 @@
 use core::mem;
 
 use crate::yaml::data::{Data, ValueId};
-use crate::yaml::raw::{new_bool, new_string, Raw, RawNumber};
+use crate::yaml::raw::{self, new_bool, new_string, Raw};
 use crate::yaml::serde;
 use crate::yaml::{NullKind, Separator, Sequence, ValueMut};
 
@@ -38,7 +38,7 @@ macro_rules! push_float {
         pub fn $name(&mut self, value: $ty) {
             let mut buffer = ryu::Buffer::new();
             let number = self.data.insert_str(buffer.format(value));
-            let value = Raw::Number(RawNumber::new(number, serde::$hint));
+            let value = Raw::Number(raw::Number::new(number, serde::$hint));
             self._push(Separator::Auto, value);
         }
     };
@@ -71,7 +71,7 @@ macro_rules! push_number {
         pub fn $name(&mut self, value: $ty) {
             let mut buffer = itoa::Buffer::new();
             let number = self.data.insert_str(buffer.format(value));
-            let value = Raw::Number(RawNumber::new(number, serde::$hint));
+            let value = Raw::Number(raw::Number::new(number, serde::$hint));
             self._push(Separator::Auto, value);
         }
     };
@@ -84,8 +84,6 @@ impl<'a> SequenceMut<'a> {
 
     /// Push a value on the sequence.
     fn _push(&mut self, separator: Separator, value: Raw) -> ValueId {
-        use crate::yaml::raw::RawSequenceItem;
-
         let separator = match separator {
             Separator::Auto => match self.data.sequence(self.id).items.last() {
                 Some(last) => self.data.sequence_item(*last).separator,
@@ -100,7 +98,7 @@ impl<'a> SequenceMut<'a> {
             .then_some(indent)
             .unwrap_or_else(|| self.data.insert_str(""));
 
-        let raw = Raw::SequenceItem(RawSequenceItem { separator, value });
+        let raw = Raw::SequenceItem(raw::SequenceItem { separator, value });
         let item = self.data.insert(raw, prefix, Some(self.id));
 
         self.data.sequence_mut(self.id).items.push(item);

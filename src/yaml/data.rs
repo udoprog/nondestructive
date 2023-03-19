@@ -7,7 +7,7 @@ use std::num::NonZeroUsize;
 use bstr::BStr;
 use twox_hash::xxh3::{Hash128, HasherExt};
 
-use crate::yaml::raw::{Layout, Raw, RawMapping, RawMappingItem, RawSequence, RawSequenceItem};
+use crate::yaml::raw::{self, Raw};
 
 /// The unique hash of a string.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -53,7 +53,7 @@ impl fmt::Display for ValueId {
 #[derive(Debug, Clone)]
 pub(crate) struct Entry {
     raw: Raw,
-    layout: Layout,
+    layout: raw::Layout,
 }
 
 /// Strings cache.
@@ -91,7 +91,7 @@ impl Data {
     }
 
     #[inline]
-    pub(crate) fn layout(&self, id: ValueId) -> &Layout {
+    pub(crate) fn layout(&self, id: ValueId) -> &raw::Layout {
         if let Some(raw) = self.slab.get(id.get()) {
             return &raw.layout;
         }
@@ -123,7 +123,7 @@ impl Data {
     }
 
     #[inline]
-    pub(crate) fn sequence(&self, id: ValueId) -> &RawSequence {
+    pub(crate) fn sequence(&self, id: ValueId) -> &raw::Sequence {
         if let Some(Entry {
             raw: Raw::Sequence(raw),
             ..
@@ -136,7 +136,7 @@ impl Data {
     }
 
     #[inline]
-    pub(crate) fn sequence_mut(&mut self, id: ValueId) -> &mut RawSequence {
+    pub(crate) fn sequence_mut(&mut self, id: ValueId) -> &mut raw::Sequence {
         if let Some(Entry {
             raw: Raw::Sequence(raw),
             ..
@@ -149,7 +149,7 @@ impl Data {
     }
 
     #[inline]
-    pub(crate) fn mapping(&self, id: ValueId) -> &RawMapping {
+    pub(crate) fn mapping(&self, id: ValueId) -> &raw::Mapping {
         if let Some(Entry {
             raw: Raw::Mapping(raw),
             ..
@@ -162,7 +162,7 @@ impl Data {
     }
 
     #[inline]
-    pub(crate) fn sequence_item(&self, id: ValueId) -> &RawSequenceItem {
+    pub(crate) fn sequence_item(&self, id: ValueId) -> &raw::SequenceItem {
         if let Some(Entry {
             raw: Raw::SequenceItem(raw),
             ..
@@ -175,7 +175,7 @@ impl Data {
     }
 
     #[inline]
-    pub(crate) fn mapping_item(&self, id: ValueId) -> &RawMappingItem {
+    pub(crate) fn mapping_item(&self, id: ValueId) -> &raw::MappingItem {
         if let Some(Entry {
             raw: Raw::MappingItem(raw),
             ..
@@ -188,7 +188,7 @@ impl Data {
     }
 
     #[inline]
-    pub(crate) fn mapping_mut(&mut self, id: ValueId) -> &mut RawMapping {
+    pub(crate) fn mapping_mut(&mut self, id: ValueId) -> &mut raw::Mapping {
         if let Some(Entry {
             raw: Raw::Mapping(raw),
             ..
@@ -210,7 +210,7 @@ impl Data {
     ) -> ValueId {
         let index = self.slab.insert(Entry {
             raw,
-            layout: Layout { prefix, parent },
+            layout: raw::Layout { prefix, parent },
         });
         let index = NonZeroUsize::new(index.wrapping_add(1)).expect("ran out of ids");
         ValueId(index)

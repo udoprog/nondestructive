@@ -2,10 +2,7 @@ use bstr::ByteSlice;
 
 use crate::yaml::data::{Data, StringId, ValueId};
 use crate::yaml::error::{Error, ErrorKind};
-use crate::yaml::raw::{
-    Raw, RawMapping, RawMappingItem, RawMappingKind, RawNumber, RawSequence, RawSequenceItem,
-    RawSequenceKind, RawString, RawStringKind, NEWLINE, SPACE,
-};
+use crate::yaml::raw::{self, Raw, NEWLINE, SPACE};
 use crate::yaml::serde;
 use crate::yaml::{Document, NullKind};
 
@@ -190,7 +187,7 @@ impl<'a> Parser<'a> {
         }
 
         let string = self.data.insert_str(self.string(start));
-        Some(Raw::Number(RawNumber::new(string, hint)))
+        Some(Raw::Number(raw::Number::new(string, hint)))
     }
 
     /// Insert a null value as a placeholder.
@@ -220,7 +217,7 @@ impl<'a> Parser<'a> {
 
         let string = self.data.insert_str(self.string(start));
         self.bump(usize::from(!self.is_eof()));
-        Raw::String(RawString::new(RawStringKind::SingleQuoted, string))
+        Raw::String(raw::String::new(raw::StringKind::SingleQuoted, string))
     }
 
     /// Read a single-quoted escaped string.
@@ -249,7 +246,10 @@ impl<'a> Parser<'a> {
 
         let original = self.data.insert_str(self.string(original));
 
-        Raw::String(RawString::new(RawStringKind::Original(original), string))
+        Raw::String(raw::String::new(
+            raw::StringKind::Original(original),
+            string,
+        ))
     }
 
     /// Read a double-quoted string.
@@ -273,8 +273,8 @@ impl<'a> Parser<'a> {
         let string = self.data.insert_str(self.string(start));
         self.bump(usize::from(!self.is_eof()));
 
-        Ok(Raw::String(RawString::new(
-            RawStringKind::DoubleQuoted,
+        Ok(Raw::String(raw::String::new(
+            raw::StringKind::DoubleQuoted,
             string,
         )))
     }
@@ -304,8 +304,8 @@ impl<'a> Parser<'a> {
 
         let original = self.data.insert_str(self.string(original));
 
-        Ok(Raw::String(RawString::new(
-            RawStringKind::Original(original),
+        Ok(Raw::String(raw::String::new(
+            raw::StringKind::Original(original),
             string,
         )))
     }
@@ -393,7 +393,7 @@ impl<'a> Parser<'a> {
 
             self.data.replace(
                 item_id,
-                Raw::SequenceItem(RawSequenceItem { separator, value }),
+                Raw::SequenceItem(raw::SequenceItem { separator, value }),
             );
 
             items.push(item_id);
@@ -424,8 +424,8 @@ impl<'a> Parser<'a> {
 
         self.data.replace(
             id,
-            Raw::Sequence(RawSequence {
-                kind: RawSequenceKind::Inline {
+            Raw::Sequence(raw::Sequence {
+                kind: raw::SequenceKind::Inline {
                     trailing,
                     suffix: prefix,
                 },
@@ -462,7 +462,7 @@ impl<'a> Parser<'a> {
 
             self.data.replace(
                 item_id,
-                Raw::MappingItem(RawMappingItem {
+                Raw::MappingItem(raw::MappingItem {
                     key,
                     separator,
                     value,
@@ -503,9 +503,9 @@ impl<'a> Parser<'a> {
 
         self.data.replace(
             id,
-            Raw::Mapping(RawMapping {
+            Raw::Mapping(raw::Mapping {
                 items,
-                kind: RawMappingKind::Inline {
+                kind: raw::MappingKind::Inline {
                     trailing,
                     suffix: prefix,
                 },
@@ -549,7 +549,7 @@ impl<'a> Parser<'a> {
 
             self.data.replace(
                 item_id,
-                Raw::SequenceItem(RawSequenceItem {
+                Raw::SequenceItem(raw::SequenceItem {
                     separator: sep,
                     value,
                 }),
@@ -568,8 +568,8 @@ impl<'a> Parser<'a> {
 
         self.data.replace(
             id,
-            Raw::Sequence(RawSequence {
-                kind: RawSequenceKind::Mapping,
+            Raw::Sequence(raw::Sequence {
+                kind: raw::SequenceKind::Mapping,
                 items,
             }),
         );
@@ -596,7 +596,7 @@ impl<'a> Parser<'a> {
         mut start: usize,
         indent: StringId,
         parent: Option<ValueId>,
-        mut key: RawString,
+        mut key: raw::String,
     ) -> Result<(ValueId, StringId)> {
         let id = self.insert_null(indent, parent);
 
@@ -632,7 +632,7 @@ impl<'a> Parser<'a> {
 
             self.data.replace(
                 item_id,
-                Raw::MappingItem(RawMappingItem {
+                Raw::MappingItem(raw::MappingItem {
                     key,
                     separator,
                     value,
@@ -658,8 +658,8 @@ impl<'a> Parser<'a> {
 
         self.data.replace(
             id,
-            Raw::Mapping(RawMapping {
-                kind: RawMappingKind::Mapping,
+            Raw::Mapping(raw::Mapping {
+                kind: raw::MappingKind::Mapping,
                 items,
             }),
         );
@@ -686,19 +686,19 @@ impl<'a> Parser<'a> {
     }
 
     /// Process a key up until `:` or end of the current line.
-    fn key_or_eol(&mut self, start: usize) -> Option<RawString> {
+    fn key_or_eol(&mut self, start: usize) -> Option<raw::String> {
         self.find2(b':', NEWLINE);
 
         if self.peek() == b':' {
             let key = self.data.insert_str(self.string(start));
-            return Some(RawString::new(RawStringKind::Bare, key));
+            return Some(raw::String::new(raw::StringKind::Bare, key));
         }
 
         None
     }
 
     /// Process a key up until `:`.
-    fn until_colon(&mut self, start: usize) -> Option<RawString> {
+    fn until_colon(&mut self, start: usize) -> Option<raw::String> {
         while !matches!(self.peek(), b':' | EOF) {
             self.bump(1);
         }
@@ -708,7 +708,7 @@ impl<'a> Parser<'a> {
         }
 
         let key = self.data.insert_str(self.string(start));
-        Some(RawString::new(RawStringKind::Bare, key))
+        Some(raw::String::new(raw::StringKind::Bare, key))
     }
 
     /// Process a multiline string.
@@ -756,8 +756,8 @@ impl<'a> Parser<'a> {
         let out = self.input.get(start..end).unwrap_or_default();
         let original = self.data.insert_str(out);
 
-        let kind = RawStringKind::Multiline(prefix, original);
-        (Raw::String(RawString::new(kind, string)), Some(ws))
+        let kind = raw::StringKind::Multiline(prefix, original);
+        (Raw::String(raw::String::new(kind, string)), Some(ws))
     }
 
     /// Consume a single value.
@@ -807,7 +807,7 @@ impl<'a> Parser<'a> {
                         b"false" => (Raw::Boolean(false), None),
                         string => {
                             let string = self.data.insert_str(string);
-                            let string = RawString::new(RawStringKind::Bare, string);
+                            let string = raw::String::new(raw::StringKind::Bare, string);
                             (Raw::String(string), None)
                         }
                     }
@@ -820,7 +820,7 @@ impl<'a> Parser<'a> {
     }
 
     /// Parse next mapping key.
-    fn next_mapping_key(&mut self) -> Option<RawString> {
+    fn next_mapping_key(&mut self) -> Option<raw::String> {
         let start = self.n;
 
         let string = loop {
@@ -841,6 +841,6 @@ impl<'a> Parser<'a> {
         };
 
         let string = self.data.insert_str(string);
-        Some(RawString::new(RawStringKind::Bare, string))
+        Some(raw::String::new(raw::StringKind::Bare, string))
     }
 }
