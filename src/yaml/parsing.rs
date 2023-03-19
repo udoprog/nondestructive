@@ -1,13 +1,13 @@
 use bstr::ByteSlice;
 
-use crate::yaml::data::{Data, StringId};
+use crate::yaml::data::{Data, StringId, ValueId};
 use crate::yaml::error::{Error, ErrorKind};
 use crate::yaml::raw::{
-    Raw, RawKind, RawMapping, RawMappingItem, RawMappingKind, RawNumber, RawSequence,
-    RawSequenceItem, RawSequenceKind, RawString, RawStringKind,
+    Raw, RawMapping, RawMappingItem, RawMappingKind, RawNumber, RawSequence, RawSequenceItem,
+    RawSequenceKind, RawString, RawStringKind, NEWLINE, SPACE,
 };
 use crate::yaml::serde;
-use crate::yaml::Document;
+use crate::yaml::{Document, NullKind};
 
 type Result<T, E = Error> = std::result::Result<T, E>;
 
@@ -23,7 +23,7 @@ macro_rules! ctl {
 /// Ascii whitespace matching.
 macro_rules! ws {
     () => {
-        b'\t' | b'\n' | b'\x0C' | b'\r' | b' '
+        b'\t' | NEWLINE | b'\x0C' | b'\r' | SPACE
     };
 }
 
@@ -51,14 +51,13 @@ impl<'a> Parser<'a> {
     pub(crate) fn parse(mut self) -> Result<Document> {
         let prefix = self.ws();
         let indent = self.indentation(&prefix);
-        let (root, suffix) = self.value(&indent, false)?;
+        let (root, suffix) = self.value(&indent, None, false)?;
 
         let suffix = match suffix {
             Some(suffix) => suffix,
             None => self.ws(),
         };
 
-        let root = self.data.insert_raw(root);
         Ok(Document::new(prefix, suffix, root, self.data))
     }
 
@@ -134,13 +133,13 @@ impl<'a> Parser<'a> {
         loop {
             match self.peek() {
                 b'#' => {
-                    self.find(b'\n');
+                    self.find(NEWLINE);
                 }
                 ws!() => {}
                 _ => break,
             }
 
-            nl = nl.wrapping_add(u32::from(matches!(self.peek(), b'\n')));
+            nl = nl.wrapping_add(u32::from(matches!(self.peek(), NEWLINE)));
             self.bump(1);
         }
 
@@ -153,7 +152,7 @@ impl<'a> Parser<'a> {
     }
 
     /// Consume a single number.
-    fn number(&mut self, start: usize) -> Option<RawKind> {
+    fn number(&mut self, start: usize) -> Option<Raw> {
         let mut hint = serde::U64;
 
         if matches!(self.peek(), b'-') {
@@ -191,11 +190,17 @@ impl<'a> Parser<'a> {
         }
 
         let string = self.data.insert_str(self.string(start));
-        Some(RawKind::Number(RawNumber::new(string, hint)))
+        Some(Raw::Number(RawNumber::new(string, hint)))
+    }
+
+    /// Insert a null value as a placeholder.
+    fn insert_null(&mut self, indent: &StringId, parent: Option<ValueId>) -> ValueId {
+        self.data
+            .insert(Raw::Null(NullKind::Empty), *indent, parent)
     }
 
     /// Read a double-quoted string.
-    fn single_quoted(&mut self) -> RawKind {
+    fn single_quoted(&mut self) -> Raw {
         let original = self.n;
         self.bump(1);
         let start = self.n;
@@ -216,11 +221,11 @@ impl<'a> Parser<'a> {
 
         let string = self.data.insert_str(self.string(start));
         self.bump(usize::from(!self.is_eof()));
-        RawKind::String(RawString::new(RawStringKind::SingleQuoted, string))
+        Raw::String(RawString::new(RawStringKind::SingleQuoted, string))
     }
 
     /// Read a single-quoted escaped string.
-    fn single_quoted_escaped(&mut self, start: usize, original: usize) -> RawKind {
+    fn single_quoted_escaped(&mut self, start: usize, original: usize) -> Raw {
         self.scratch.extend(self.string(start));
 
         loop {
@@ -245,11 +250,11 @@ impl<'a> Parser<'a> {
 
         let original = self.data.insert_str(self.string(original));
 
-        RawKind::String(RawString::new(RawStringKind::Original(original), string))
+        Raw::String(RawString::new(RawStringKind::Original(original), string))
     }
 
     /// Read a double-quoted string.
-    fn double_quoted(&mut self) -> Result<RawKind> {
+    fn double_quoted(&mut self) -> Result<Raw> {
         let original = self.n;
         self.bump(1);
         let start = self.n;
@@ -269,14 +274,14 @@ impl<'a> Parser<'a> {
         let string = self.data.insert_str(self.string(start));
         self.bump(usize::from(!self.is_eof()));
 
-        Ok(RawKind::String(RawString::new(
+        Ok(Raw::String(RawString::new(
             RawStringKind::DoubleQuoted,
             string,
         )))
     }
 
     /// Parse a double quoted string.
-    fn double_quoted_escaped(&mut self, start: usize, original: usize) -> Result<RawKind> {
+    fn double_quoted_escaped(&mut self, start: usize, original: usize) -> Result<Raw> {
         self.scratch.extend(self.string(start));
 
         loop {
@@ -300,7 +305,7 @@ impl<'a> Parser<'a> {
 
         let original = self.data.insert_str(self.string(original));
 
-        Ok(RawKind::String(RawString::new(
+        Ok(Raw::String(RawString::new(
             RawStringKind::Original(original),
             string,
         )))
@@ -309,7 +314,7 @@ impl<'a> Parser<'a> {
     /// Unescape into the scratch buffer.
     fn unescape(&mut self, start: usize) -> Result<()> {
         let b = match self.peek() {
-            b'n' => b'\n',
+            b'n' => NEWLINE,
             b'0' => b'\x00',
             b'a' => b'\x07',
             b'b' => b'\x08',
@@ -367,7 +372,9 @@ impl<'a> Parser<'a> {
     }
 
     /// Parse an inline sequence.
-    fn inline_sequence(&mut self, indent: &StringId) -> Result<RawKind> {
+    fn inline_sequence(&mut self, indent: &StringId, parent: Option<ValueId>) -> Result<ValueId> {
+        let id = self.insert_null(indent, parent);
+
         self.bump(1);
 
         let mut items = Vec::new();
@@ -377,7 +384,7 @@ impl<'a> Parser<'a> {
 
         while !matches!(self.peek(), b']' | EOF) {
             trailing = false;
-            let (value, new_ws) = self.value(indent, true)?;
+            let (value, new_ws) = self.value(indent, Some(id), true)?;
 
             let separator = match new_ws {
                 Some(ws) => ws,
@@ -387,7 +394,7 @@ impl<'a> Parser<'a> {
             items.push(RawSequenceItem {
                 prefix: Some(prefix),
                 separator,
-                value: self.data.insert_raw(value),
+                value,
             });
 
             if last {
@@ -414,17 +421,24 @@ impl<'a> Parser<'a> {
 
         self.bump(1);
 
-        Ok(RawKind::Sequence(RawSequence {
-            kind: RawSequenceKind::Inline {
-                trailing,
-                suffix: prefix,
-            },
-            items,
-        }))
+        self.data.replace(
+            id,
+            Raw::Sequence(RawSequence {
+                kind: RawSequenceKind::Inline {
+                    trailing,
+                    suffix: prefix,
+                },
+                items,
+            }),
+        );
+
+        Ok(id)
     }
 
     /// Parse an inline mapping.
-    fn inline_mapping(&mut self, indent: &StringId) -> Result<RawKind> {
+    fn inline_mapping(&mut self, indent: &StringId, parent: Option<ValueId>) -> Result<ValueId> {
+        let id = self.insert_null(indent, parent);
+
         self.bump(1);
 
         let mut items = Vec::new();
@@ -442,13 +456,13 @@ impl<'a> Parser<'a> {
 
             self.bump(1);
             let separator = self.ws();
-            let (value, new_ws) = self.value(indent, true)?;
+            let (value, new_ws) = self.value(indent, Some(id), true)?;
 
             items.push(RawMappingItem {
                 prefix: Some(prefix),
                 key,
                 separator,
-                value: self.data.insert_raw(value),
+                value,
             });
 
             if last {
@@ -481,20 +495,31 @@ impl<'a> Parser<'a> {
 
         self.bump(1);
 
-        Ok(RawKind::Mapping(RawMapping {
-            kind: RawMappingKind::Inline {
-                trailing,
-                suffix: prefix,
-            },
-            items,
-        }))
+        self.data.replace(
+            id,
+            Raw::Mapping(RawMapping {
+                items,
+                kind: RawMappingKind::Inline {
+                    trailing,
+                    suffix: prefix,
+                },
+            }),
+        );
+
+        Ok(id)
     }
 
     /// Parse a sequence.
-    fn sequence(&mut self, indentation: &StringId) -> Result<(RawKind, StringId)> {
+    fn sequence(
+        &mut self,
+        indent: &StringId,
+        parent: Option<ValueId>,
+    ) -> Result<(ValueId, StringId)> {
+        let id = self.insert_null(indent, parent);
+
         let mut items = Vec::new();
         let mut previous = None;
-        let indentation_count = self.count_indent(indentation);
+        let indentation_count = self.count_indent(indent);
 
         let ws = loop {
             self.bump(1);
@@ -502,12 +527,12 @@ impl<'a> Parser<'a> {
             let new_indentation = self.indentation(&separator);
 
             let new_indent = if nl == 0 {
-                self.build_indentation(1, indentation, &new_indentation)
+                self.build_indentation(1, indent, &new_indentation)
             } else {
                 new_indentation
             };
 
-            let (value, ws) = self.value(&new_indent, false)?;
+            let (value, ws) = self.value(&new_indent, Some(id), false)?;
 
             let ws = match ws {
                 Some(suffix) => suffix,
@@ -517,7 +542,7 @@ impl<'a> Parser<'a> {
             items.push(RawSequenceItem {
                 prefix: previous.take(),
                 separator,
-                value: self.data.insert_raw(value),
+                value,
             });
 
             let current_indentation = self.indentation(&ws);
@@ -533,13 +558,15 @@ impl<'a> Parser<'a> {
             previous = Some(ws);
         };
 
-        Ok((
-            RawKind::Sequence(RawSequence {
+        self.data.replace(
+            id,
+            Raw::Sequence(RawSequence {
                 kind: RawSequenceKind::Mapping,
                 items,
             }),
-            ws,
-        ))
+        );
+
+        Ok((id, ws))
     }
 
     /// Construct sequence indentation.
@@ -552,7 +579,7 @@ impl<'a> Parser<'a> {
         self.scratch.clear();
         self.scratch.extend(self.data.str(indentation).as_bytes());
         // Account for any extra spacing that is added, such as the sequence marker.
-        self.scratch.extend(std::iter::repeat(b' ').take(len));
+        self.scratch.extend(std::iter::repeat(SPACE).take(len));
         self.scratch.extend(self.data.str(addition).as_bytes());
 
         let string = self.data.insert_str(&self.scratch);
@@ -565,8 +592,11 @@ impl<'a> Parser<'a> {
         &mut self,
         mut start: usize,
         indent: &StringId,
+        parent: Option<ValueId>,
         mut key: RawString,
-    ) -> Result<(RawKind, StringId)> {
+    ) -> Result<(ValueId, StringId)> {
+        let id = self.insert_null(indent, parent);
+
         let mut items = Vec::new();
         let mut previous = None;
         let indent_count = self.count_indent(indent);
@@ -588,7 +618,7 @@ impl<'a> Parser<'a> {
                 new_indentation
             };
 
-            let (value, ws) = self.value(&new_indent, false)?;
+            let (value, ws) = self.value(&new_indent, Some(id), false)?;
 
             let ws = match ws {
                 Some(ws) => ws,
@@ -599,7 +629,7 @@ impl<'a> Parser<'a> {
                 prefix: previous.take(),
                 key,
                 separator,
-                value: self.data.insert_raw(value),
+                value,
             });
 
             let current_indentation = self.indentation(&ws);
@@ -617,13 +647,15 @@ impl<'a> Parser<'a> {
             };
         };
 
-        Ok((
-            RawKind::Mapping(RawMapping {
+        self.data.replace(
+            id,
+            Raw::Mapping(RawMapping {
                 kind: RawMappingKind::Mapping,
                 items,
             }),
-            ws,
-        ))
+        );
+
+        Ok((id, ws))
     }
 
     /// Find level of indentation.
@@ -646,7 +678,7 @@ impl<'a> Parser<'a> {
 
     /// Process a key up until `:` or end of the current line.
     fn key_or_eol(&mut self, start: usize) -> Option<RawString> {
-        self.find2(b':', b'\n');
+        self.find2(b':', NEWLINE);
 
         if self.peek() == b':' {
             let key = self.data.insert_str(self.string(start));
@@ -671,7 +703,7 @@ impl<'a> Parser<'a> {
     }
 
     /// Process a multiline string.
-    fn multiline_string(&mut self, join: u8) -> (RawKind, Option<StringId>) {
+    fn multiline_string(&mut self, join: u8) -> (Raw, Option<StringId>) {
         let prefix = self.peek();
         self.bump(1);
 
@@ -679,7 +711,7 @@ impl<'a> Parser<'a> {
         let (mut ws, nl) = self.ws_nl();
 
         if nl == 0 {
-            self.find(b'\n');
+            self.find(NEWLINE);
             let out = self.input.get(start..self.n).unwrap_or_default().trim();
             self.scratch.extend_from_slice(out);
 
@@ -695,7 +727,7 @@ impl<'a> Parser<'a> {
 
         while !self.is_eof() {
             let s = self.n;
-            self.find(b'\n');
+            self.find(NEWLINE);
             let out = self.input.get(s..self.n).unwrap_or_default().trim();
             self.scratch.extend_from_slice(out);
 
@@ -716,23 +748,28 @@ impl<'a> Parser<'a> {
         let original = self.data.insert_str(out);
 
         let kind = RawStringKind::Multiline(prefix, original);
-        (RawKind::String(RawString::new(kind, string)), Some(ws))
+        (Raw::String(RawString::new(kind, string)), Some(ws))
     }
 
     /// Consume a single value.
-    fn value(&mut self, indent: &StringId, inline: bool) -> Result<(Raw, Option<StringId>)> {
+    fn value(
+        &mut self,
+        indent: &StringId,
+        parent: Option<ValueId>,
+        inline: bool,
+    ) -> Result<(ValueId, Option<StringId>)> {
         let (kind, ws) = match self.peek2() {
             (b'-', ws!()) if !inline => {
-                let (value, ws) = self.sequence(indent)?;
-                (value, Some(ws))
+                let (value, ws) = self.sequence(indent, parent)?;
+                return Ok((value, Some(ws)));
             }
             (b'"', _) => (self.double_quoted()?, None),
             (b'\'', _) => (self.single_quoted(), None),
-            (b'[', _) => (self.inline_sequence(indent)?, None),
-            (b'{', _) => (self.inline_mapping(indent)?, None),
-            (b'~', _) => (RawKind::Null(super::NullKind::Tilde), None),
-            (b'|', _) => self.multiline_string(b'\n'),
-            (b'>', _) => self.multiline_string(b' '),
+            (b'[', _) => return Ok((self.inline_sequence(indent, parent)?, None)),
+            (b'{', _) => return Ok((self.inline_mapping(indent, parent)?, None)),
+            (b'~', _) => (Raw::Null(NullKind::Tilde), None),
+            (b'|', _) => self.multiline_string(NEWLINE),
+            (b'>', _) => self.multiline_string(SPACE),
             _ => {
                 'default: {
                     let start = self.n;
@@ -748,28 +785,29 @@ impl<'a> Parser<'a> {
                             self.bump(1);
                         }
                     } else if let Some(key) = self.key_or_eol(start) {
-                        let (value, ws) = self.mapping(start, indent, key)?;
-                        return Ok((Raw::new(value, *indent), Some(ws)));
+                        let (value, ws) = self.mapping(start, indent, parent, key)?;
+                        return Ok((value, Some(ws)));
                     }
 
                     // NB: calling `key_or_eol` will have consumed up until end
                     // of line for us, so use the current span as the production
                     // string.
                     match self.string(start) {
-                        b"null" => (RawKind::Null(super::NullKind::Keyword), None),
-                        b"true" => (RawKind::Boolean(true), None),
-                        b"false" => (RawKind::Boolean(false), None),
+                        b"null" => (Raw::Null(NullKind::Keyword), None),
+                        b"true" => (Raw::Boolean(true), None),
+                        b"false" => (Raw::Boolean(false), None),
                         string => {
                             let string = self.data.insert_str(string);
                             let string = RawString::new(RawStringKind::Bare, string);
-                            (RawKind::String(string), None)
+                            (Raw::String(string), None)
                         }
                     }
                 }
             }
         };
 
-        Ok((Raw::new(kind, *indent), ws))
+        let value = self.data.insert(kind, *indent, parent);
+        Ok((value, ws))
     }
 
     /// Parse next mapping key.

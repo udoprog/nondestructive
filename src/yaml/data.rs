@@ -7,7 +7,7 @@ use std::num::NonZeroUsize;
 use bstr::BStr;
 use twox_hash::xxh3::{Hash128, HasherExt};
 
-use crate::yaml::raw::{Layout, Raw, RawKind, RawMapping, RawSequence};
+use crate::yaml::raw::{Layout, Raw, RawMapping, RawSequence};
 
 /// The unique hash of a string.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -50,11 +50,17 @@ impl fmt::Display for ValueId {
     }
 }
 
+#[derive(Debug, Clone)]
+pub(crate) struct Entry {
+    raw: Raw,
+    layout: Layout,
+}
+
 /// Strings cache.
 #[derive(Clone, Default)]
 pub(crate) struct Data {
     strings: HashMap<StringId, Box<[u8]>>,
-    slab: slab::Slab<Raw>,
+    slab: slab::Slab<Entry>,
 }
 
 impl Data {
@@ -96,7 +102,7 @@ impl Data {
     #[inline]
     pub(crate) fn raw(&self, index: ValueId) -> &Raw {
         if let Some(raw) = self.slab.get(index.get()) {
-            return raw;
+            return &raw.raw;
         }
 
         panic!("expected raw at {index}")
@@ -105,7 +111,7 @@ impl Data {
     #[inline]
     pub(crate) fn raw_mut(&mut self, index: ValueId) -> &mut Raw {
         if let Some(raw) = self.slab.get_mut(index.get()) {
-            return raw;
+            return &mut raw.raw;
         }
 
         panic!("expected raw at {index}")
@@ -113,8 +119,8 @@ impl Data {
 
     #[inline]
     pub(crate) fn sequence(&self, index: ValueId) -> &RawSequence {
-        if let Some(Raw {
-            kind: RawKind::Sequence(raw),
+        if let Some(Entry {
+            raw: Raw::Sequence(raw),
             ..
         }) = self.slab.get(index.get())
         {
@@ -126,8 +132,8 @@ impl Data {
 
     #[inline]
     pub(crate) fn sequence_mut(&mut self, index: ValueId) -> &mut RawSequence {
-        if let Some(Raw {
-            kind: RawKind::Sequence(raw),
+        if let Some(Entry {
+            raw: Raw::Sequence(raw),
             ..
         }) = self.slab.get_mut(index.get())
         {
@@ -139,8 +145,8 @@ impl Data {
 
     #[inline]
     pub(crate) fn mapping(&self, index: ValueId) -> &RawMapping {
-        if let Some(Raw {
-            kind: RawKind::Mapping(raw),
+        if let Some(Entry {
+            raw: Raw::Mapping(raw),
             ..
         }) = self.slab.get(index.get())
         {
@@ -152,8 +158,8 @@ impl Data {
 
     #[inline]
     pub(crate) fn mapping_mut(&mut self, index: ValueId) -> &mut RawMapping {
-        if let Some(Raw {
-            kind: RawKind::Mapping(raw),
+        if let Some(Entry {
+            raw: Raw::Mapping(raw),
             ..
         }) = self.slab.get_mut(index.get())
         {
@@ -165,8 +171,16 @@ impl Data {
 
     /// Insert a raw value and return its identifier.
     #[inline]
-    pub(crate) fn insert_raw(&mut self, raw: Raw) -> ValueId {
-        let index = self.slab.insert(raw);
+    pub(crate) fn insert(
+        &mut self,
+        raw: Raw,
+        indent: StringId,
+        parent: Option<ValueId>,
+    ) -> ValueId {
+        let index = self.slab.insert(Entry {
+            raw,
+            layout: Layout { indent, parent },
+        });
         let index = NonZeroUsize::new(index.wrapping_add(1)).expect("ran out of ids");
         ValueId(index)
     }
@@ -178,35 +192,47 @@ impl Data {
             return;
         };
 
-        self.drop_kind(value.kind);
+        self.drop_kind(value.raw);
     }
 
     /// Drop a raw value recursively.
     #[inline]
-    pub(crate) fn drop_kind(&mut self, kind: RawKind) {
-        match kind {
-            RawKind::Mapping(raw) => {
+    pub(crate) fn drop_kind(&mut self, raw: Raw) {
+        match raw {
+            Raw::Mapping(raw) => {
                 for item in raw.items {
                     let item = self.slab.remove(item.value.get());
-                    self.drop_kind(item.kind);
+                    self.drop_kind(item.raw);
                 }
             }
-            RawKind::Sequence(raw) => {
+            Raw::Sequence(raw) => {
                 for item in raw.items {
                     let item = self.slab.remove(item.value.get());
-                    self.drop_kind(item.kind);
+                    self.drop_kind(item.raw);
                 }
             }
             _ => {}
         }
     }
 
-    pub(crate) fn replace_raw(&mut self, index: ValueId, kind: RawKind) {
-        let Some(value) = self.slab.get_mut(index.get()) else {
+    /// Replace a raw value.
+    pub(crate) fn replace(&mut self, id: ValueId, raw: Raw) {
+        let Some(value) = self.slab.get_mut(id.get()) else {
             return;
         };
 
-        let removed = mem::replace(&mut value.kind, kind);
+        let removed = mem::replace(&mut value.raw, raw);
+        self.drop_kind(removed);
+    }
+
+    /// Replace with indentation.
+    pub(crate) fn replace_with_indent(&mut self, id: ValueId, raw: Raw, indent: StringId) {
+        let Some(value) = self.slab.get_mut(id.get()) else {
+            return;
+        };
+
+        value.layout.indent = indent;
+        let removed = mem::replace(&mut value.raw, raw);
         self.drop_kind(removed);
     }
 }

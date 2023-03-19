@@ -6,73 +6,55 @@ use crate::yaml::data::{Data, StringId, ValueId};
 use crate::yaml::serde::RawNumberHint;
 use crate::yaml::NullKind;
 
+/// Newline character used in YAML.
+pub(crate) const NEWLINE: u8 = b'\n';
+
+/// Space character used in YAML.
+pub(crate) const SPACE: u8 = b' ';
+
 /// Construct a raw kind associated with booleans.
-pub(crate) fn new_bool(value: bool) -> RawKind {
-    RawKind::Boolean(value)
+pub(crate) fn new_bool(value: bool) -> Raw {
+    Raw::Boolean(value)
 }
 
 /// Construct a raw kind associated with a string.
-pub(crate) fn new_string<S>(data: &mut Data, string: S) -> RawKind
+pub(crate) fn new_string<S>(data: &mut Data, string: S) -> Raw
 where
     S: AsRef<str>,
 {
     let kind = RawStringKind::detect(string.as_ref());
     let string = data.insert_str(string.as_ref());
-    RawKind::String(RawString::new(kind, string))
+    Raw::String(RawString::new(kind, string))
 }
 
-#[derive(Debug, Clone)]
+/// Make a mapping.
+pub(crate) fn make_mapping() -> Raw {
+    Raw::Mapping(RawMapping {
+        kind: RawMappingKind::Mapping,
+        items: Vec::new(),
+    })
+}
+
+/// Make a sequence.
+pub(crate) fn make_sequence() -> Raw {
+    Raw::Sequence(RawSequence {
+        kind: RawSequenceKind::Mapping,
+        items: Vec::new(),
+    })
+}
+
+#[derive(Debug, Clone, Copy)]
 pub(crate) struct Layout {
+    /// Reference to the indentation just preceeding the current value.
     pub(crate) indent: StringId,
-}
-
-#[derive(Debug, Clone)]
-pub(crate) struct Raw {
-    pub(crate) kind: RawKind,
-    pub(crate) layout: Layout,
-}
-
-impl Raw {
-    pub(crate) fn new(kind: RawKind, indent: StringId) -> Self {
-        Self {
-            kind,
-            layout: Layout { indent },
-        }
-    }
-
-    pub(crate) fn display(&self, data: &Data, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match &self.kind {
-            RawKind::Null(raw) => {
-                raw.display(f)?;
-            }
-            RawKind::Boolean(value) => {
-                if *value {
-                    write!(f, "true")?;
-                } else {
-                    write!(f, "false")?;
-                }
-            }
-            RawKind::Number(raw) => {
-                raw.display(data, f)?;
-            }
-            RawKind::String(raw) => {
-                raw.display(data, f)?;
-            }
-            RawKind::Mapping(raw) => {
-                raw.display(data, f)?;
-            }
-            RawKind::Sequence(raw) => {
-                raw.display(data, f)?;
-            }
-        }
-
-        Ok(())
-    }
+    /// Reference to the parent of a value.
+    #[allow(unused)]
+    pub(crate) parent: Option<ValueId>,
 }
 
 /// A raw value.
 #[derive(Debug, Clone)]
-pub(crate) enum RawKind {
+pub(crate) enum Raw {
     /// A null value.
     Null(NullKind),
     /// A boolean value.
@@ -85,6 +67,37 @@ pub(crate) enum RawKind {
     Mapping(RawMapping),
     /// A sequence.
     Sequence(RawSequence),
+}
+
+impl Raw {
+    pub(crate) fn display(&self, data: &Data, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Raw::Null(raw) => {
+                raw.display(f)?;
+            }
+            Raw::Boolean(value) => {
+                if *value {
+                    write!(f, "true")?;
+                } else {
+                    write!(f, "false")?;
+                }
+            }
+            Raw::Number(raw) => {
+                raw.display(data, f)?;
+            }
+            Raw::String(raw) => {
+                raw.display(data, f)?;
+            }
+            Raw::Mapping(raw) => {
+                raw.display(data, f)?;
+            }
+            Raw::Sequence(raw) => {
+                raw.display(data, f)?;
+            }
+        }
+
+        Ok(())
+    }
 }
 
 /// A YAML number.

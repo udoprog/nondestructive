@@ -2,7 +2,7 @@ use bstr::{BStr, ByteSlice};
 use serde::de::{self, Error as _, IntoDeserializer, MapAccess, SeqAccess, Visitor};
 use serde::Deserializer;
 
-use crate::yaml::raw::RawKind;
+use crate::yaml::raw::Raw;
 use crate::yaml::serde::{Error, RawNumberHint};
 use crate::yaml::{mapping, sequence, Document, Mapping, Sequence, Value};
 
@@ -35,10 +35,10 @@ impl<'de> Deserializer<'de> for Value<'de> {
     where
         V: Visitor<'de>,
     {
-        match &self.data.raw(self.id).kind {
-            RawKind::Null(..) => visitor.visit_none(),
-            RawKind::Boolean(value) => visitor.visit_bool(*value),
-            RawKind::Number(raw) => match raw.hint {
+        match self.data.raw(self.id) {
+            Raw::Null(..) => visitor.visit_none(),
+            Raw::Boolean(value) => visitor.visit_bool(*value),
+            Raw::Number(raw) => match raw.hint {
                 RawNumberHint::Float32 => self.deserialize_f32(visitor),
                 RawNumberHint::Float64 => self.deserialize_f64(visitor),
                 RawNumberHint::Unsigned8 => self.deserialize_u8(visitor),
@@ -52,7 +52,7 @@ impl<'de> Deserializer<'de> for Value<'de> {
                 RawNumberHint::Signed64 => self.deserialize_i64(visitor),
                 RawNumberHint::Signed128 => self.deserialize_i128(visitor),
             },
-            RawKind::String(raw) => {
+            Raw::String(raw) => {
                 let string = self.data.str(&raw.string);
 
                 if let Ok(string) = string.to_str() {
@@ -61,10 +61,10 @@ impl<'de> Deserializer<'de> for Value<'de> {
                     visitor.visit_borrowed_bytes(string)
                 }
             }
-            RawKind::Mapping(..) => visitor.visit_map(MappingIter::new(
+            Raw::Mapping(..) => visitor.visit_map(MappingIter::new(
                 Mapping::new(self.data, self.id).into_iter(),
             )),
-            RawKind::Sequence(..) => visitor.visit_seq(SequenceIter::new(
+            Raw::Sequence(..) => visitor.visit_seq(SequenceIter::new(
                 Sequence::new(self.data, self.id).into_iter(),
             )),
         }
@@ -251,8 +251,8 @@ impl<'de> Deserializer<'de> for Value<'de> {
     where
         V: Visitor<'de>,
     {
-        match &self.data.raw(self.id).kind {
-            RawKind::Null(..) => visitor.visit_none(),
+        match self.data.raw(self.id) {
+            Raw::Null(..) => visitor.visit_none(),
             _ => visitor.visit_some(self),
         }
     }

@@ -1,7 +1,7 @@
 use core::mem;
 
 use crate::yaml::data::{Data, ValueId};
-use crate::yaml::raw::{new_bool, new_string, RawKind, RawNumber};
+use crate::yaml::raw::{new_bool, new_string, Raw, RawNumber};
 use crate::yaml::serde;
 use crate::yaml::{Mapping, NullKind, Separator, ValueMut};
 
@@ -74,7 +74,7 @@ macro_rules! insert_float {
         pub fn $name(&mut self, key: &str, value: $ty) {
             let mut buffer = ryu::Buffer::new();
             let number = self.data.insert_str(buffer.format(value));
-            let value = RawKind::Number(RawNumber::new(number, serde::$hint));
+            let value = Raw::Number(RawNumber::new(number, serde::$hint));
             self._insert(key, Separator::Auto, value);
         }
     };
@@ -107,7 +107,7 @@ macro_rules! insert_number {
         pub fn $name(&mut self, key: &str, value: $ty) {
             let mut buffer = itoa::Buffer::new();
             let number = self.data.insert_str(buffer.format(value));
-            let value = RawKind::Number(RawNumber::new(number, serde::$hint));
+            let value = Raw::Number(RawNumber::new(number, serde::$hint));
             self._insert(key, Separator::Auto, value);
         }
     };
@@ -119,8 +119,8 @@ impl<'a> MappingMut<'a> {
     }
 
     /// Insert a value into the mapping.
-    fn _insert(&mut self, key: &str, separator: Separator<'_>, value: RawKind) -> ValueId {
-        use crate::yaml::raw::{Raw, RawMappingItem, RawString, RawStringKind};
+    fn _insert(&mut self, key: &str, separator: Separator<'_>, value: Raw) -> ValueId {
+        use crate::yaml::raw::{RawMappingItem, RawString, RawStringKind};
 
         let key = self.data.insert_str(key);
 
@@ -132,7 +132,7 @@ impl<'a> MappingMut<'a> {
             .find(|c| c.key.string == key)
             .map(|item| item.value)
         {
-            self.data.replace_raw(id, value);
+            self.data.replace(id, value);
             return id;
         }
 
@@ -147,7 +147,7 @@ impl<'a> MappingMut<'a> {
         };
 
         let indent = self.data.layout(self.id).indent;
-        let value = self.data.insert_raw(Raw::new(value, indent));
+        let value = self.data.insert(value, indent, Some(self.id));
         let raw = self.data.mapping_mut(self.id);
         let prefix = (!raw.items.is_empty()).then_some(indent);
 
@@ -427,7 +427,7 @@ impl<'a> MappingMut<'a> {
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     pub fn insert(&mut self, key: &str, separator: Separator<'_>) -> ValueMut<'_> {
-        let value = self._insert(key, separator, RawKind::Null(NullKind::Empty));
+        let value = self._insert(key, separator, Raw::Null(NullKind::Empty));
         ValueMut::new(self.data, value)
     }
 

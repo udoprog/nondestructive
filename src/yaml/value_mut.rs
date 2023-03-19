@@ -1,7 +1,13 @@
+use bstr::ByteSlice;
+
 use crate::yaml::data::{Data, ValueId};
-use crate::yaml::raw::{new_bool, new_string, RawKind, RawNumber};
+use crate::yaml::raw::{
+    make_mapping, make_sequence, new_bool, new_string, Layout, Raw, RawNumber, NEWLINE,
+};
 use crate::yaml::serde;
 use crate::yaml::{AnyMut, MappingMut, NullKind, SequenceMut, Value};
+
+use super::data::StringId;
 
 /// A mutable value inside of a document.
 pub struct ValueMut<'a> {
@@ -45,9 +51,9 @@ impl<'a> ValueMut<'a> {
     /// ```
     #[must_use]
     pub fn into_any_mut(self) -> AnyMut<'a> {
-        match &self.data.raw(self.id).kind {
-            RawKind::Mapping(..) => AnyMut::Mapping(MappingMut::new(self.data, self.id)),
-            RawKind::Sequence(..) => AnyMut::Sequence(SequenceMut::new(self.data, self.id)),
+        match self.data.raw(self.id) {
+            Raw::Mapping(..) => AnyMut::Mapping(MappingMut::new(self.data, self.id)),
+            Raw::Sequence(..) => AnyMut::Sequence(SequenceMut::new(self.data, self.id)),
             _ => AnyMut::Scalar(self),
         }
     }
@@ -154,8 +160,8 @@ impl<'a> ValueMut<'a> {
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     pub fn as_mapping_mut(&mut self) -> Option<MappingMut<'_>> {
-        match &mut self.data.raw_mut(self.id).kind {
-            RawKind::Mapping(..) => Some(MappingMut::new(self.data, self.id)),
+        match self.data.raw_mut(self.id) {
+            Raw::Mapping(..) => Some(MappingMut::new(self.data, self.id)),
             _ => None,
         }
     }
@@ -207,8 +213,8 @@ impl<'a> ValueMut<'a> {
     /// ```
     #[must_use]
     pub fn into_mapping_mut(self) -> Option<MappingMut<'a>> {
-        match &mut self.data.raw_mut(self.id).kind {
-            RawKind::Mapping(..) => Some(MappingMut::new(self.data, self.id)),
+        match self.data.raw_mut(self.id) {
+            Raw::Mapping(..) => Some(MappingMut::new(self.data, self.id)),
             _ => None,
         }
     }
@@ -242,8 +248,8 @@ impl<'a> ValueMut<'a> {
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     pub fn as_sequence_mut(&mut self) -> Option<SequenceMut<'_>> {
-        match &mut self.data.raw_mut(self.id).kind {
-            RawKind::Sequence(..) => Some(SequenceMut::new(self.data, self.id)),
+        match self.data.raw_mut(self.id) {
+            Raw::Sequence(..) => Some(SequenceMut::new(self.data, self.id)),
             _ => None,
         }
     }
@@ -279,8 +285,8 @@ impl<'a> ValueMut<'a> {
     /// ```
     #[must_use]
     pub fn into_sequence_mut(self) -> Option<SequenceMut<'a>> {
-        match &mut self.data.raw_mut(self.id).kind {
-            RawKind::Sequence(..) => Some(SequenceMut::new(self.data, self.id)),
+        match self.data.raw_mut(self.id) {
+            Raw::Sequence(..) => Some(SequenceMut::new(self.data, self.id)),
             _ => None,
         }
     }
@@ -303,7 +309,7 @@ macro_rules! set_float {
         pub fn $name(&mut self, value: $ty) {
             let mut buffer = ryu::Buffer::new();
             let string = self.data.insert_str(buffer.format(value));
-            self.data.replace_raw(self.id, RawKind::Number(RawNumber::new(string, serde::$hint)));
+            self.data.replace(self.id, Raw::Number(RawNumber::new(string, serde::$hint)));
         }
     };
 }
@@ -325,7 +331,7 @@ macro_rules! set_number {
         pub fn $name(&mut self, value: $ty) {
             let mut buffer = itoa::Buffer::new();
             let string = self.data.insert_str(buffer.format(value));
-            self.data.replace_raw(self.id, RawKind::Number(RawNumber::new(string, serde::$hint)));
+            self.data.replace(self.id, Raw::Number(RawNumber::new(string, serde::$hint)));
         }
     };
 }
@@ -354,7 +360,7 @@ impl<'a> ValueMut<'a> {
     /// ```
     #[inline]
     pub fn set_null(&mut self, kind: NullKind) {
-        self.data.replace_raw(self.id, RawKind::Null(kind));
+        self.data.replace(self.id, Raw::Null(kind));
     }
 
     /// Set the value as a string.
@@ -391,7 +397,7 @@ impl<'a> ValueMut<'a> {
         S: AsRef<str>,
     {
         let value = new_string(self.data, string);
-        self.data.replace_raw(self.id, value);
+        self.data.replace(self.id, value);
     }
 
     /// Set the value as a boolean.
@@ -408,7 +414,7 @@ impl<'a> ValueMut<'a> {
     /// ```
     pub fn set_bool(&mut self, value: bool) {
         let value = new_bool(value);
-        self.data.replace_raw(self.id, value);
+        self.data.replace(self.id, value);
     }
 
     set_float!(set_f32, f32, "32-bit float", 10.42, F32);
@@ -423,4 +429,98 @@ impl<'a> ValueMut<'a> {
     set_number!(set_i64, i64, "64-bit signed integer", -42, I64);
     set_number!(set_u128, u128, "128-bit unsigned integer", 42, U128);
     set_number!(set_i128, i128, "128-bit signed integer", -42, I128);
+
+    /// Make the value into a mapping, unless it already is one.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nondestructive::yaml;
+    ///
+    /// let mut doc = yaml::from_bytes("  string")?;
+    /// let mut mapping = doc.root_mut().make_mapping();
+    /// mapping.insert_u32("first", 1);
+    /// mapping.insert_u32("second", 2);
+    ///
+    /// assert_eq!(doc.to_string(), "  first: 1\n  second: 2");
+    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// ```
+    #[inline]
+    #[must_use]
+    pub fn make_mapping(mut self) -> MappingMut<'a> {
+        let indent = self.build_indent();
+
+        if let Raw::Mapping(..) = self.data.raw_mut(self.id) {
+            MappingMut::new(self.data, self.id)
+        } else {
+            let value = make_mapping();
+            self.data.replace_with_indent(self.id, value, indent);
+            MappingMut::new(self.data, self.id)
+        }
+    }
+
+    /// Make the value into a sequence, unless it already is one.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nondestructive::yaml;
+    ///
+    /// let mut doc = yaml::from_bytes("  string")?;
+    /// let mut mapping = doc.root_mut().make_sequence();
+    /// mapping.push_u32(1);
+    /// mapping.push_u32(2);
+    ///
+    /// assert_eq!(doc.to_string(), "  - 1\n  - 2");
+    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// ```
+    #[inline]
+    #[must_use]
+    pub fn make_sequence(mut self) -> SequenceMut<'a> {
+        let indent = self.build_indent();
+
+        if let Raw::Sequence(..) = self.data.raw_mut(self.id) {
+            SequenceMut::new(self.data, self.id)
+        } else {
+            let value = make_sequence();
+            self.data.replace_with_indent(self.id, value, indent);
+            SequenceMut::new(self.data, self.id)
+        }
+    }
+
+    /// Make indentation for mappings and sequences.
+    ///
+    /// This is a bit of a handsful, but the gist is that we need to calculate
+    /// the new indentation to use for elements in this mapping.
+    ///
+    /// If we have a parent node, we extend the indentation of the parent node,
+    /// else we take the indentation from the current node, ensuring that it
+    /// starts with a newline.
+    fn build_indent(&mut self) -> StringId {
+        let mut new_indent = Vec::new();
+        new_indent.push(NEWLINE);
+
+        match *self.data.layout(self.id) {
+            Layout {
+                parent: Some(id), ..
+            } => {
+                let indent = self.data.layout(id).indent;
+                new_indent.extend_from_slice(self.data.str(&indent));
+                new_indent.extend_from_slice(b"  ");
+            }
+            Layout {
+                indent,
+                parent: None,
+            } => {
+                let string = self.data.str(&indent);
+                let string = match string.as_bytes() {
+                    [NEWLINE, rest @ ..] => rest,
+                    string => string,
+                };
+                new_indent.extend_from_slice(string);
+            }
+        };
+
+        self.data.insert_str(&new_indent)
+    }
 }

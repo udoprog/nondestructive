@@ -3,7 +3,7 @@ use bstr::ByteSlice;
 use serde::ser::{SerializeMap, SerializeSeq};
 use serde::Serialize;
 
-use crate::yaml::raw::RawKind;
+use crate::yaml::raw::Raw;
 use crate::yaml::serde::RawNumberHint;
 use crate::yaml::{Document, Mapping, Sequence, Value};
 
@@ -22,10 +22,10 @@ impl Serialize for Value<'_> {
     where
         S: serde::Serializer,
     {
-        match &self.data.raw(self.id).kind {
-            RawKind::Null(..) => serializer.serialize_none(),
-            RawKind::Boolean(value) => serializer.serialize_bool(*value),
-            RawKind::Number(raw) => match raw.hint {
+        match self.data.raw(self.id) {
+            Raw::Null(..) => serializer.serialize_none(),
+            Raw::Boolean(value) => serializer.serialize_bool(*value),
+            Raw::Number(raw) => match raw.hint {
                 RawNumberHint::Float32 => match self.as_f32() {
                     Some(value) => serializer.serialize_f32(value),
                     None => serializer.serialize_none(),
@@ -75,7 +75,7 @@ impl Serialize for Value<'_> {
                     None => serializer.serialize_none(),
                 },
             },
-            RawKind::String(raw) => {
+            Raw::String(raw) => {
                 let string = self.data.str(&raw.string);
 
                 if let Ok(string) = string.to_str() {
@@ -84,8 +84,8 @@ impl Serialize for Value<'_> {
                     serializer.serialize_bytes(string)
                 }
             }
-            RawKind::Mapping(..) => Mapping::new(self.data, self.id).serialize(serializer),
-            RawKind::Sequence(..) => Sequence::new(self.data, self.id).serialize(serializer),
+            Raw::Mapping(..) => Mapping::new(self.data, self.id).serialize(serializer),
+            Raw::Sequence(..) => Sequence::new(self.data, self.id).serialize(serializer),
         }
     }
 }

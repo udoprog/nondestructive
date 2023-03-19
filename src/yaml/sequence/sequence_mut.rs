@@ -1,7 +1,7 @@
 use core::mem;
 
 use crate::yaml::data::{Data, ValueId};
-use crate::yaml::raw::{new_bool, new_string, RawKind, RawNumber};
+use crate::yaml::raw::{new_bool, new_string, Raw, RawNumber};
 use crate::yaml::serde;
 use crate::yaml::{NullKind, Separator, Sequence, ValueMut};
 
@@ -38,7 +38,7 @@ macro_rules! push_float {
         pub fn $name(&mut self, value: $ty) {
             let mut buffer = ryu::Buffer::new();
             let number = self.data.insert_str(buffer.format(value));
-            let value = RawKind::Number(RawNumber::new(number, serde::$hint));
+            let value = Raw::Number(RawNumber::new(number, serde::$hint));
             self._push(Separator::Auto, value);
         }
     };
@@ -71,7 +71,7 @@ macro_rules! push_number {
         pub fn $name(&mut self, value: $ty) {
             let mut buffer = itoa::Buffer::new();
             let number = self.data.insert_str(buffer.format(value));
-            let value = RawKind::Number(RawNumber::new(number, serde::$hint));
+            let value = Raw::Number(RawNumber::new(number, serde::$hint));
             self._push(Separator::Auto, value);
         }
     };
@@ -83,8 +83,8 @@ impl<'a> SequenceMut<'a> {
     }
 
     /// Push a value on the sequence.
-    fn _push(&mut self, separator: Separator, value: RawKind) -> ValueId {
-        use crate::yaml::raw::{Raw, RawSequenceItem};
+    fn _push(&mut self, separator: Separator, value: Raw) -> ValueId {
+        use crate::yaml::raw::RawSequenceItem;
 
         let separator = match separator {
             Separator::Auto => match self.data.sequence(self.id).items.last() {
@@ -95,7 +95,7 @@ impl<'a> SequenceMut<'a> {
         };
 
         let indent = self.data.layout(self.id).indent;
-        let value = self.data.insert_raw(Raw::new(value, indent));
+        let value = self.data.insert(value, indent, Some(self.id));
         let raw = self.data.sequence_mut(self.id);
         let prefix = (!raw.items.is_empty()).then_some(indent);
         raw.items.push(RawSequenceItem {
@@ -344,7 +344,7 @@ impl<'a> SequenceMut<'a> {
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     pub fn push(&mut self, separator: Separator<'_>) -> ValueMut<'_> {
-        let value = self._push(separator, RawKind::Null(NullKind::Empty));
+        let value = self._push(separator, Raw::Null(NullKind::Empty));
         ValueMut::new(self.data, value)
     }
 
