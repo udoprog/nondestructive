@@ -2,7 +2,7 @@ use bstr::{BStr, ByteSlice};
 use serde::de::{self, Error as _, IntoDeserializer, MapAccess, SeqAccess, Visitor};
 use serde::Deserializer;
 
-use crate::yaml::raw::Raw;
+use crate::yaml::raw;
 use crate::yaml::serde::{Error, RawNumberHint};
 use crate::yaml::{mapping, sequence, Document, Mapping, Sequence, Value};
 
@@ -36,9 +36,9 @@ impl<'de> Deserializer<'de> for Value<'de> {
         V: Visitor<'de>,
     {
         match self.data.raw(self.id) {
-            Raw::Null(..) => visitor.visit_none(),
-            Raw::Boolean(value) => visitor.visit_bool(*value),
-            Raw::Number(raw) => match raw.hint {
+            raw::Raw::Null(..) => visitor.visit_none(),
+            raw::Raw::Boolean(value) => visitor.visit_bool(*value),
+            raw::Raw::Number(raw) => match raw.hint {
                 RawNumberHint::Float32 => self.deserialize_f32(visitor),
                 RawNumberHint::Float64 => self.deserialize_f64(visitor),
                 RawNumberHint::Unsigned8 => self.deserialize_u8(visitor),
@@ -52,7 +52,7 @@ impl<'de> Deserializer<'de> for Value<'de> {
                 RawNumberHint::Signed64 => self.deserialize_i64(visitor),
                 RawNumberHint::Signed128 => self.deserialize_i128(visitor),
             },
-            Raw::String(raw) => {
+            raw::Raw::String(raw) => {
                 let string = self.data.str(raw.string);
 
                 if let Ok(string) = string.to_str() {
@@ -61,10 +61,10 @@ impl<'de> Deserializer<'de> for Value<'de> {
                     visitor.visit_borrowed_bytes(string)
                 }
             }
-            Raw::Mapping(..) => visitor.visit_map(MappingIter::new(
+            raw::Raw::Mapping(..) => visitor.visit_map(MappingIter::new(
                 Mapping::new(self.data, self.id).into_iter(),
             )),
-            Raw::Sequence(..) => visitor.visit_seq(SequenceIter::new(
+            raw::Raw::Sequence(..) => visitor.visit_seq(SequenceIter::new(
                 Sequence::new(self.data, self.id).into_iter(),
             )),
             _ => Err(Self::Error::custom("cannot deserialize items")),
@@ -253,7 +253,7 @@ impl<'de> Deserializer<'de> for Value<'de> {
         V: Visitor<'de>,
     {
         match self.data.raw(self.id) {
-            Raw::Null(..) => visitor.visit_none(),
+            raw::Raw::Null(..) => visitor.visit_none(),
             _ => visitor.visit_some(self),
         }
     }
