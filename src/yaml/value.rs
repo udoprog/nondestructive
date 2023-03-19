@@ -214,7 +214,7 @@ impl<'a> Value<'a> {
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     #[must_use]
-    pub fn as_bstr(self) -> Option<&'a BStr> {
+    pub fn as_bstr(&self) -> Option<&'a BStr> {
         match self.data.raw(self.id) {
             Raw::String(raw) => Some(self.data.str(raw.string)),
             _ => None,
@@ -270,7 +270,7 @@ impl<'a> Value<'a> {
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     #[must_use]
-    pub fn as_str(self) -> Option<&'a str> {
+    pub fn as_str(&self) -> Option<&'a str> {
         match self.data.raw(self.id) {
             Raw::String(raw) => self.data.str(raw.string).to_str().ok(),
             _ => None,

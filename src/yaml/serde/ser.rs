@@ -1,7 +1,7 @@
 use bstr::ByteSlice;
 
-use serde::ser::{SerializeMap, SerializeSeq};
-use serde::Serialize;
+use serde::ser::{Error, SerializeMap, SerializeSeq};
+use serde::{Serialize, Serializer};
 
 use crate::yaml::raw::Raw;
 use crate::yaml::serde::RawNumberHint;
@@ -11,7 +11,7 @@ impl Serialize for Document {
     #[inline]
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
-        S: serde::Serializer,
+        S: Serializer,
     {
         self.root().serialize(serializer)
     }
@@ -20,7 +20,7 @@ impl Serialize for Document {
 impl Serialize for Value<'_> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
-        S: serde::Serializer,
+        S: Serializer,
     {
         match self.data.raw(self.id) {
             Raw::Null(..) => serializer.serialize_none(),
@@ -86,6 +86,7 @@ impl Serialize for Value<'_> {
             }
             Raw::Mapping(..) => Mapping::new(self.data, self.id).serialize(serializer),
             Raw::Sequence(..) => Sequence::new(self.data, self.id).serialize(serializer),
+            _ => Err(S::Error::custom("cannot serialize items")),
         }
     }
 }
@@ -94,7 +95,7 @@ impl Serialize for Sequence<'_> {
     #[inline]
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
-        S: serde::Serializer,
+        S: Serializer,
     {
         let mut seq = serializer.serialize_seq(Some(self.len()))?;
 
@@ -110,7 +111,7 @@ impl Serialize for Mapping<'_> {
     #[inline]
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
-        S: serde::Serializer,
+        S: Serializer,
     {
         let mut map = serializer.serialize_map(Some(self.len()))?;
 

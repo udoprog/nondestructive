@@ -67,6 +67,7 @@ impl<'de> Deserializer<'de> for Value<'de> {
             Raw::Sequence(..) => visitor.visit_seq(SequenceIter::new(
                 Sequence::new(self.data, self.id).into_iter(),
             )),
+            _ => Err(Self::Error::custom("cannot deserialize items")),
         }
     }
 
