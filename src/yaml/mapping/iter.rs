@@ -6,7 +6,7 @@ use crate::yaml::data::Data;
 use crate::yaml::raw::RawMappingItem;
 use crate::yaml::Value;
 
-/// An immumapping iterator over a [`Mapping`][crate::yaml::mapping::Mapping].
+/// An immutable iterator over a [`Mapping`][crate::yaml::mapping::Mapping].
 ///
 /// See [`Mapping::iter`][crate::yaml::mapping::Mapping::iter].
 pub struct Iter<'a> {

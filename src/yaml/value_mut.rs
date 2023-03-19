@@ -3,14 +3,14 @@ use crate::yaml::raw::{new_bool, new_string, RawKind, RawNumber};
 use crate::yaml::serde;
 use crate::yaml::{AnyMut, MappingMut, NullKind, SequenceMut, Value};
 
-/// A mumapping value inside of a document.
+/// A mutable value inside of a document.
 pub struct ValueMut<'a> {
     data: &'a mut Data,
     pub(crate) id: ValueId,
 }
 
 impl<'a> ValueMut<'a> {
-    /// Construct a new mumapping value.
+    /// Construct a new mutable value.
     pub(crate) fn new(data: &'a mut Data, id: ValueId) -> Self {
         Self { data, id }
     }
@@ -51,7 +51,7 @@ impl<'a> ValueMut<'a> {
         }
     }
 
-    /// Coerce a mumapping value as an immumapping [Value].
+    /// Coerce a mutable value as an immutable [Value].
     ///
     /// This is useful to be able to directly use methods only available on
     /// [Value].
@@ -86,7 +86,7 @@ impl<'a> ValueMut<'a> {
         Value::new(self.data, self.id)
     }
 
-    /// Coerce a mumapping value into an immumapping [Value] with the lifetime of
+    /// Coerce a mutable value into an immutable [Value] with the lifetime of
     /// the current reference.
     ///
     /// This is useful to be able to directly use methods only available on
@@ -122,7 +122,7 @@ impl<'a> ValueMut<'a> {
         Value::new(self.data, self.id)
     }
 
-    /// Convert the value into a mumapping [`MappingMut`].
+    /// Convert the value into a mutable [`MappingMut`].
     ///
     /// # Examples
     ///
@@ -159,7 +159,7 @@ impl<'a> ValueMut<'a> {
         }
     }
 
-    /// Convert the value into a mumapping [`MappingMut`] with the same lifetime as
+    /// Convert the value into a mutable [`MappingMut`] with the same lifetime as
     /// the one associated with this value.
     ///
     /// # Examples
@@ -213,7 +213,7 @@ impl<'a> ValueMut<'a> {
         }
     }
 
-    /// Convert the value into a mumapping [`SequenceMut`].
+    /// Convert the value into a mutable [`SequenceMut`].
     ///
     /// # Examples
     ///
@@ -248,7 +248,7 @@ impl<'a> ValueMut<'a> {
         }
     }
 
-    /// Convert the value into a mumapping [`SequenceMut`] with the same lifetime as
+    /// Convert the value into a mutable [`SequenceMut`] with the same lifetime as
     /// the one associated with this value.
     ///
     /// # Examples

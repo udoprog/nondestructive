@@ -106,7 +106,9 @@ impl<'a> Parser<'a> {
 
     /// Find the given character.
     fn find(&mut self, a: u8) {
-        if let Some(n) = memchr::memchr(a, &self.input[self.n..]) {
+        let input = self.input.get(self.n..).unwrap_or_default();
+
+        if let Some(n) = memchr::memchr(a, input) {
             self.bump(n);
         } else {
             self.n = self.input.len();
@@ -115,7 +117,9 @@ impl<'a> Parser<'a> {
 
     /// Find the given character.
     fn find2(&mut self, a: u8, b: u8) {
-        if let Some(n) = memchr::memchr2(a, b, &self.input[self.n..]) {
+        let input = self.input.get(self.n..).unwrap_or_default();
+
+        if let Some(n) = memchr::memchr2(a, b, input) {
             self.bump(n);
         } else {
             self.n = self.input.len();
@@ -666,6 +670,55 @@ impl<'a> Parser<'a> {
         Some(RawString::new(RawStringKind::Bare, key))
     }
 
+    /// Process a multiline string.
+    fn multiline_string(&mut self, join: u8) -> (RawKind, Option<StringId>) {
+        let prefix = self.peek();
+        self.bump(1);
+
+        let start = self.n;
+        let (mut ws, nl) = self.ws_nl();
+
+        if nl == 0 {
+            self.find(b'\n');
+            let out = self.input.get(start..self.n).unwrap_or_default().trim();
+            self.scratch.extend_from_slice(out);
+
+            ws = self.ws();
+
+            if !self.is_eof() {
+                self.scratch.push(join);
+            }
+        }
+
+        let mut end = self.n;
+        let indent = self.count_indent(&ws);
+
+        while !self.is_eof() {
+            let s = self.n;
+            self.find(b'\n');
+            let out = self.input.get(s..self.n).unwrap_or_default().trim();
+            self.scratch.extend_from_slice(out);
+
+            end = self.n;
+            ws = self.ws();
+
+            if self.count_indent(&ws) < indent {
+                break;
+            }
+
+            self.scratch.push(join);
+        }
+
+        let string = self.data.insert_str(&self.scratch);
+        self.scratch.clear();
+
+        let out = self.input.get(start..end).unwrap_or_default();
+        let original = self.data.insert_str(out);
+
+        let kind = RawStringKind::Multiline(prefix, original);
+        (RawKind::String(RawString::new(kind, string)), Some(ws))
+    }
+
     /// Consume a single value.
     fn value(&mut self, indent: &StringId, inline: bool) -> Result<(Raw, Option<StringId>)> {
         let (kind, ws) = match self.peek2() {
@@ -678,6 +731,8 @@ impl<'a> Parser<'a> {
             (b'[', _) => (self.inline_sequence(indent)?, None),
             (b'{', _) => (self.inline_mapping(indent)?, None),
             (b'~', _) => (RawKind::Null(super::NullKind::Tilde), None),
+            (b'|', _) => self.multiline_string(b'\n'),
+            (b'>', _) => self.multiline_string(b' '),
             _ => {
                 'default: {
                     let start = self.n;

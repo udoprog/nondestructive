@@ -12,7 +12,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        rust: ["1.65", smapping]
+        rust: ["1.65", stable]
     steps:
     - uses: actions/checkout@v3
     - uses: dtolnay/rust-toolchain@master
@@ -33,7 +33,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
-    - uses: dtolnay/rust-toolchain@smapping
+    - uses: dtolnay/rust-toolchain@stable
       with:
         components: rustfmt
     - run: cargo fmt --check --all   

@@ -161,7 +161,7 @@ impl<'a> MappingMut<'a> {
         value
     }
 
-    /// Coerce a mumapping mapping as an immumapping [Mapping].
+    /// Coerce a mutable mapping as an immutable [Mapping].
     ///
     /// This is useful to be able to directly use methods only available on
     /// [Mapping].
@@ -197,8 +197,8 @@ impl<'a> MappingMut<'a> {
         Mapping::new(self.data, self.id)
     }
 
-    /// Coerce a mumapping mapping into an immumapping [Mapping] with the lifetime of
-    /// the current reference.
+    /// Coerce a mutable mapping into an immutable [Mapping] with the lifetime
+    /// of the current reference.
     ///
     /// # Examples
     ///
@@ -261,6 +261,47 @@ impl<'a> MappingMut<'a> {
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     pub fn get_mut(&mut self, key: &str) -> Option<ValueMut<'_>> {
+        for item in &self.data.mapping(self.id).items {
+            if self.data.str(&item.key.string) == key {
+                return Some(ValueMut::new(self.data, item.value));
+            }
+        }
+
+        None
+    }
+
+    /// Get a value mutably from the mutable mapping with the lifetime of the
+    /// current reference.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nondestructive::yaml;
+    ///
+    /// let mut doc = yaml::from_bytes(r#"
+    ///   number1: 10
+    ///   number2: 20
+    ///   mapping:
+    ///     inner: 400
+    ///   string3: "I am a quoted string!"
+    /// "#)?;
+    ///
+    /// let mut root = doc.root_mut();
+    /// let mut value = root.as_mapping_mut().and_then(|v| v.get_into_mut("number2")).ok_or("missing value")?;
+    /// value.set_u32(30);
+    ///
+    /// assert_eq!(
+    /// doc.to_string(),
+    /// r#"
+    ///   number1: 10
+    ///   number2: 30
+    ///   mapping:
+    ///     inner: 400
+    ///   string3: "I am a quoted string!"
+    /// "#);
+    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn get_into_mut(self, key: &str) -> Option<ValueMut<'a>> {
         for item in &self.data.mapping(self.id).items {
             if self.data.str(&item.key.string) == key {
                 return Some(ValueMut::new(self.data, item.value));

@@ -4,7 +4,7 @@ use crate::yaml::data::Data;
 use crate::yaml::raw::RawSequenceItem;
 use crate::yaml::Value;
 
-/// An immumapping iterator over a [`Sequence`][crate::yaml::sequence::Sequence].
+/// An immutable iterator over a [`Sequence`][crate::yaml::sequence::Sequence].
 ///
 /// See [`Sequence::iter`][crate::yaml::sequence::Sequence::iter].
 pub struct Iter<'a> {

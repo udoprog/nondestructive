@@ -119,6 +119,8 @@ pub(crate) enum RawStringKind {
     DoubleQuoted,
     /// An escaped string, where the string id points to the original string.
     Original(StringId),
+    /// A multiline string.
+    Multiline(u8, StringId),
 }
 
 impl RawStringKind {
@@ -242,10 +244,6 @@ impl RawString {
         }
 
         match &self.kind {
-            RawStringKind::Original(original) => {
-                let string = data.str(original);
-                write!(f, "{string}")?;
-            }
             RawStringKind::Bare => {
                 let string = data.str(&self.string);
                 write!(f, "{string}")?;
@@ -257,6 +255,14 @@ impl RawString {
             RawStringKind::SingleQuoted => {
                 let string = data.str(&self.string);
                 escape_single_quoted(string, f)?;
+            }
+            RawStringKind::Original(original) => {
+                let string = data.str(original);
+                write!(f, "{string}")?;
+            }
+            RawStringKind::Multiline(prefix, original) => {
+                let string = data.str(original);
+                write!(f, "{}{string}", char::from(*prefix))?;
             }
         }
 

@@ -106,7 +106,7 @@ impl<'a> SequenceMut<'a> {
         value
     }
 
-    /// Coerce a mumapping sequence as an immumapping [Sequence].
+    /// Coerce a mutable sequence as an immutable [Sequence].
     ///
     /// This is useful to be able to directly use methods only available on
     /// [Sequence].
@@ -138,7 +138,7 @@ impl<'a> SequenceMut<'a> {
         Sequence::new(self.data, self.id)
     }
 
-    /// Coerce a mumapping sequence into an immumapping [Sequence] with the lifetime of the
+    /// Coerce a mutable sequence into an immutable [Sequence] with the lifetime of the
     /// current reference.
     ///
     /// # Examples
@@ -196,6 +196,42 @@ impl<'a> SequenceMut<'a> {
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     pub fn get_mut(&mut self, index: usize) -> Option<ValueMut<'_>> {
+        if let Some(item) = self.data.sequence(self.id).items.get(index) {
+            return Some(ValueMut::new(self.data, item.value));
+        }
+
+        None
+    }
+
+    /// Get a value mutably from the mapping.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nondestructive::yaml;
+    ///
+    /// let mut doc = yaml::from_bytes(r#"
+    ///   - 10
+    ///   - 20
+    ///   - inner: 400
+    ///   - "I am a quoted string!"
+    /// "#)?;
+    ///
+    /// let mut root = doc.root_mut();
+    /// let mut value = root.as_sequence_mut().and_then(|v| v.get_into_mut(1)).ok_or("missing value")?;
+    /// value.set_u32(30);
+    ///
+    /// assert_eq!(
+    /// doc.to_string(),
+    /// r#"
+    ///   - 10
+    ///   - 30
+    ///   - inner: 400
+    ///   - "I am a quoted string!"
+    /// "#);
+    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn get_into_mut(self, index: usize) -> Option<ValueMut<'a>> {
         if let Some(item) = self.data.sequence(self.id).items.get(index) {
             return Some(ValueMut::new(self.data, item.value));
         }
