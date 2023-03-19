@@ -301,6 +301,7 @@ impl<'a> MappingMut<'a> {
     /// "#);
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
+    #[must_use]
     pub fn get_into_mut(self, key: &str) -> Option<ValueMut<'a>> {
         for item in &self.data.mapping(self.id).items {
             if self.data.str(&item.key.string) == key {

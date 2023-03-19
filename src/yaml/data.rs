@@ -39,7 +39,7 @@ pub struct ValueId(NonZeroUsize);
 
 impl ValueId {
     #[inline]
-    fn get(&self) -> usize {
+    fn get(self) -> usize {
         self.0.get().wrapping_sub(1)
     }
 }

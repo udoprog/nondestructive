@@ -231,6 +231,7 @@ impl<'a> SequenceMut<'a> {
     /// "#);
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
+    #[must_use]
     pub fn get_into_mut(self, index: usize) -> Option<ValueMut<'a>> {
         if let Some(item) = self.data.sequence(self.id).items.get(index) {
             return Some(ValueMut::new(self.data, item.value));

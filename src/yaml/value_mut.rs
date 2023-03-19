@@ -43,6 +43,7 @@ impl<'a> ValueMut<'a> {
     /// assert!(matches!(doc.root_mut().into_any_mut(), yaml::AnyMut::Sequence(..)));
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
+    #[must_use]
     pub fn into_any_mut(self) -> AnyMut<'a> {
         match &self.data.raw(self.id).kind {
             RawKind::Mapping(..) => AnyMut::Mapping(MappingMut::new(self.data, self.id)),
@@ -205,7 +206,6 @@ impl<'a> ValueMut<'a> {
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     #[must_use]
-    #[inline]
     pub fn into_mapping_mut(self) -> Option<MappingMut<'a>> {
         match &mut self.data.raw_mut(self.id).kind {
             RawKind::Mapping(..) => Some(MappingMut::new(self.data, self.id)),
@@ -278,7 +278,6 @@ impl<'a> ValueMut<'a> {
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     #[must_use]
-    #[inline]
     pub fn into_sequence_mut(self) -> Option<SequenceMut<'a>> {
         match &mut self.data.raw_mut(self.id).kind {
             RawKind::Sequence(..) => Some(SequenceMut::new(self.data, self.id)),

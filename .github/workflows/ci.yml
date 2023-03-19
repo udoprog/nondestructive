@@ -30,8 +30,8 @@ jobs:
     - uses: dtolnay/rust-toolchain@1.68
       with:
         components: clippy
-    - run: cargo clippy --workspace --no-default-features --all-targets -- -D warnings
-    - run: cargo clippy --workspace --all-features --all-targets -- -D warnings
+    - run: cargo clippy --workspace --no-default-features --all-targets -- -D warnings -D clippy::pedantic
+    - run: cargo clippy --workspace --all-features --all-targets -- -D warnings -D clippy::pedantic
 
   rustfmt:
     runs-on: ubuntu-latest

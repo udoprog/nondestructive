@@ -97,6 +97,8 @@ impl<'a> Mapping<'a> {
     /// assert!(second.iter().flat_map(|v| v.as_u32()).eq([1, 2, 3]));
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
+    #[must_use]
+    #[inline]
     pub fn id(&self) -> ValueId {
         self.id
     }
@@ -178,7 +180,6 @@ impl<'a> Mapping<'a> {
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     #[must_use]
-    #[inline]
     pub fn get(&self, key: &str) -> Option<Value<'a>> {
         for item in &self.data.mapping(self.id).items {
             if self.data.str(&item.key.string) == key {

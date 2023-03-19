@@ -31,6 +31,7 @@ impl Any<'_> {
     /// assert_eq!(doc.value(id).to_string(), "- 10\n- 20");
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
+    #[must_use]
     pub fn id(&self) -> ValueId {
         match self {
             Any::Scalar(v) => v.id,

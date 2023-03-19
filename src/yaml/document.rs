@@ -70,6 +70,8 @@ impl Document {
     /// assert_eq!(doc.value(id).to_string(), "[1, 2, 3]");
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
+    #[must_use]
+    #[inline]
     pub fn value(&self, id: ValueId) -> Value<'_> {
         Value::new(&self.data, id)
     }

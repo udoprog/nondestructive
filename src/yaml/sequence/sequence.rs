@@ -131,6 +131,8 @@ impl<'a> Sequence<'a> {
     /// assert!(second.iter().flat_map(|v| v.as_u32()).eq([1, 2, 3]));
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
+    #[must_use]
+    #[inline]
     pub fn id(&self) -> ValueId {
         self.id
     }

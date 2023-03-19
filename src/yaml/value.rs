@@ -104,7 +104,6 @@ macro_rules! as_number {
         /// # Ok::<_, Box<dyn std::error::Error>>(())
         /// ```
         #[must_use]
-        #[inline]
         pub fn $name(&self) -> Option<$ty> {
             match &self.data.raw(self.id).kind {
                 RawKind::Number(raw) => {
@@ -150,6 +149,7 @@ impl<'a> Value<'a> {
     /// assert!(matches!(doc.root().into_any(), yaml::Any::Sequence(..)));
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
+    #[must_use]
     pub fn into_any(self) -> Any<'a> {
         match &self.data.raw(self.id).kind {
             RawKind::Mapping(..) => Any::Mapping(Mapping::new(self.data, self.id)),
@@ -183,6 +183,8 @@ impl<'a> Value<'a> {
     /// assert_eq!(doc.value(id).to_string(), "[1, 2, 3]");
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
+    #[must_use]
+    #[inline]
     pub fn id(&self) -> ValueId {
         self.id
     }
@@ -212,7 +214,6 @@ impl<'a> Value<'a> {
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     #[must_use]
-    #[inline]
     pub fn as_bstr(&self) -> Option<&'a BStr> {
         match &self.data.raw(self.id).kind {
             RawKind::String(raw) => Some(self.data.str(&raw.string)),
@@ -269,7 +270,6 @@ impl<'a> Value<'a> {
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     #[must_use]
-    #[inline]
     pub fn as_str(&self) -> Option<&'a str> {
         match &self.data.raw(self.id).kind {
             RawKind::String(raw) => self.data.str(&raw.string).to_str().ok(),
@@ -292,7 +292,6 @@ impl<'a> Value<'a> {
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     #[must_use]
-    #[inline]
     pub fn as_bool(&self) -> Option<bool> {
         match &self.data.raw(self.id).kind {
             RawKind::Boolean(value) => Some(*value),
@@ -327,7 +326,6 @@ impl<'a> Value<'a> {
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     #[must_use]
-    #[inline]
     pub fn as_mapping(&self) -> Option<Mapping<'a>> {
         match &self.data.raw(self.id).kind {
             RawKind::Mapping(..) => Some(Mapping::new(self.data, self.id)),
@@ -358,7 +356,6 @@ impl<'a> Value<'a> {
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
     #[must_use]
-    #[inline]
     pub fn as_sequence(&self) -> Option<Sequence<'a>> {
         match &self.data.raw(self.id).kind {
             RawKind::Sequence(..) => Some(Sequence::new(self.data, self.id)),
