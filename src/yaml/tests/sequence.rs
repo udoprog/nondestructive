@@ -64,7 +64,7 @@ fn mutable_nested_sequence() -> Result<()> {
         .context("not a sequence")?;
     let mut value = value
         .get_mut(0)
-        .and_then(|v| v.into_sequence_mut())
+        .and_then(yaml::ValueMut::into_sequence_mut)
         .expect("missing inner");
     value.push_string("nice string");
 
