@@ -360,18 +360,18 @@ impl String {
     fn display(&self, data: &Data, f: &mut fmt::Formatter) -> fmt::Result {
         /// Single-quoted escape sequences:
         /// <https://yaml.org/spec/1.2.2/#escaped-characters>.
-        fn escape_single_quoted(string: &bstr::BStr, f: &mut fmt::Formatter) -> fmt::Result {
+        fn escape_single_quoted(mut string: &bstr::BStr, f: &mut fmt::Formatter) -> fmt::Result {
             f.write_char('\'')?;
 
-            for c in string.chars() {
-                match c {
-                    '\'' => {
-                        f.write_str("''")?;
-                    }
-                    c => {
-                        f.write_char(c)?;
-                    }
-                }
+            loop {
+                let Some(n) = memchr::memchr(b'\'', string) else {
+                    write!(f, "{string}")?;
+                    break;
+                };
+
+                write!(f, "{}", &string[..n])?;
+                f.write_str("''")?;
+                string = &string[n.saturating_add(1)..];
             }
 
             f.write_char('\'')?;
@@ -383,47 +383,35 @@ impl String {
         fn escape_double_quoted(string: &bstr::BStr, f: &mut fmt::Formatter) -> fmt::Result {
             f.write_char('"')?;
 
-            for c in string.chars() {
-                match c {
-                    '\u{0000}' => {
-                        f.write_str("\\0")?;
-                    }
-                    '\u{0007}' => {
-                        f.write_str("\\a")?;
-                    }
-                    '\u{0008}' => {
-                        f.write_str("\\b")?;
-                    }
-                    '\u{0009}' => {
-                        f.write_str("\\t")?;
-                    }
-                    '\n' => {
-                        f.write_str("\\n")?;
-                    }
-                    '\u{000b}' => {
-                        f.write_str("\\v")?;
-                    }
-                    '\u{000c}' => {
-                        f.write_str("\\f")?;
-                    }
-                    '\r' => {
-                        f.write_str("\\r")?;
-                    }
-                    '\u{001b}' => {
-                        f.write_str("\\e")?;
-                    }
-                    '\"' => {
-                        f.write_str("\\\"")?;
-                    }
+            let mut start = 0;
+
+            for (index, end, c) in string.char_indices() {
+                let esc = match c {
+                    '\u{00}' => "\\0",
+                    '\u{07}' => "\\a",
+                    '\u{08}' => "\\b",
+                    '\u{09}' => "\\t",
+                    '\n' => "\\n",
+                    '\u{0b}' => "\\v",
+                    '\u{0c}' => "\\f",
+                    '\r' => "\\r",
+                    '\u{1b}' => "\\e",
+                    '\"' => "\\\"",
                     c if c.is_ascii_control() => {
-                        write!(f, "\\x{:02x}", c as u8)?;
+                        write!(f, "{}\\x{:02x}", &string[start..index], c as u8)?;
+                        start = end;
+                        continue;
                     }
-                    c => {
-                        f.write_char(c)?;
+                    _ => {
+                        continue;
                     }
-                }
+                };
+
+                write!(f, "{}{esc}", &string[start..index])?;
+                start = end;
             }
 
+            write!(f, "{}", &string[start..])?;
             f.write_char('"')?;
             Ok(())
         }
@@ -460,21 +448,21 @@ impl String {
     {
         /// Single-quoted escape sequences:
         /// <https://yaml.org/spec/1.2.2/#escaped-characters>.
-        fn escape_single_quoted<O>(string: &bstr::BStr, f: &mut O) -> io::Result<()>
+        fn escape_single_quoted<O>(mut string: &bstr::BStr, f: &mut O) -> io::Result<()>
         where
             O: ?Sized + io::Write,
         {
             f.write_all(&[b'\''])?;
 
-            for c in string.chars() {
-                match c {
-                    '\'' => {
-                        f.write_all(b"''")?;
-                    }
-                    c => {
-                        f.write_all(c.encode_utf8(&mut [0; 4]).as_bytes())?;
-                    }
-                }
+            loop {
+                let Some(index) = memchr::memchr(b'\'', string) else {
+                    f.write_all(string)?;
+                    break;
+                };
+
+                f.write_all(&string[..index])?;
+                f.write_all(b"''")?;
+                string = &string[index.saturating_add(1)..];
             }
 
             f.write_all(&[b'\''])?;
@@ -488,48 +476,37 @@ impl String {
             O: ?Sized + io::Write,
         {
             o.write_all(&[b'"'])?;
+            let mut s = 0;
 
-            for c in string.chars() {
-                match c {
-                    '\u{0000}' => {
-                        o.write_all(b"\\0")?;
-                    }
-                    '\u{0007}' => {
-                        o.write_all(b"\\a")?;
-                    }
-                    '\u{0008}' => {
-                        o.write_all(b"\\b")?;
-                    }
-                    '\u{0009}' => {
-                        o.write_all(b"\\t")?;
-                    }
-                    '\n' => {
-                        o.write_all(b"\\n")?;
-                    }
-                    '\u{000b}' => {
-                        o.write_all(b"\\v")?;
-                    }
-                    '\u{000c}' => {
-                        o.write_all(b"\\f")?;
-                    }
-                    '\r' => {
-                        o.write_all(b"\\r")?;
-                    }
-                    '\u{001b}' => {
-                        o.write_all(b"\\e")?;
-                    }
-                    '\"' => {
-                        o.write_all(b"\\\"")?;
-                    }
+            for (index, b) in string.bytes().enumerate() {
+                let esc = match b {
+                    b'\0' => b"\\0",
+                    0x07 => b"\\a",
+                    0x08 => b"\\b",
+                    0x09 => b"\\t",
+                    b'\n' => b"\\n",
+                    0x0b => b"\\v",
+                    0x0c => b"\\f",
+                    b'\r' => b"\\r",
+                    0x1b => b"\\e",
+                    b'\"' => b"\\\"",
                     c if c.is_ascii_control() => {
-                        write!(o, "\\x{:02x}", c as u8)?;
+                        o.write_all(&string[s..index])?;
+                        write!(o, "\\x{c:02x}")?;
+                        s = index.saturating_add(1);
+                        continue;
                     }
-                    c => {
-                        o.write_all(c.encode_utf8(&mut [0; 4]).as_bytes())?;
+                    _ => {
+                        continue;
                     }
-                }
+                };
+
+                o.write_all(&string[s..index])?;
+                o.write_all(esc)?;
+                s = index.saturating_add(1);
             }
 
+            o.write_all(&string[s..])?;
             o.write_all(&[b'"'])?;
             Ok(())
         }

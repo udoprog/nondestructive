@@ -92,8 +92,8 @@ however that wouldn't be possible if we were using helper methods such as
 <br>
 
 Another important aspect of working with documents is that we can address
-values *globally* through identifiers. This makes it easier to store desired
-modifications in a collection before applying them.
+values *globally* through [identifiers][Id]. This makes it easier to store
+desired modifications in a collection before applying them.
 
 ```rust
 use anyhow::Context;
@@ -175,7 +175,8 @@ assert_eq!(
 ```
 
 [`Option::and_then`]: https://doc.rust-lang.org/std/option/enum.Option.html#method.and_then
-[`ValueMut`]: https://docs.rs/nondestructive/latest/nondestructive/yaml/struct.ValueMut.html
 [`ValueMut::as_mapping_mut`]: https://docs.rs/nondestructive/latest/nondestructive/yaml/struct.ValueMut.html#method.as_mapping_mut
 [`ValueMut::into_mapping_mut`]: https://docs.rs/nondestructive/latest/nondestructive/yaml/struct.ValueMut.html#method.into_mapping_mut
+[`ValueMut`]: https://docs.rs/nondestructive/latest/nondestructive/yaml/struct.ValueMut.html
+[Id]: https://docs.rs/nondestructive/latest/nondestructive/yaml/struct.Id.html
 [yaml]: https://docs.rs/nondestructive/latest/nondestructive/yaml/index.html

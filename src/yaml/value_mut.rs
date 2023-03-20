@@ -451,6 +451,9 @@ impl<'a> ValueMut<'a> {
     ///
     /// doc.as_mut().set_string_with("i-am-a-string", yaml::StringKind::Double);
     /// assert_eq!(doc.to_string(), "  \"i-am-a-string\"");
+    ///
+    /// doc.as_mut().set_string_with("It's a great success!", yaml::StringKind::Single);
+    /// assert_eq!(doc.to_string(), "  'It''s a great success!'");
     /// # Ok::<_, anyhow::Error>(())
     /// ```
     #[inline]
