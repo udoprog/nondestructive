@@ -33,6 +33,16 @@ jobs:
     - run: cargo clippy --workspace --no-default-features --all-targets -- -D warnings -D clippy::pedantic
     - run: cargo clippy --workspace --all-features --all-targets -- -D warnings -D clippy::pedantic
 
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: dtolnay/rust-toolchain@nightly
+    - run: cargo doc
+      env:
+        RUSTFLAGS: --cfg docsrs
+        RUSTDOCFLAGS: --cfg docsrs
+
   rustfmt:
     runs-on: ubuntu-latest
     steps:

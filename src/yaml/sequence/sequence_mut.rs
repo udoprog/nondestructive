@@ -21,7 +21,7 @@ macro_rules! push_float {
         /// use anyhow::Context;
         /// use nondestructive::yaml;
         ///
-        /// let mut doc = yaml::from_bytes(r#"
+        /// let mut doc = yaml::from_slice(r#"
         /// - 10
         /// "#)?;
         ///
@@ -55,7 +55,7 @@ macro_rules! push_number {
         /// use anyhow::Context;
         /// use nondestructive::yaml;
         ///
-        /// let mut doc = yaml::from_bytes(r#"
+        /// let mut doc = yaml::from_slice(r#"
         /// - 10
         /// "#)?;
         /// let mut value = doc.root_mut().into_sequence_mut().context("not a sequence")?;
@@ -139,7 +139,7 @@ impl<'a> SequenceMut<'a> {
     /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
-    /// let mut doc = yaml::from_bytes(
+    /// let mut doc = yaml::from_slice(
     /// r#"
     /// - one
     /// - two
@@ -170,7 +170,7 @@ impl<'a> SequenceMut<'a> {
     /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
-    /// let mut doc = yaml::from_bytes(
+    /// let mut doc = yaml::from_slice(
     /// r#"
     /// - one
     /// - two
@@ -199,7 +199,7 @@ impl<'a> SequenceMut<'a> {
     /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
-    /// let mut doc = yaml::from_bytes(r#"
+    /// let mut doc = yaml::from_slice(r#"
     ///   - 10
     ///   - 20
     ///   - inner: 400
@@ -237,7 +237,7 @@ impl<'a> SequenceMut<'a> {
     /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
-    /// let mut doc = yaml::from_bytes(r#"
+    /// let mut doc = yaml::from_slice(r#"
     ///   - 10
     ///   - 20
     ///   - inner: 400
@@ -277,7 +277,7 @@ impl<'a> SequenceMut<'a> {
     /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
-    /// let mut doc = yaml::from_bytes(r#"
+    /// let mut doc = yaml::from_slice(r#"
     ///   - 10
     ///   - 20
     ///   - inner: 400
@@ -319,7 +319,7 @@ impl<'a> SequenceMut<'a> {
     /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
-    /// let mut doc = yaml::from_bytes(r#"
+    /// let mut doc = yaml::from_slice(r#"
     ///   - 10
     ///   - 20
     ///   - inner: 400
@@ -354,7 +354,7 @@ impl<'a> SequenceMut<'a> {
     /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
-    /// let mut doc = yaml::from_bytes(
+    /// let mut doc = yaml::from_slice(
     ///     r#"
     ///     - one
     ///     - two
@@ -387,7 +387,7 @@ impl<'a> SequenceMut<'a> {
     /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
-    /// let mut doc = yaml::from_bytes(r#"
+    /// let mut doc = yaml::from_slice(r#"
     ///   - - 10
     /// "#)?;
     /// let mut value = doc.root_mut().into_sequence_mut().context("not a sequence")?;
@@ -418,7 +418,7 @@ impl<'a> SequenceMut<'a> {
     /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
-    /// let mut doc = yaml::from_bytes(r#"
+    /// let mut doc = yaml::from_slice(r#"
     ///   - - 10
     /// "#)?;
     /// let mut value = doc.root_mut().into_sequence_mut().context("not a sequence")?;

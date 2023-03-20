@@ -1,6 +1,6 @@
 //! Support for non-destructive YAML editing.
 //!
-//! YAML is parsed with [`from_bytes`], which returns a [Document].
+//! YAML is parsed with [`from_slice`], which returns a [Document].
 //!
 //! ## Specification Compliance
 //!
@@ -37,7 +37,7 @@
 //! use anyhow::Context;
 //! use nondestructive::yaml;
 //!
-//! let doc = yaml::from_bytes("32")?;
+//! let doc = yaml::from_slice("32")?;
 //! assert_eq!(doc.root().as_u32(), Some(32));
 //!
 //! # Ok::<_, Box<dyn std::error::Error>>(())
@@ -80,6 +80,7 @@ pub mod mapping;
 pub use self::mapping::{Mapping, MappingMut};
 
 #[cfg(feature = "serde")]
+#[cfg_attr(docsrs, doc(cfg(feature = "serde")))]
 pub mod serde;
 
 #[cfg(not(feature = "serde"))]
@@ -107,7 +108,7 @@ mod serde {
 /// # Errors
 ///
 /// Errors in case the document cannot be parsed as YAML.
-pub fn from_bytes<D>(input: D) -> Result<Document, Error>
+pub fn from_slice<D>(input: D) -> Result<Document, Error>
 where
     D: AsRef<[u8]>,
 {

@@ -4,7 +4,7 @@ use crate::yaml;
 
 #[test]
 fn mapping() -> Result<()> {
-    let doc = yaml::from_bytes(
+    let doc = yaml::from_slice(
         r#"
         one: 1
         two: 2
@@ -30,7 +30,7 @@ fn mapping() -> Result<()> {
 
 #[test]
 fn inline_mapping() -> Result<()> {
-    let doc = yaml::from_bytes(
+    let doc = yaml::from_slice(
         r#"
         one: 1
         two: 2
@@ -56,7 +56,7 @@ fn inline_mapping() -> Result<()> {
 
 #[test]
 fn inline_mapping_only() -> Result<()> {
-    let doc = yaml::from_bytes(
+    let doc = yaml::from_slice(
         r#"
         {one: one, two: two, three: 3,}
         "#,
@@ -79,7 +79,7 @@ fn inline_mapping_only() -> Result<()> {
 
 #[test]
 fn make_preserve_whitespace() -> Result<()> {
-    let mut doc = yaml::from_bytes(
+    let mut doc = yaml::from_slice(
         r#"
         string
         "#,

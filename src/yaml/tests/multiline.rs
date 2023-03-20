@@ -4,7 +4,7 @@ use crate::yaml;
 
 #[test]
 fn string_newlines() -> Result<()> {
-    let doc = yaml::from_bytes(
+    let doc = yaml::from_slice(
         r#"
         first: |
           foo
@@ -35,7 +35,7 @@ fn string_newlines() -> Result<()> {
         "#
     );
 
-    let doc = yaml::from_bytes(
+    let doc = yaml::from_slice(
         r#"
         first: | foo
 
@@ -69,7 +69,7 @@ fn string_newlines() -> Result<()> {
 
 #[test]
 fn string_spaces() -> Result<()> {
-    let mut doc = yaml::from_bytes(
+    let mut doc = yaml::from_slice(
         r#"
         first: > foo
 
@@ -119,7 +119,7 @@ fn string_spaces() -> Result<()> {
         "#
     );
 
-    let doc = yaml::from_bytes(
+    let doc = yaml::from_slice(
         r#"
         first: >
           foo

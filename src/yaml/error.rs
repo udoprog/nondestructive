@@ -58,7 +58,7 @@ pub enum ErrorKind {
     ///
     /// const INPUT: &str = r#"[Aristotle, # this is a comment"#;
     ///
-    /// let error = yaml::from_bytes(INPUT).unwrap_err();
+    /// let error = yaml::from_slice(INPUT).unwrap_err();
     /// assert_eq!(*error.kind(), yaml::error::ErrorKind::BadSequenceTerminator);
     /// assert_eq!(&INPUT[error.span()], " # this is a comment");
     /// ```
@@ -73,7 +73,7 @@ pub enum ErrorKind {
     ///
     /// const INPUT: &str = r#"{name: Aristotle, age # this is a comment"#;
     ///
-    /// let error = yaml::from_bytes(INPUT).unwrap_err();
+    /// let error = yaml::from_slice(INPUT).unwrap_err();
     /// assert_eq!(*error.kind(), yaml::error::ErrorKind::BadMappingSeparator);
     /// assert_eq!(&INPUT[error.span()], " age # this is a comment");
     /// ```
@@ -88,7 +88,7 @@ pub enum ErrorKind {
     /// name: Aristotle
     /// age # end"#;
     ///
-    /// let error = yaml::from_bytes(INPUT).unwrap_err();
+    /// let error = yaml::from_slice(INPUT).unwrap_err();
     /// assert_eq!(*error.kind(), yaml::error::ErrorKind::BadMappingSeparator);
     /// assert_eq!(&INPUT[error.span()], "age # end");
     /// ```
@@ -103,7 +103,7 @@ pub enum ErrorKind {
     ///
     /// const INPUT: &str = r#"{name: Aristotle, # this is a comment"#;
     ///
-    /// let error = yaml::from_bytes(INPUT).unwrap_err();
+    /// let error = yaml::from_slice(INPUT).unwrap_err();
     /// assert_eq!(*error.kind(), yaml::error::ErrorKind::BadMappingTerminator);
     /// assert_eq!(&INPUT[error.span()], " # this is a comment");
     /// ```
@@ -118,7 +118,7 @@ pub enum ErrorKind {
     ///
     /// const INPUT: &str = r#""hello \o1u world""#;
     ///
-    /// let error = yaml::from_bytes(INPUT).unwrap_err();
+    /// let error = yaml::from_slice(INPUT).unwrap_err();
     /// assert_eq!(*error.kind(), yaml::error::ErrorKind::BadEscape);
     /// assert_eq!(&INPUT[error.span()], "\\o");
     /// ```
@@ -133,7 +133,7 @@ pub enum ErrorKind {
     ///
     /// const INPUT: &str = r#""hello \x1u world""#;
     ///
-    /// let error = yaml::from_bytes(INPUT).unwrap_err();
+    /// let error = yaml::from_slice(INPUT).unwrap_err();
     /// assert_eq!(*error.kind(), yaml::error::ErrorKind::BadHexEscape);
     /// assert_eq!(&INPUT[error.span()], "\\x1u");
     /// ```
@@ -148,7 +148,7 @@ pub enum ErrorKind {
     ///
     /// const INPUT: &str = r#""hello \ud800 world""#;
     ///
-    /// let error = yaml::from_bytes(INPUT).unwrap_err();
+    /// let error = yaml::from_slice(INPUT).unwrap_err();
     /// assert_eq!(*error.kind(), yaml::error::ErrorKind::BadUnicodeEscape);
     /// assert_eq!(&INPUT[error.span()], "\\ud800");
     /// ```

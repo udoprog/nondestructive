@@ -14,7 +14,7 @@ use crate::yaml::Value;
 /// use anyhow::Context;
 /// use nondestructive::yaml;
 ///
-/// let doc = yaml::from_bytes(r#"
+/// let doc = yaml::from_slice(r#"
 /// number1: 10
 /// number2: 20
 /// mapping:
@@ -40,16 +40,16 @@ use crate::yaml::Value;
 /// use anyhow::Context;
 /// use nondestructive::yaml;
 ///
-/// let doc = yaml::from_bytes("{}")?;
+/// let doc = yaml::from_slice("{}")?;
 /// assert_eq!(doc.to_string(), "{}");
 ///
-/// let doc = yaml::from_bytes("{test: 1,}")?;
+/// let doc = yaml::from_slice("{test: 1,}")?;
 /// let mapping = doc.root().as_mapping().context("missing root mapping")?;
 /// assert!(!mapping.is_empty());
 /// assert_eq!(mapping.len(), 1);
 /// assert_eq!(doc.to_string(), "{test: 1,}");
 ///
-/// let doc = yaml::from_bytes(
+/// let doc = yaml::from_slice(
 ///     r#"
 ///     {one: one, two: two, three: 3,}
 ///     "#,
@@ -86,7 +86,7 @@ impl<'a> Mapping<'a> {
     /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
-    /// let doc = yaml::from_bytes(r#"
+    /// let doc = yaml::from_slice(r#"
     /// first: 32
     /// second: [1, 2, 3]
     /// "#)?;
@@ -114,7 +114,7 @@ impl<'a> Mapping<'a> {
     /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
-    /// let doc = yaml::from_bytes(
+    /// let doc = yaml::from_slice(
     ///     r#"
     ///     one: 1
     ///     two: 2
@@ -140,7 +140,7 @@ impl<'a> Mapping<'a> {
     /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
-    /// let doc = yaml::from_bytes(
+    /// let doc = yaml::from_slice(
     ///     r#"
     ///     one: 1
     ///     two: 2
@@ -166,7 +166,7 @@ impl<'a> Mapping<'a> {
     /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
-    /// let doc = yaml::from_bytes(r#"
+    /// let doc = yaml::from_slice(r#"
     /// number1: 10
     /// number2: 20
     /// mapping:
@@ -206,7 +206,7 @@ impl<'a> Mapping<'a> {
     /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
-    /// let doc = yaml::from_bytes(
+    /// let doc = yaml::from_slice(
     ///     r#"
     ///     one: 1
     ///     two: 2
@@ -247,7 +247,7 @@ impl fmt::Debug for Mapping<'_> {
 /// use anyhow::Context;
 /// use nondestructive::yaml;
 ///
-/// let doc = yaml::from_bytes(
+/// let doc = yaml::from_slice(
 ///     r#"
 ///     one: 1
 ///     two: 2

@@ -6,7 +6,7 @@
 //! use anyhow::Context;
 //! use nondestructive::yaml;
 //!
-//! let doc = yaml::from_bytes(r#"
+//! let doc = yaml::from_slice(r#"
 //! number1: 10
 //! number2: 20
 //! mapping:

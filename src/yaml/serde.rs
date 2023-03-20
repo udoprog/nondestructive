@@ -1,3 +1,5 @@
+//! Serde support for YAML.
+//!
 //! By enabling the `serde` feature [`Document`] implements [`Serialize`] and
 //! [`IntoDeserializer`], allowing it to be used to deserialize into types:
 //!
@@ -45,7 +47,7 @@
 //!   title: Correspondance
 //! "#;
 //!
-//! let doc = yaml::from_bytes(SOURCE)?;
+//! let doc = yaml::from_slice(SOURCE)?;
 //!
 //! let string = serde_yaml::to_string(&doc)?;
 //! assert_eq!(string.trim(), SOURCE.trim());

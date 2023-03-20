@@ -4,7 +4,7 @@ use crate::yaml;
 
 macro_rules! test {
     ($from:expr, $to:expr) => {
-        let doc = yaml::from_bytes($from)?;
+        let doc = yaml::from_slice($from)?;
         assert_eq!(doc.root().as_str(), Some($to));
     };
 }

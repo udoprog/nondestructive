@@ -13,7 +13,7 @@ use crate::yaml::{Mapping, Null, Separator, ValueMut};
 /// use anyhow::Context;
 /// use nondestructive::yaml;
 ///
-/// let mut doc = yaml::from_bytes(r#"
+/// let mut doc = yaml::from_slice(r#"
 ///   number1: 10
 ///   number2: 20
 ///   mapping:
@@ -58,7 +58,7 @@ macro_rules! insert_float {
         /// use anyhow::Context;
         /// use nondestructive::yaml;
         ///
-        /// let mut doc = yaml::from_bytes(r#"
+        /// let mut doc = yaml::from_slice(r#"
         ///   number1: 10
         /// "#)?;
         ///
@@ -92,7 +92,7 @@ macro_rules! insert_number {
         /// use anyhow::Context;
         /// use nondestructive::yaml;
         ///
-        /// let mut doc = yaml::from_bytes(r#"
+        /// let mut doc = yaml::from_slice(r#"
         ///   number1: 10
         /// "#)?;
         /// let mut value = doc.root_mut().into_mapping_mut().context("not a mapping")?;
@@ -189,7 +189,7 @@ impl<'a> MappingMut<'a> {
     /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
-    /// let mut doc = yaml::from_bytes(r#"
+    /// let mut doc = yaml::from_slice(r#"
     ///   number1: 10
     ///   number2: 20
     ///   mapping:
@@ -224,7 +224,7 @@ impl<'a> MappingMut<'a> {
     /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
-    /// let mut doc = yaml::from_bytes(r#"
+    /// let mut doc = yaml::from_slice(r#"
     ///   number1: 10
     ///   number2: 20
     ///   mapping:
@@ -257,7 +257,7 @@ impl<'a> MappingMut<'a> {
     /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
-    /// let mut doc = yaml::from_bytes(r#"
+    /// let mut doc = yaml::from_slice(r#"
     ///   number1: 10
     ///   number2: 20
     ///   mapping:
@@ -301,7 +301,7 @@ impl<'a> MappingMut<'a> {
     /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
-    /// let mut doc = yaml::from_bytes(r#"
+    /// let mut doc = yaml::from_slice(r#"
     ///   number1: 10
     ///   number2: 20
     ///   mapping:
@@ -346,7 +346,7 @@ impl<'a> MappingMut<'a> {
     /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
-    /// let mut doc = yaml::from_bytes(r#"
+    /// let mut doc = yaml::from_slice(r#"
     ///   number1: 10
     ///   number2: 20
     ///   mapping:
@@ -399,7 +399,7 @@ impl<'a> MappingMut<'a> {
     /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
-    /// let mut doc = yaml::from_bytes(r#"
+    /// let mut doc = yaml::from_slice(r#"
     ///   number1: 10
     ///   number2: 20
     ///   mapping:
@@ -436,7 +436,7 @@ impl<'a> MappingMut<'a> {
     /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
-    /// let mut doc = yaml::from_bytes(
+    /// let mut doc = yaml::from_slice(
     ///     r#"
     ///     one: 1
     ///     two: 2
@@ -469,7 +469,7 @@ impl<'a> MappingMut<'a> {
     /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
-    /// let mut doc = yaml::from_bytes(r#"
+    /// let mut doc = yaml::from_slice(r#"
     ///   number1:  10
     /// "#)?;
     ///
@@ -500,7 +500,7 @@ impl<'a> MappingMut<'a> {
     /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
-    /// let mut doc = yaml::from_bytes(r#"
+    /// let mut doc = yaml::from_slice(r#"
     ///   number1: 10
     /// "#)?;
     /// let mut value = doc.root_mut().into_mapping_mut().context("not a mapping")?;

@@ -23,7 +23,7 @@ impl AnyMut<'_> {
     /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
-    /// let mut doc = yaml::from_bytes(r#"
+    /// let mut doc = yaml::from_slice(r#"
     /// - 10
     /// - 20
     /// "#)?;

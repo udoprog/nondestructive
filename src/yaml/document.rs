@@ -25,7 +25,7 @@ impl Document {
     /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
-    /// let doc = yaml::from_bytes("32")?;
+    /// let doc = yaml::from_slice("32")?;
     /// assert_eq!(doc.root().as_u32(), Some(32));
     ///
     /// # Ok::<_, anyhow::Error>(())
@@ -51,7 +51,7 @@ impl Document {
     /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
-    /// let mut doc = yaml::from_bytes(r#"
+    /// let mut doc = yaml::from_slice(r#"
     /// first: 32
     /// second: [1, 2, 3]
     /// "#)?;
@@ -74,7 +74,7 @@ impl Document {
     /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
-    /// let doc = yaml::from_bytes(r#"
+    /// let doc = yaml::from_slice(r#"
     /// first: 32
     /// second: [1, 2, 3]
     /// "#)?;
@@ -108,7 +108,7 @@ impl Document {
     /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
-    /// let mut doc = yaml::from_bytes(r#"
+    /// let mut doc = yaml::from_slice(r#"
     /// first: 32
     /// second: [1, 2, 3]
     /// "#)?;
@@ -131,7 +131,7 @@ impl Document {
     /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
-    /// let mut doc = yaml::from_bytes(r#"
+    /// let mut doc = yaml::from_slice(r#"
     /// first: 32
     /// second: [1, 2, 3]
     /// "#)?;
@@ -164,7 +164,7 @@ impl Document {
     /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
-    /// let mut doc = yaml::from_bytes("  32")?;
+    /// let mut doc = yaml::from_slice("  32")?;
     /// doc.root_mut().set_u32(42);
     /// assert_eq!(doc.to_string(), "  42");
     ///

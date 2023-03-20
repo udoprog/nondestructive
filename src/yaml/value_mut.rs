@@ -25,20 +25,20 @@ impl<'a> ValueMut<'a> {
     /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
-    /// let mut doc = yaml::from_bytes(r#"
+    /// let mut doc = yaml::from_slice(r#"
     /// Hello World
     /// "#)?;
     ///
     /// assert!(matches!(doc.root_mut().into_any_mut(), yaml::AnyMut::Scalar(..)));
     ///
-    /// let mut doc = yaml::from_bytes(r#"
+    /// let mut doc = yaml::from_slice(r#"
     /// number1: 10
     /// number2: 20
     /// "#)?;
     ///
     /// assert!(matches!(doc.root_mut().into_any_mut(), yaml::AnyMut::Mapping(..)));
     ///
-    /// let mut doc = yaml::from_bytes(r#"
+    /// let mut doc = yaml::from_slice(r#"
     /// - 10
     /// - 20
     /// "#)?;
@@ -66,7 +66,7 @@ impl<'a> ValueMut<'a> {
     /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
-    /// let mut doc = yaml::from_bytes(r#"
+    /// let mut doc = yaml::from_slice(r#"
     /// number1: 10
     /// number2: 20
     /// mapping:
@@ -103,7 +103,7 @@ impl<'a> ValueMut<'a> {
     /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
-    /// let mut doc = yaml::from_bytes(r#"
+    /// let mut doc = yaml::from_slice(r#"
     /// number1: 10
     /// number2: 20
     /// mapping:
@@ -136,7 +136,7 @@ impl<'a> ValueMut<'a> {
     /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
-    /// let mut doc = yaml::from_bytes(r#"
+    /// let mut doc = yaml::from_slice(r#"
     ///   number1: 10
     ///   number2: 20
     ///   mapping:
@@ -175,7 +175,7 @@ impl<'a> ValueMut<'a> {
     /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
-    /// let mut doc = yaml::from_bytes(r#"
+    /// let mut doc = yaml::from_slice(r#"
     ///   number1: 10
     ///   number2: 20
     ///   mapping:
@@ -228,7 +228,7 @@ impl<'a> ValueMut<'a> {
     /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
-    /// let mut doc = yaml::from_bytes(r#"
+    /// let mut doc = yaml::from_slice(r#"
     ///   - 10
     ///   - 20
     ///   - inner: 400
@@ -265,7 +265,7 @@ impl<'a> ValueMut<'a> {
     /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
-    /// let mut doc = yaml::from_bytes(r#"
+    /// let mut doc = yaml::from_slice(r#"
     ///   - 10
     ///   - 20
     ///   - inner: 400
@@ -305,7 +305,7 @@ macro_rules! set_float {
         /// use anyhow::Context;
         /// use nondestructive::yaml;
         ///
-        /// let mut doc = yaml::from_bytes("10")?;
+        /// let mut doc = yaml::from_slice("10")?;
         #[doc = concat!("let value = doc.root_mut().", stringify!($name), "(", stringify!($lit), ");")]
         #[doc = concat!("assert_eq!(doc.to_string(), \"", stringify!($lit), "\");")]
         /// # Ok::<_, anyhow::Error>(())
@@ -328,7 +328,7 @@ macro_rules! set_number {
         /// use anyhow::Context;
         /// use nondestructive::yaml;
         ///
-        /// let mut doc = yaml::from_bytes("  10")?;
+        /// let mut doc = yaml::from_slice("  10")?;
         #[doc = concat!("let value = doc.root_mut().", stringify!($name), "(", stringify!($lit), ");")]
         #[doc = concat!("assert_eq!(doc.to_string(), \"  ", stringify!($lit), "\");")]
         /// # Ok::<_, anyhow::Error>(())
@@ -350,15 +350,15 @@ impl<'a> ValueMut<'a> {
     /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
-    /// let mut doc = yaml::from_bytes("  string")?;
+    /// let mut doc = yaml::from_slice("  string")?;
     /// doc.root_mut().set_null(yaml::Null::Keyword);
     /// assert_eq!(doc.to_string(), "  null");
     ///
-    /// let mut doc = yaml::from_bytes("  string")?;
+    /// let mut doc = yaml::from_slice("  string")?;
     /// doc.root_mut().set_null(yaml::Null::Tilde);
     /// assert_eq!(doc.to_string(), "  ~");
     ///
-    /// let mut doc = yaml::from_bytes("  string")?;
+    /// let mut doc = yaml::from_slice("  string")?;
     /// doc.root_mut().set_null(yaml::Null::Empty);
     /// assert_eq!(doc.to_string(), "  ");
     ///
@@ -377,23 +377,23 @@ impl<'a> ValueMut<'a> {
     /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
-    /// let mut doc = yaml::from_bytes("  string")?;
+    /// let mut doc = yaml::from_slice("  string")?;
     /// doc.root_mut().set_string("i-am-a-string");
     /// assert_eq!(doc.to_string(), "  i-am-a-string");
     ///
-    /// let mut doc = yaml::from_bytes("  string")?;
+    /// let mut doc = yaml::from_slice("  string")?;
     /// doc.root_mut().set_string("I am a string");
     /// assert_eq!(doc.to_string(), "  I am a string");
     ///
-    /// let mut doc = yaml::from_bytes("  string")?;
+    /// let mut doc = yaml::from_slice("  string")?;
     /// doc.root_mut().set_string("I am a\n string");
     /// assert_eq!(doc.to_string(), "  \"I am a\\n string\"");
     ///
-    /// let mut doc = yaml::from_bytes("  string")?;
+    /// let mut doc = yaml::from_slice("  string")?;
     /// doc.root_mut().set_string("I am a string with \"quotes\"");
     /// assert_eq!(doc.to_string(), "  I am a string with \"quotes\"");
     ///
-    /// let mut doc = yaml::from_bytes("  string")?;
+    /// let mut doc = yaml::from_slice("  string")?;
     /// doc.root_mut().set_string("null");
     /// assert_eq!(doc.to_string(), "  'null'");
     /// # Ok::<_, anyhow::Error>(())
@@ -415,7 +415,7 @@ impl<'a> ValueMut<'a> {
     /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
-    /// let mut doc = yaml::from_bytes("  string")?;
+    /// let mut doc = yaml::from_slice("  string")?;
     /// doc.root_mut().set_bool(true);
     /// assert_eq!(doc.to_string(), "  true");
     /// # Ok::<_, anyhow::Error>(())
@@ -446,7 +446,7 @@ impl<'a> ValueMut<'a> {
     /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
-    /// let mut doc = yaml::from_bytes(
+    /// let mut doc = yaml::from_slice(
     ///     r#"
     ///     string
     ///     "#
@@ -464,7 +464,7 @@ impl<'a> ValueMut<'a> {
     ///     "#
     /// );
     ///
-    /// let mut doc = yaml::from_bytes(
+    /// let mut doc = yaml::from_slice(
     ///     r#"
     ///     first: second
     ///     "#
@@ -509,7 +509,7 @@ impl<'a> ValueMut<'a> {
     /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
-    /// let mut doc = yaml::from_bytes(
+    /// let mut doc = yaml::from_slice(
     ///     r#"
     ///     string
     ///     "#
@@ -526,7 +526,7 @@ impl<'a> ValueMut<'a> {
     ///     "#
     /// );
     ///
-    /// let mut doc = yaml::from_bytes(
+    /// let mut doc = yaml::from_slice(
     ///     r#"
     ///     first: second
     ///     "#

@@ -6,11 +6,21 @@
 //! Nondestructive editing tries to preserve as much as possible of the existing
 //! structure, while allowing the document to be modified in place.
 //!
+//! **This project is as of yet, incomplete!**
+//!
+//! See the corresponding module for detailed documentation on how to use:
+//!
+//! * [YAML support][yaml].
+//!
+//! <br>
+//!
+//! ## Examples
+//!
 //! ```
 //! use anyhow::Context;
 //! use nondestructive::yaml;
 //!
-//! let mut doc = yaml::from_bytes(
+//! let mut doc = yaml::from_slice(
 //!     r#"
 //!     name: Descartes
 //!     country: Grece
@@ -38,14 +48,11 @@
 //! # Ok::<_, anyhow::Error>(())
 //! ```
 //!
-//! **This project is as of yet, incomplete!**
-//!
-//! See the corresponding module for how to use:
-//!
-//! * [Yaml][yaml].
+//! [yaml]: https://docs.rs/nondestructive/latest/nondestructive/yaml/index.html
 
 #![deny(missing_docs)]
 #![allow(clippy::module_inception)]
 #![allow(clippy::module_name_repetitions)]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 
 pub mod yaml;

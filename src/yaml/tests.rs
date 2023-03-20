@@ -10,7 +10,7 @@ use crate::yaml;
 
 #[test]
 fn make_mapping() -> Result<()> {
-    let mut doc = yaml::from_bytes(
+    let mut doc = yaml::from_slice(
         r#"
         first: second
         "#,
@@ -36,7 +36,7 @@ fn make_mapping() -> Result<()> {
 
 #[test]
 fn test_property_eol() -> Result<()> {
-    let doc = yaml::from_bytes(
+    let doc = yaml::from_slice(
         r#"
         mapping:
             inner: so this is as a matter of @ course, a large document
@@ -61,7 +61,7 @@ fn test_property_eol() -> Result<()> {
 
 #[test]
 fn test_sequences() -> Result<()> {
-    let doc = yaml::from_bytes(
+    let doc = yaml::from_slice(
         r#"
         - one
         - two

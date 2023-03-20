@@ -70,16 +70,16 @@ impl Null {
 /// ```
 /// use nondestructive::yaml;
 ///
-/// let doc = yaml::from_bytes("string")?;
+/// let doc = yaml::from_slice("string")?;
 /// assert_eq!(doc.root().as_str(), Some("string"));
 ///
-/// let doc = yaml::from_bytes("\"a double-quoted string\"")?;
+/// let doc = yaml::from_slice("\"a double-quoted string\"")?;
 /// assert_eq!(doc.root().as_str(), Some("a double-quoted string"));
 ///
-/// let doc = yaml::from_bytes("'a single-quoted string'")?;
+/// let doc = yaml::from_slice("'a single-quoted string'")?;
 /// assert_eq!(doc.root().as_str(), Some("a single-quoted string"));
 ///
-/// let doc = yaml::from_bytes("'It''s a bargain!'")?;
+/// let doc = yaml::from_slice("'It''s a bargain!'")?;
 /// assert_eq!(doc.root().as_str(), Some("It's a bargain!"));
 ///
 /// # Ok::<_, anyhow::Error>(())
@@ -99,7 +99,7 @@ macro_rules! as_number {
         /// use anyhow::Context;
         /// use nondestructive::yaml;
         ///
-        #[doc = concat!("let doc = yaml::from_bytes(\"", stringify!($lit), "\")?;")]
+        #[doc = concat!("let doc = yaml::from_slice(\"", stringify!($lit), "\")?;")]
         #[doc = concat!("let value = doc.root().", stringify!($name), "();")]
         #[doc = concat!("assert_eq!(value, Some(", stringify!($lit), "));")]
         /// # Ok::<_, anyhow::Error>(())
@@ -130,20 +130,20 @@ impl<'a> Value<'a> {
     /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
-    /// let doc = yaml::from_bytes(r#"
+    /// let doc = yaml::from_slice(r#"
     /// Hello World
     /// "#)?;
     ///
     /// assert!(matches!(doc.root().into_any(), yaml::Any::Scalar(..)));
     ///
-    /// let doc = yaml::from_bytes(r#"
+    /// let doc = yaml::from_slice(r#"
     /// number1: 10
     /// number2: 20
     /// "#)?;
     ///
     /// assert!(matches!(doc.root().into_any(), yaml::Any::Mapping(..)));
     ///
-    /// let doc = yaml::from_bytes(r#"
+    /// let doc = yaml::from_slice(r#"
     /// - 10
     /// - 20
     /// "#)?;
@@ -176,7 +176,7 @@ impl<'a> Value<'a> {
     /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
-    /// let mut doc = yaml::from_bytes(r#"
+    /// let mut doc = yaml::from_slice(r#"
     /// first: 32
     /// second: [1, 2, 3]
     /// "#)?;
@@ -199,7 +199,7 @@ impl<'a> Value<'a> {
     /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
-    /// let doc = yaml::from_bytes(r#"
+    /// let doc = yaml::from_slice(r#"
     /// first: 32
     /// second: [1, 2, 3]
     /// "#)?;
@@ -227,10 +227,10 @@ impl<'a> Value<'a> {
     /// use nondestructive::yaml;
     /// use bstr::BStr;
     ///
-    /// let doc = yaml::from_bytes("string")?;
+    /// let doc = yaml::from_slice("string")?;
     /// assert_eq!(doc.root().as_str(), Some("string"));
     ///
-    /// let doc = yaml::from_bytes(r#"
+    /// let doc = yaml::from_slice(r#"
     /// - It's the same string!
     /// - "It's the same string!"
     /// - 'It''s the same string!'
@@ -265,7 +265,7 @@ impl<'a> Value<'a> {
     /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
-    /// let doc = yaml::from_bytes("フェリスと言います！")?;
+    /// let doc = yaml::from_slice("フェリスと言います！")?;
     /// assert_eq!(doc.root().as_str(), Some("フェリスと言います！"));
     /// # Ok::<_, anyhow::Error>(())
     /// ```
@@ -274,7 +274,7 @@ impl<'a> Value<'a> {
     /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
-    /// let doc = yaml::from_bytes("\"hello \\x20 world\"")?;
+    /// let doc = yaml::from_slice("\"hello \\x20 world\"")?;
     /// assert_eq!(doc.root().as_str(), Some("hello \x20 world"));
     /// assert_eq!(doc.to_string(), "\"hello \\x20 world\"");
     /// # Ok::<_, anyhow::Error>(())
@@ -286,10 +286,10 @@ impl<'a> Value<'a> {
     /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
-    /// let doc = yaml::from_bytes("string")?;
+    /// let doc = yaml::from_slice("string")?;
     /// assert_eq!(doc.root().as_str(), Some("string"));
     ///
-    /// let doc = yaml::from_bytes(r#"
+    /// let doc = yaml::from_slice(r#"
     /// - It's the same string!
     /// - "It's the same string!"
     /// - 'It''s the same string!'
@@ -318,10 +318,10 @@ impl<'a> Value<'a> {
     /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
-    /// let doc = yaml::from_bytes("true")?;
+    /// let doc = yaml::from_slice("true")?;
     /// assert_eq!(doc.root().as_bool(), Some(true));
     ///
-    /// let doc = yaml::from_bytes("string")?;
+    /// let doc = yaml::from_slice("string")?;
     /// assert_eq!(doc.root().as_bool(), None);
     /// # Ok::<_, anyhow::Error>(())
     /// ```
@@ -341,7 +341,7 @@ impl<'a> Value<'a> {
     /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
-    /// let doc = yaml::from_bytes(r#"
+    /// let doc = yaml::from_slice(r#"
     /// number1: 10
     /// number2: 20
     /// mapping:
@@ -376,7 +376,7 @@ impl<'a> Value<'a> {
     /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
-    /// let doc = yaml::from_bytes(
+    /// let doc = yaml::from_slice(
     ///     r#"
     ///     - one
     ///     - two

@@ -12,7 +12,7 @@ use crate::yaml::Value;
 /// use anyhow::Context;
 /// use nondestructive::yaml;
 ///
-/// let doc = yaml::from_bytes(
+/// let doc = yaml::from_slice(
 ///     r#"
 ///     - one
 ///     - two
@@ -34,7 +34,7 @@ use crate::yaml::Value;
 /// use anyhow::Context;
 /// use nondestructive::yaml;
 ///
-/// let doc = yaml::from_bytes(
+/// let doc = yaml::from_slice(
 ///     r#"
 ///     - one
 ///     - two
@@ -75,16 +75,16 @@ use crate::yaml::Value;
 /// use anyhow::Context;
 /// use nondestructive::yaml;
 ///
-/// let doc = yaml::from_bytes("[]")?;
+/// let doc = yaml::from_slice("[]")?;
 /// assert_eq!(doc.to_string(), "[]");
 ///
-/// let doc = yaml::from_bytes("[,]")?;
+/// let doc = yaml::from_slice("[,]")?;
 /// let sequence = doc.root().as_sequence().context("missing root sequence")?;
 /// assert!(!sequence.is_empty());
 /// assert_eq!(sequence.len(), 1);
 /// assert_eq!(doc.to_string(), "[,]");
 ///
-/// let doc = yaml::from_bytes(
+/// let doc = yaml::from_slice(
 ///     r#"
 ///     [one, two, 3,]
 ///     "#,
@@ -121,7 +121,7 @@ impl<'a> Sequence<'a> {
     /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
-    /// let doc = yaml::from_bytes(r#"
+    /// let doc = yaml::from_slice(r#"
     /// - 32
     /// - [1, 2, 3]
     /// "#)?;
@@ -149,7 +149,7 @@ impl<'a> Sequence<'a> {
     /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
-    /// let doc = yaml::from_bytes(
+    /// let doc = yaml::from_slice(
     ///     r#"
     ///     - one
     ///     - two
@@ -175,7 +175,7 @@ impl<'a> Sequence<'a> {
     /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
-    /// let doc = yaml::from_bytes(
+    /// let doc = yaml::from_slice(
     ///     r#"
     ///     - one
     ///     - two
@@ -201,7 +201,7 @@ impl<'a> Sequence<'a> {
     /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
-    /// let doc = yaml::from_bytes(
+    /// let doc = yaml::from_slice(
     ///     r#"
     ///     - one
     ///     - two
@@ -232,7 +232,7 @@ impl<'a> Sequence<'a> {
     /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
-    /// let doc = yaml::from_bytes(
+    /// let doc = yaml::from_slice(
     ///     r#"
     ///     - one
     ///     - two
@@ -273,7 +273,7 @@ impl fmt::Debug for Sequence<'_> {
 /// use anyhow::Context;
 /// use nondestructive::yaml;
 ///
-/// let doc = yaml::from_bytes(
+/// let doc = yaml::from_slice(
 ///     r#"
 ///     - one
 ///     - two

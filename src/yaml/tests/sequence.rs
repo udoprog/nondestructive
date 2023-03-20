@@ -4,7 +4,7 @@ use crate::yaml;
 
 #[test]
 fn sequence() -> Result<()> {
-    let doc = yaml::from_bytes(
+    let doc = yaml::from_slice(
         r#"
         - 1
         - 2
@@ -28,7 +28,7 @@ fn sequence() -> Result<()> {
 
 #[test]
 fn inline_sequence() -> Result<()> {
-    let doc = yaml::from_bytes(
+    let doc = yaml::from_slice(
         r#"
         - 1
         - 2
@@ -52,7 +52,7 @@ fn inline_sequence() -> Result<()> {
 
 #[test]
 fn mutable_nested_sequence() -> Result<()> {
-    let mut doc = yaml::from_bytes(
+    let mut doc = yaml::from_slice(
         r#"
         - - 10
         "#,
