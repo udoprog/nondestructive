@@ -1,4 +1,5 @@
 use std::fmt::{self, Write};
+use std::io;
 use std::iter;
 use std::mem;
 
@@ -209,6 +210,44 @@ impl Raw {
 
         Ok(())
     }
+
+    pub(crate) fn write_to<O>(&self, data: &Data, o: &mut O) -> io::Result<()>
+    where
+        O: ?Sized + io::Write,
+    {
+        match self {
+            Raw::Null(raw) => {
+                raw.write_to(o)?;
+            }
+            Raw::Boolean(raw) => {
+                if *raw {
+                    write!(o, "true")?;
+                } else {
+                    write!(o, "false")?;
+                }
+            }
+            Raw::Number(raw) => {
+                raw.write_to(data, o)?;
+            }
+            Raw::String(raw) => {
+                raw.write_to(data, o)?;
+            }
+            Raw::Mapping(raw) => {
+                raw.write_to(data, o)?;
+            }
+            Raw::MappingItem(raw) => {
+                raw.write_to(data, o)?;
+            }
+            Raw::Sequence(raw) => {
+                raw.write_to(data, o)?;
+            }
+            Raw::SequenceItem(raw) => {
+                raw.write_to(data, o)?;
+            }
+        }
+
+        Ok(())
+    }
 }
 
 macro_rules! from {
@@ -244,6 +283,14 @@ impl Number {
     #[inline]
     fn display(&self, data: &Data, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", data.str(self.string))
+    }
+
+    #[inline]
+    pub(crate) fn write_to<O>(&self, data: &Data, o: &mut O) -> io::Result<()>
+    where
+        O: ?Sized + io::Write,
+    {
+        o.write_all(data.str(self.string))
     }
 }
 
@@ -313,10 +360,7 @@ impl String {
     fn display(&self, data: &Data, f: &mut fmt::Formatter) -> fmt::Result {
         /// Single-quoted escape sequences:
         /// <https://yaml.org/spec/1.2.2/#escaped-characters>.
-        fn escape_single_quoted(
-            string: &bstr::BStr,
-            f: &mut fmt::Formatter,
-        ) -> Result<(), fmt::Error> {
+        fn escape_single_quoted(string: &bstr::BStr, f: &mut fmt::Formatter) -> fmt::Result {
             f.write_char('\'')?;
 
             for c in string.chars() {
@@ -336,10 +380,7 @@ impl String {
 
         /// Double-quoted escape sequences:
         /// <https://yaml.org/spec/1.2.2/#escaped-characters>.
-        fn escape_double_quoted(
-            string: &bstr::BStr,
-            f: &mut fmt::Formatter,
-        ) -> Result<(), fmt::Error> {
+        fn escape_double_quoted(string: &bstr::BStr, f: &mut fmt::Formatter) -> fmt::Result {
             f.write_char('"')?;
 
             for c in string.chars() {
@@ -407,6 +448,110 @@ impl String {
             RawStringKind::Multiline(prefix, original) => {
                 let string = data.str(*original);
                 write!(f, "{}{string}", data.str(*prefix))?;
+            }
+        }
+
+        Ok(())
+    }
+
+    fn write_to<O>(&self, data: &Data, o: &mut O) -> io::Result<()>
+    where
+        O: ?Sized + io::Write,
+    {
+        /// Single-quoted escape sequences:
+        /// <https://yaml.org/spec/1.2.2/#escaped-characters>.
+        fn escape_single_quoted<O>(string: &bstr::BStr, f: &mut O) -> io::Result<()>
+        where
+            O: ?Sized + io::Write,
+        {
+            f.write_all(&[b'\''])?;
+
+            for c in string.chars() {
+                match c {
+                    '\'' => {
+                        f.write_all(b"''")?;
+                    }
+                    c => {
+                        f.write_all(c.encode_utf8(&mut [0; 4]).as_bytes())?;
+                    }
+                }
+            }
+
+            f.write_all(&[b'\''])?;
+            Ok(())
+        }
+
+        /// Double-quoted escape sequences:
+        /// <https://yaml.org/spec/1.2.2/#escaped-characters>.
+        fn escape_double_quoted<O>(string: &bstr::BStr, o: &mut O) -> io::Result<()>
+        where
+            O: ?Sized + io::Write,
+        {
+            o.write_all(&[b'"'])?;
+
+            for c in string.chars() {
+                match c {
+                    '\u{0000}' => {
+                        o.write_all(b"\\0")?;
+                    }
+                    '\u{0007}' => {
+                        o.write_all(b"\\a")?;
+                    }
+                    '\u{0008}' => {
+                        o.write_all(b"\\b")?;
+                    }
+                    '\u{0009}' => {
+                        o.write_all(b"\\t")?;
+                    }
+                    '\n' => {
+                        o.write_all(b"\\n")?;
+                    }
+                    '\u{000b}' => {
+                        o.write_all(b"\\v")?;
+                    }
+                    '\u{000c}' => {
+                        o.write_all(b"\\f")?;
+                    }
+                    '\r' => {
+                        o.write_all(b"\\r")?;
+                    }
+                    '\u{001b}' => {
+                        o.write_all(b"\\e")?;
+                    }
+                    '\"' => {
+                        o.write_all(b"\\\"")?;
+                    }
+                    c if c.is_ascii_control() => {
+                        write!(o, "\\x{:02x}", c as u8)?;
+                    }
+                    c => {
+                        o.write_all(c.encode_utf8(&mut [0; 4]).as_bytes())?;
+                    }
+                }
+            }
+
+            o.write_all(&[b'"'])?;
+            Ok(())
+        }
+
+        match &self.kind {
+            RawStringKind::Bare => {
+                o.write_all(data.str(self.string))?;
+            }
+            RawStringKind::Double => {
+                let string = data.str(self.string);
+                escape_double_quoted(string, o)?;
+            }
+            RawStringKind::Single => {
+                let string = data.str(self.string);
+                escape_single_quoted(string, o)?;
+            }
+            RawStringKind::Original(original) => {
+                o.write_all(data.str(*original))?;
+            }
+            RawStringKind::Multiline(prefix, original) => {
+                o.write_all(data.str(*prefix))?;
+                o.write_all(data.str(*original))?;
             }
         }
 
@@ -484,6 +629,44 @@ impl Sequence {
 
         Ok(())
     }
+
+    fn write_to<O>(&self, data: &Data, o: &mut O) -> io::Result<()>
+    where
+        O: ?Sized + io::Write,
+    {
+        if let SequenceKind::Inline { .. } = &self.kind {
+            write!(o, "[")?;
+        }
+
+        let mut it = self.items.iter().peekable();
+
+        while let Some(item) = it.next() {
+            write!(o, "{}", data.prefix(*item))?;
+
+            if let SequenceKind::Mapping = self.kind {
+                write!(o, "-")?;
+            }
+
+            data.sequence_item(*item).write_to(data, o)?;
+
+            if it.peek().is_some() {
+                if let SequenceKind::Inline { .. } = self.kind {
+                    write!(o, ",")?;
+                }
+            }
+        }
+
+        if let SequenceKind::Inline { trailing, suffix } = &self.kind {
+            if *trailing {
+                write!(o, ",")?;
+            }
+
+            o.write_all(data.str(*suffix))?;
+            write!(o, "]")?;
+        }
+
+        Ok(())
+    }
 }
 
 /// An element in a YAML sequence.
@@ -496,6 +679,15 @@ impl SequenceItem {
     fn display(&self, data: &Data, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", data.prefix(self.value))?;
         data.raw(self.value).display(data, f)?;
+        Ok(())
+    }
+
+    fn write_to<O>(&self, data: &Data, o: &mut O) -> io::Result<()>
+    where
+        O: ?Sized + io::Write,
+    {
+        o.write_all(data.prefix(self.value))?;
+        data.raw(self.value).write_to(data, o)?;
         Ok(())
     }
 }
@@ -566,6 +758,39 @@ impl Mapping {
 
         Ok(())
     }
+
+    fn write_to<O>(&self, data: &Data, o: &mut O) -> io::Result<()>
+    where
+        O: ?Sized + io::Write,
+    {
+        if let MappingKind::Inline { .. } = &self.kind {
+            write!(o, "{{")?;
+        }
+
+        let mut it = self.items.iter().peekable();
+
+        while let Some(id) = it.next() {
+            o.write_all(data.prefix(*id))?;
+            data.mapping_item(*id).write_to(data, o)?;
+
+            if it.peek().is_some() {
+                if let MappingKind::Inline { .. } = &self.kind {
+                    write!(o, ",")?;
+                }
+            }
+        }
+
+        if let MappingKind::Inline { trailing, suffix } = &self.kind {
+            if *trailing {
+                write!(o, ",")?;
+            }
+
+            o.write_all(data.str(*suffix))?;
+            write!(o, "}}")?;
+        }
+
+        Ok(())
+    }
 }
 
 /// An element in a YAML mapping.
@@ -581,6 +806,17 @@ impl MappingItem {
         write!(f, "{key}:")?;
         write!(f, "{}", data.prefix(self.value))?;
         data.raw(self.value).display(data, f)?;
+        Ok(())
+    }
+
+    fn write_to<O>(&self, data: &Data, o: &mut O) -> io::Result<()>
+    where
+        O: ?Sized + io::Write,
+    {
+        o.write_all(data.str(self.key.string))?;
+        write!(o, ":")?;
+        o.write_all(data.prefix(self.value))?;
+        data.raw(self.value).write_to(data, o)?;
         Ok(())
     }
 }

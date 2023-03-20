@@ -21,6 +21,8 @@ jobs:
     - run: cargo test --workspace --all-targets --no-default-features
     - run: cargo test --workspace --all-targets --all-features
     - run: cargo test --workspace --doc --all-features
+      env:
+         RUSTFLAGS: --cfg nondestructive_write_to_eq
       if: matrix.rust == 'stable'
 
   clippy:
@@ -38,7 +40,7 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - uses: dtolnay/rust-toolchain@nightly
-    - run: cargo doc
+    - run: cargo doc --all-features
       env:
         RUSTFLAGS: --cfg docsrs
         RUSTDOCFLAGS: --cfg docsrs

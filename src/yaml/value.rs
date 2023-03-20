@@ -1,4 +1,5 @@
-use core::fmt;
+use std::fmt;
+use std::io;
 
 use bstr::{BStr, ByteSlice};
 
@@ -121,6 +122,25 @@ impl Null {
             }
             Null::Tilde => {
                 write!(f, "~")?;
+            }
+            Null::Empty => {
+                // empty values count as null.
+            }
+        }
+
+        Ok(())
+    }
+
+    pub(crate) fn write_to<O>(self, o: &mut O) -> io::Result<()>
+    where
+        O: ?Sized + io::Write,
+    {
+        match self {
+            Null::Keyword => {
+                write!(o, "null")?;
+            }
+            Null::Tilde => {
+                write!(o, "~")?;
             }
             Null::Empty => {
                 // empty values count as null.

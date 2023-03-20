@@ -1,8 +1,8 @@
 //! Support for non-destructive YAML editing.
 //!
 //! YAML is parsed with [`from_slice`], which returns a [`Document`]. Documents
-//! are serialized through their [`std::fmt::Display`] and [`std::io::Write`]
-//! implementations.
+//! are serialized through their [`std::fmt::Display`] and
+//! [`Document::write_to`] implementations.
 //!
 //! With `serde` support enabled, [`Document`] can also be serialized through
 //! [`serde`].
