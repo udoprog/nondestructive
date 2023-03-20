@@ -156,7 +156,7 @@ impl<'a> ValueMut<'a> {
     ///
     /// let mut root = doc.as_mut();
     /// let mut root = root.as_mapping_mut().context("missing root mapping")?;
-    /// root.get_mut("number2").context("missing inner mapping")?.set_u32(30);
+    /// root.get_mut("number2").context("missing number2")?.set_u32(30);
     ///
     /// assert_eq!(
     ///     doc.to_string(),
@@ -197,8 +197,8 @@ impl<'a> ValueMut<'a> {
     /// )?;
     ///
     /// let mut root = doc.as_mut().into_mapping_mut().context("missing root mapping")?;
-    /// root.get_mut("number2").context("missing inner mapping")?.set_u32(30);
-    /// root.get_mut("string3").context("missing inner mapping")?.set_string("i-am-a-bare-string");
+    /// root.get_mut("number2").context("missing number2")?.set_u32(30);
+    /// root.get_mut("string3").context("missing string3")?.set_string("i-am-a-bare-string");
     ///
     /// assert_eq!(
     ///     doc.to_string(),
@@ -212,7 +212,7 @@ impl<'a> ValueMut<'a> {
     /// );
     ///
     /// let mut root = doc.as_mut().into_mapping_mut().context("missing root mapping")?;
-    /// root.get_mut("string3").context("missing inner mapping")?.set_string("It's \n a good day!");
+    /// root.get_mut("string3").context("missing string3")?.set_string("It's \n a good day!");
     ///
     /// assert_eq!(
     ///     doc.to_string(),

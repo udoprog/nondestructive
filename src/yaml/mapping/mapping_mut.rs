@@ -32,7 +32,7 @@ use crate::yaml::{Block, Mapping, Null, Separator, ValueMut};
 /// let mapping = root.get_mut("mapping").and_then(|v| v.into_mapping_mut()).context("missing inner mapping")?;
 /// assert_eq!(mapping.as_ref().get("inner").and_then(|v| v.as_u32()), Some(400));
 ///
-/// root.get_mut("number2").context("missing inner mapping")?.set_u32(30);
+/// root.get_mut("number2").context("missing number2")?.set_u32(30);
 ///
 /// assert_eq!(
 ///     doc.to_string(),
@@ -252,7 +252,7 @@ impl<'a> MappingMut<'a> {
     /// )?;
     ///
     /// let mut root = doc.as_mut();
-    /// let root = root.as_mapping_mut().map(|t| t.into_ref()).context("missing root mapping")?;
+    /// let root = root.as_mapping_mut().map(|m| m.into_ref()).context("missing root mapping")?;
     ///
     /// assert_eq!(root.get("number1").and_then(|v| v.as_u32()), Some(10));
     /// assert_eq!(root.get("number2").and_then(|v| v.as_u32()), Some(20));
@@ -286,9 +286,8 @@ impl<'a> MappingMut<'a> {
     ///     "#
     /// )?;
     ///
-    /// let mut root = doc.as_mut();
-    /// let mut root = root.as_mapping_mut().context("missing root mapping")?;
-    /// root.get_mut("number2").context("missing inner mapping")?.set_u32(30);
+    /// let mut root = doc.as_mut().into_mapping_mut().context("missing root mapping")?;
+    /// root.get_mut("number2").context("missing number2")?.set_u32(30);
     ///
     /// assert_eq!(
     ///     doc.to_string(),
