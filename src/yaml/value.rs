@@ -139,16 +139,16 @@ impl Null {
 /// use nondestructive::yaml;
 ///
 /// let doc = yaml::from_slice("string")?;
-/// assert_eq!(doc.root().as_str(), Some("string"));
+/// assert_eq!(doc.as_ref().as_str(), Some("string"));
 ///
 /// let doc = yaml::from_slice("\"a double-quoted string\"")?;
-/// assert_eq!(doc.root().as_str(), Some("a double-quoted string"));
+/// assert_eq!(doc.as_ref().as_str(), Some("a double-quoted string"));
 ///
 /// let doc = yaml::from_slice("'a single-quoted string'")?;
-/// assert_eq!(doc.root().as_str(), Some("a single-quoted string"));
+/// assert_eq!(doc.as_ref().as_str(), Some("a single-quoted string"));
 ///
 /// let doc = yaml::from_slice("'It''s a bargain!'")?;
-/// assert_eq!(doc.root().as_str(), Some("It's a bargain!"));
+/// assert_eq!(doc.as_ref().as_str(), Some("It's a bargain!"));
 ///
 /// # Ok::<_, anyhow::Error>(())
 /// ```
@@ -168,7 +168,7 @@ macro_rules! as_number {
         /// use nondestructive::yaml;
         ///
         #[doc = concat!("let doc = yaml::from_slice(\"", stringify!($lit), "\")?;")]
-        #[doc = concat!("let value = doc.root().", stringify!($name), "();")]
+        #[doc = concat!("let value = doc.as_ref().", stringify!($name), "();")]
         #[doc = concat!("assert_eq!(value, Some(", stringify!($lit), "));")]
         /// # Ok::<_, anyhow::Error>(())
         /// ```
@@ -204,7 +204,7 @@ impl<'a> Value<'a> {
     ///     "#
     /// )?;
     ///
-    /// assert!(matches!(doc.root().into_any(), yaml::Any::Scalar(..)));
+    /// assert!(matches!(doc.as_ref().into_any(), yaml::Any::Scalar(..)));
     ///
     /// let doc = yaml::from_slice(
     ///     r#"
@@ -213,7 +213,7 @@ impl<'a> Value<'a> {
     ///     "#
     /// )?;
     ///
-    /// assert!(matches!(doc.root().into_any(), yaml::Any::Mapping(..)));
+    /// assert!(matches!(doc.as_ref().into_any(), yaml::Any::Mapping(..)));
     ///
     /// let doc = yaml::from_slice(
     ///     r#"
@@ -222,7 +222,7 @@ impl<'a> Value<'a> {
     ///     "#
     /// )?;
     ///
-    /// assert!(matches!(doc.root().into_any(), yaml::Any::Sequence(..)));
+    /// assert!(matches!(doc.as_ref().into_any(), yaml::Any::Sequence(..)));
     /// # Ok::<_, anyhow::Error>(())
     /// ```
     #[must_use]
@@ -257,11 +257,11 @@ impl<'a> Value<'a> {
     ///     "#
     /// )?;
     ///
-    /// let root = doc.root().as_mapping().context("missing mapping")?;
+    /// let root = doc.as_ref().as_mapping().context("missing mapping")?;
     /// let second = root.get("second").context("missing second")?;
     /// let id = second.id();
     ///
-    /// let mut root = doc.root_mut().into_mapping_mut().context("missing mapping")?;
+    /// let mut root = doc.as_mut().into_mapping_mut().context("missing mapping")?;
     /// assert!(root.remove("second"));
     ///
     /// // This will panic:
@@ -282,7 +282,7 @@ impl<'a> Value<'a> {
     ///     "#
     /// )?;
     ///
-    /// let root = doc.root().as_mapping().context("missing mapping")?;
+    /// let root = doc.as_ref().as_mapping().context("missing mapping")?;
     /// let second = root.get("second").context("missing second")?;
     /// let id = second.id();
     ///
@@ -306,7 +306,7 @@ impl<'a> Value<'a> {
     /// use bstr::BStr;
     ///
     /// let doc = yaml::from_slice("string")?;
-    /// assert_eq!(doc.root().as_str(), Some("string"));
+    /// assert_eq!(doc.as_ref().as_str(), Some("string"));
     ///
     /// let doc = yaml::from_slice(
     ///     r#"
@@ -316,7 +316,7 @@ impl<'a> Value<'a> {
     ///     "#
     /// )?;
     ///
-    /// let array = doc.root().as_sequence().context("expected sequence")?;
+    /// let array = doc.as_ref().as_sequence().context("expected sequence")?;
     ///
     /// for item in array {
     ///     assert_eq!(item.as_bstr(), Some(BStr::new("It's the same string!")));
@@ -346,7 +346,7 @@ impl<'a> Value<'a> {
     /// use nondestructive::yaml;
     ///
     /// let doc = yaml::from_slice("フェリスと言います！")?;
-    /// assert_eq!(doc.root().as_str(), Some("フェリスと言います！"));
+    /// assert_eq!(doc.as_ref().as_str(), Some("フェリスと言います！"));
     /// # Ok::<_, anyhow::Error>(())
     /// ```
     ///
@@ -355,7 +355,7 @@ impl<'a> Value<'a> {
     /// use nondestructive::yaml;
     ///
     /// let doc = yaml::from_slice("\"hello \\x20 world\"")?;
-    /// assert_eq!(doc.root().as_str(), Some("hello \x20 world"));
+    /// assert_eq!(doc.as_ref().as_str(), Some("hello \x20 world"));
     /// assert_eq!(doc.to_string(), "\"hello \\x20 world\"");
     /// # Ok::<_, anyhow::Error>(())
     /// ```
@@ -367,7 +367,7 @@ impl<'a> Value<'a> {
     /// use nondestructive::yaml;
     ///
     /// let doc = yaml::from_slice("string")?;
-    /// assert_eq!(doc.root().as_str(), Some("string"));
+    /// assert_eq!(doc.as_ref().as_str(), Some("string"));
     ///
     /// let doc = yaml::from_slice(
     ///     r#"
@@ -377,7 +377,7 @@ impl<'a> Value<'a> {
     ///     "#
     /// )?;
     ///
-    /// let array = doc.root().as_sequence().context("expected sequence")?;
+    /// let array = doc.as_ref().as_sequence().context("expected sequence")?;
     ///
     /// for item in array {
     ///     assert_eq!(item.as_str(), Some("It's the same string!"));
@@ -401,10 +401,10 @@ impl<'a> Value<'a> {
     /// use nondestructive::yaml;
     ///
     /// let doc = yaml::from_slice("true")?;
-    /// assert_eq!(doc.root().as_bool(), Some(true));
+    /// assert_eq!(doc.as_ref().as_bool(), Some(true));
     ///
     /// let doc = yaml::from_slice("string")?;
-    /// assert_eq!(doc.root().as_bool(), None);
+    /// assert_eq!(doc.as_ref().as_bool(), None);
     /// # Ok::<_, anyhow::Error>(())
     /// ```
     #[must_use]
@@ -433,7 +433,7 @@ impl<'a> Value<'a> {
     ///     "#
     /// )?;
     ///
-    /// let root = doc.root().as_mapping().context("missing root mapping")?;
+    /// let root = doc.as_ref().as_mapping().context("missing root mapping")?;
     ///
     /// assert_eq!(root.get("number1").and_then(|v| v.as_u32()), Some(10));
     /// assert_eq!(root.get("number2").and_then(|v| v.as_u32()), Some(20));
@@ -468,7 +468,7 @@ impl<'a> Value<'a> {
     ///     "#,
     /// )?;
     ///
-    /// let root = doc.root().as_sequence().context("missing root sequence")?;
+    /// let root = doc.as_ref().as_sequence().context("missing root sequence")?;
     ///
     /// assert_eq!(root.get(0).and_then(|v| v.as_str()), Some("one"));
     /// assert_eq!(root.get(1).and_then(|v| v.as_str()), Some("two"));

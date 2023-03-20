@@ -20,7 +20,7 @@ use crate::yaml::Value;
 ///     "#,
 /// )?;
 ///
-/// let root = doc.root().as_sequence().context("missing root sequence")?;
+/// let root = doc.as_ref().as_sequence().context("missing root sequence")?;
 ///
 /// assert_eq!(root.get(0).and_then(|v| v.as_str()), Some("one"));
 /// assert_eq!(root.get(1).and_then(|v| v.as_str()), Some("two"));
@@ -45,7 +45,7 @@ use crate::yaml::Value;
 ///     "#,
 /// )?;
 ///
-/// let root = doc.root().as_sequence().context("missing root sequence")?;
+/// let root = doc.as_ref().as_sequence().context("missing root sequence")?;
 ///
 /// assert_eq!(root.get(0).and_then(|v| v.as_str()), Some("one"));
 /// assert_eq!(root.get(1).and_then(|v| v.as_str()), Some("two"));
@@ -79,7 +79,7 @@ use crate::yaml::Value;
 /// assert_eq!(doc.to_string(), "[]");
 ///
 /// let doc = yaml::from_slice("[,]")?;
-/// let sequence = doc.root().as_sequence().context("missing root sequence")?;
+/// let sequence = doc.as_ref().as_sequence().context("missing root sequence")?;
 /// assert!(!sequence.is_empty());
 /// assert_eq!(sequence.len(), 1);
 /// assert_eq!(doc.to_string(), "[,]");
@@ -90,7 +90,7 @@ use crate::yaml::Value;
 ///     "#,
 /// )?;
 ///
-/// let root = doc.root().as_sequence().context("missing root sequence")?;
+/// let root = doc.as_ref().as_sequence().context("missing root sequence")?;
 /// assert_eq!(root.get(0).and_then(|v| v.as_str()), Some("one"));
 /// assert_eq!(root.get(1).and_then(|v| v.as_str()), Some("two"));
 /// assert_eq!(root.get(2).and_then(|v| v.as_u32()), Some(3));
@@ -128,7 +128,7 @@ impl<'a> Sequence<'a> {
     ///     "#
     /// )?;
     ///
-    /// let root = doc.root().as_sequence().context("missing sequence")?;
+    /// let root = doc.as_ref().as_sequence().context("missing sequence")?;
     /// let second = root.get(1).and_then(|v| v.as_sequence()).context("missing second")?;
     /// let id = second.id();
     ///
@@ -159,7 +159,7 @@ impl<'a> Sequence<'a> {
     ///     "#,
     /// )?;
     ///
-    /// let root = doc.root().as_sequence().context("missing root sequence")?;
+    /// let root = doc.as_ref().as_sequence().context("missing root sequence")?;
     /// assert_eq!(root.len(), 3);
     /// # Ok::<_, anyhow::Error>(())
     /// ```
@@ -185,7 +185,7 @@ impl<'a> Sequence<'a> {
     ///     "#,
     /// )?;
     ///
-    /// let root = doc.root().as_sequence().context("missing root sequence")?;
+    /// let root = doc.as_ref().as_sequence().context("missing root sequence")?;
     /// assert!(!root.is_empty());
     /// # Ok::<_, anyhow::Error>(())
     /// ```
@@ -211,7 +211,7 @@ impl<'a> Sequence<'a> {
     ///     "#,
     /// )?;
     ///
-    /// let root = doc.root().as_sequence().context("missing root sequence")?;
+    /// let root = doc.as_ref().as_sequence().context("missing root sequence")?;
     ///
     /// assert_eq!(root.get(0).and_then(|v| v.as_str()), Some("one"));
     /// assert_eq!(root.get(1).and_then(|v| v.as_str()), Some("two"));
@@ -242,7 +242,7 @@ impl<'a> Sequence<'a> {
     ///     "#,
     /// )?;
     ///
-    /// let root = doc.root().as_sequence().context("missing root sequence")?;
+    /// let root = doc.as_ref().as_sequence().context("missing root sequence")?;
     ///
     /// assert_eq!(root.first().and_then(|v| v.as_str()), Some("one"));
     /// # Ok::<_, anyhow::Error>(())
@@ -271,7 +271,7 @@ impl<'a> Sequence<'a> {
     ///     "#,
     /// )?;
     ///
-    /// let root = doc.root().as_sequence().context("missing root sequence")?;
+    /// let root = doc.as_ref().as_sequence().context("missing root sequence")?;
     ///
     /// assert_eq!(root.last().and_then(|v| v.as_str()), Some("three"));
     /// # Ok::<_, anyhow::Error>(())
@@ -300,7 +300,7 @@ impl<'a> Sequence<'a> {
     ///     "#,
     /// )?;
     ///
-    /// let root = doc.root().as_sequence().context("missing root sequence")?;
+    /// let root = doc.as_ref().as_sequence().context("missing root sequence")?;
     /// root.iter().flat_map(|v| v.as_str()).eq(["one", "two", "three"]);
     /// # Ok::<_, anyhow::Error>(())
     /// ```
@@ -341,7 +341,7 @@ impl fmt::Debug for Sequence<'_> {
 ///     "#,
 /// )?;
 ///
-/// let root = doc.root().as_sequence().context("missing root sequence")?;
+/// let root = doc.as_ref().as_sequence().context("missing root sequence")?;
 /// root.into_iter().flat_map(|v| v.as_str()).eq(["one", "two", "three"]);
 /// # Ok::<_, anyhow::Error>(())
 /// ```

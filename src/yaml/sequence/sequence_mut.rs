@@ -27,7 +27,7 @@ macro_rules! push_float {
         ///     "#
         /// )?;
         ///
-        /// let mut value = doc.root_mut().into_sequence_mut().context("not a sequence")?;
+        /// let mut value = doc.as_mut().into_sequence_mut().context("not a sequence")?;
         ///
         #[doc = concat!("value.", stringify!($name), "(", stringify!($lit), ");")]
         /// assert_eq!(
@@ -64,7 +64,7 @@ macro_rules! push_number {
         ///     "#
         /// )?;
         ///
-        /// let mut value = doc.root_mut().into_sequence_mut().context("not a sequence")?;
+        /// let mut value = doc.as_mut().into_sequence_mut().context("not a sequence")?;
         ///
         #[doc = concat!("value.", stringify!($name), "(", stringify!($lit), ");")]
         ///
@@ -153,7 +153,7 @@ impl<'a> SequenceMut<'a> {
     ///     "#,
     /// )?;
     ///
-    /// let root = doc.root_mut().into_sequence_mut().context("missing root sequence")?;
+    /// let root = doc.as_mut().into_sequence_mut().context("missing root sequence")?;
     /// let root = root.as_ref();
     ///
     /// assert_eq!(root.get(0).and_then(|v| v.as_str()), Some("one"));
@@ -184,7 +184,7 @@ impl<'a> SequenceMut<'a> {
     ///     "#,
     /// )?;
     ///
-    /// let root = doc.root_mut().into_sequence_mut().context("missing root sequence")?.into_ref();
+    /// let root = doc.as_mut().into_sequence_mut().context("missing root sequence")?.into_ref();
     ///
     /// assert_eq!(root.get(0).and_then(|v| v.as_str()), Some("one"));
     /// assert_eq!(root.get(1).and_then(|v| v.as_str()), Some("two"));
@@ -214,7 +214,7 @@ impl<'a> SequenceMut<'a> {
     ///     "#
     /// )?;
     ///
-    /// let mut root = doc.root_mut();
+    /// let mut root = doc.as_mut();
     /// let mut root = root.as_sequence_mut().context("missing root sequence")?;
     /// root.get_mut(1).context("missing inner sequence")?.set_u32(30);
     ///
@@ -255,7 +255,7 @@ impl<'a> SequenceMut<'a> {
     ///     "#
     /// )?;
     ///
-    /// let mut root = doc.root_mut();
+    /// let mut root = doc.as_mut();
     /// let mut value = root.as_sequence_mut().and_then(|v| v.get_into_mut(1)).context("missing value")?;
     /// value.set_u32(30);
     ///
@@ -298,7 +298,7 @@ impl<'a> SequenceMut<'a> {
     ///     "#
     /// )?;
     ///
-    /// let mut root = doc.root_mut();
+    /// let mut root = doc.as_mut();
     /// let mut root = root.as_sequence_mut().context("missing root sequence")?;
     ///
     /// assert!(!root.remove(4));
@@ -343,7 +343,7 @@ impl<'a> SequenceMut<'a> {
     ///     "#
     /// )?;
     ///
-    /// let mut root = doc.root_mut();
+    /// let mut root = doc.as_mut();
     /// let mut root = root.as_sequence_mut().context("missing root sequence")?;
     ///
     /// root.clear();
@@ -381,7 +381,7 @@ impl<'a> SequenceMut<'a> {
     ///     "#,
     /// )?;
     ///
-    /// let mut root = doc.root_mut().into_sequence_mut().context("missing root sequence")?;
+    /// let mut root = doc.as_mut().into_sequence_mut().context("missing root sequence")?;
     /// root.push(yaml::Separator::Custom("   ")).set_bool(true);
     ///
     /// assert_eq! {
@@ -413,7 +413,7 @@ impl<'a> SequenceMut<'a> {
     ///     "#
     /// )?;
     ///
-    /// let mut value = doc.root_mut().into_sequence_mut().context("not a sequence")?;
+    /// let mut value = doc.as_mut().into_sequence_mut().context("not a sequence")?;
     /// let mut value = value.get_mut(0).and_then(|v| v.into_sequence_mut()).expect("missing inner");
     /// value.push_string("nice string");
     ///
@@ -452,7 +452,7 @@ impl<'a> SequenceMut<'a> {
     ///     "#
     /// )?;
     ///
-    /// let mut sequence = doc.root_mut().make_sequence();
+    /// let mut sequence = doc.as_mut().make_sequence();
     /// sequence.clear();
     /// sequence.push_block(["foo", "bar", "baz"], yaml::Block::Literal(yaml::Chomp::Clip));
     /// assert_eq!(sequence.as_ref().last().and_then(|v| v.as_str()), Some("foo\nbar\nbaz\n"));
@@ -467,7 +467,7 @@ impl<'a> SequenceMut<'a> {
     ///     "#
     /// );
     ///
-    /// let mut sequence = doc.root_mut().make_sequence();
+    /// let mut sequence = doc.as_mut().make_sequence();
     /// sequence.clear();
     /// sequence.push_block(["foo", "bar", "baz"], yaml::Block::Literal(yaml::Chomp::Keep));
     /// assert_eq!(sequence.as_ref().last().and_then(|v| v.as_str()), Some("foo\nbar\nbaz\n"));
@@ -482,7 +482,7 @@ impl<'a> SequenceMut<'a> {
     ///     "#
     /// );
     ///
-    /// let mut sequence = doc.root_mut().make_sequence();
+    /// let mut sequence = doc.as_mut().make_sequence();
     /// sequence.clear();
     /// sequence.push_block(["foo", "bar", "baz"], yaml::Block::Literal(yaml::Chomp::Strip));
     /// assert_eq!(sequence.as_ref().last().and_then(|v| v.as_str()), Some("foo\nbar\nbaz"));
@@ -497,7 +497,7 @@ impl<'a> SequenceMut<'a> {
     ///     "#
     /// );
     ///
-    /// let mut sequence = doc.root_mut().make_sequence();
+    /// let mut sequence = doc.as_mut().make_sequence();
     /// sequence.clear();
     /// sequence.push_block(["foo", "bar", "baz"], yaml::Block::Folded(yaml::Chomp::Clip));
     /// assert_eq!(sequence.as_ref().last().and_then(|v| v.as_str()), Some("foo bar baz\n"));
@@ -512,7 +512,7 @@ impl<'a> SequenceMut<'a> {
     ///     "#
     /// );
     ///
-    /// let mut sequence = doc.root_mut().make_sequence();
+    /// let mut sequence = doc.as_mut().make_sequence();
     /// sequence.clear();
     /// sequence.push_block(["foo", "bar", "baz"], yaml::Block::Folded(yaml::Chomp::Keep));
     /// assert_eq!(sequence.as_ref().last().and_then(|v| v.as_str()), Some("foo bar baz\n"));
@@ -527,7 +527,7 @@ impl<'a> SequenceMut<'a> {
     ///     "#
     /// );
     ///
-    /// let mut sequence = doc.root_mut().make_sequence();
+    /// let mut sequence = doc.as_mut().make_sequence();
     /// sequence.clear();
     /// sequence.push_block(["foo", "bar", "baz"], yaml::Block::Folded(yaml::Chomp::Strip));
     /// assert_eq!(sequence.as_ref().last().and_then(|v| v.as_str()), Some("foo bar baz"));
@@ -566,7 +566,7 @@ impl<'a> SequenceMut<'a> {
     ///     "#
     /// )?;
     ///
-    /// let mut value = doc.root_mut().into_sequence_mut().context("not a sequence")?;
+    /// let mut value = doc.as_mut().into_sequence_mut().context("not a sequence")?;
     /// let mut value = value.get_mut(0).and_then(|v| v.into_sequence_mut()).expect("missing inner");
     /// value.push_bool(false);
     ///

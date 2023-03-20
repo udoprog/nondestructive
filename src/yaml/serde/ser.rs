@@ -13,7 +13,7 @@ impl Serialize for Document {
     where
         S: Serializer,
     {
-        self.root().serialize(serializer)
+        self.as_ref().serialize(serializer)
     }
 }
 

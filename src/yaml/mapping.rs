@@ -16,7 +16,7 @@
 //!     "#
 //! )?;
 //!
-//! let root = doc.root().as_mapping().ok_or("missing root mapping")?;
+//! let root = doc.as_ref().as_mapping().ok_or("missing root mapping")?;
 //!
 //! assert_eq!(root.get("number1").and_then(|v| v.as_u32()), Some(10));
 //! assert_eq!(root.get("number2").and_then(|v| v.as_u32()), Some(20));

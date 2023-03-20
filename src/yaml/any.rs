@@ -30,7 +30,7 @@ impl Any<'_> {
     ///     "#
     /// )?;
     ///
-    /// let id = doc.root().into_any().id();
+    /// let id = doc.as_ref().into_any().id();
     ///
     /// assert_eq!(
     ///     doc.value(id).to_string(),

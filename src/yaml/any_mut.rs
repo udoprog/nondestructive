@@ -30,7 +30,7 @@ impl AnyMut<'_> {
     ///     "#
     /// )?;
     ///
-    /// let id = doc.root_mut().into_any_mut().id();
+    /// let id = doc.as_mut().into_any_mut().id();
     ///
     /// assert_eq!(
     ///     doc.value(id).to_string(),

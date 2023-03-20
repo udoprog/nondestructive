@@ -58,10 +58,7 @@ fn mutable_nested_sequence() -> Result<()> {
         "#,
     )?;
 
-    let mut value = doc
-        .root_mut()
-        .into_sequence_mut()
-        .context("not a sequence")?;
+    let mut value = doc.as_mut().into_sequence_mut().context("not a sequence")?;
     let mut value = value
         .get_mut(0)
         .and_then(yaml::ValueMut::into_sequence_mut)

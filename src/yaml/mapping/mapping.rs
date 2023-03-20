@@ -24,7 +24,7 @@ use crate::yaml::Value;
 ///     "#
 /// )?;
 ///
-/// let root = doc.root().as_mapping().context("missing root mapping")?;
+/// let root = doc.as_ref().as_mapping().context("missing root mapping")?;
 ///
 /// assert_eq!(root.get("number1").and_then(|v| v.as_u32()), Some(10));
 /// assert_eq!(root.get("number2").and_then(|v| v.as_u32()), Some(20));
@@ -46,7 +46,7 @@ use crate::yaml::Value;
 /// assert_eq!(doc.to_string(), "{}");
 ///
 /// let doc = yaml::from_slice("{test: 1,}")?;
-/// let mapping = doc.root().as_mapping().context("missing root mapping")?;
+/// let mapping = doc.as_ref().as_mapping().context("missing root mapping")?;
 /// assert!(!mapping.is_empty());
 /// assert_eq!(mapping.len(), 1);
 /// assert_eq!(doc.to_string(), "{test: 1,}");
@@ -57,7 +57,7 @@ use crate::yaml::Value;
 ///     "#,
 /// )?;
 ///
-/// let root = doc.root().as_mapping().context("missing root mapping")?;
+/// let root = doc.as_ref().as_mapping().context("missing root mapping")?;
 /// assert_eq!(root.get("one").and_then(|v| v.as_str()), Some("one"));
 /// assert_eq!(root.get("two").and_then(|v| v.as_str()), Some("two"));
 /// assert_eq!(root.get("three").and_then(|v| v.as_u32()), Some(3));
@@ -95,7 +95,7 @@ impl<'a> Mapping<'a> {
     ///     "#
     /// )?;
     ///
-    /// let root = doc.root().as_mapping().context("missing mapping")?;
+    /// let root = doc.as_ref().as_mapping().context("missing mapping")?;
     /// let second = root.get("second").and_then(|v| v.as_sequence()).context("missing second")?;
     /// let id = second.id();
     ///
@@ -126,7 +126,7 @@ impl<'a> Mapping<'a> {
     ///     "#,
     /// )?;
     ///
-    /// let root = doc.root().as_mapping().context("missing root mapping")?;
+    /// let root = doc.as_ref().as_mapping().context("missing root mapping")?;
     /// assert_eq!(root.len(), 3);
     /// # Ok::<_, anyhow::Error>(())
     /// ```
@@ -152,7 +152,7 @@ impl<'a> Mapping<'a> {
     ///     "#,
     /// )?;
     ///
-    /// let root = doc.root().as_mapping().context("missing root mapping")?;
+    /// let root = doc.as_ref().as_mapping().context("missing root mapping")?;
     /// assert!(!root.is_empty());
     /// # Ok::<_, anyhow::Error>(())
     /// ```
@@ -180,7 +180,7 @@ impl<'a> Mapping<'a> {
     ///     "#
     /// )?;
     ///
-    /// let root = doc.root().as_mapping().context("missing root mapping")?;
+    /// let root = doc.as_ref().as_mapping().context("missing root mapping")?;
     ///
     /// assert_eq!(root.get("number1").and_then(|v| v.as_u32()), Some(10));
     /// assert_eq!(root.get("number2").and_then(|v| v.as_u32()), Some(20));
@@ -220,7 +220,7 @@ impl<'a> Mapping<'a> {
     ///     "#,
     /// )?;
     ///
-    /// let root = doc.root().as_mapping().context("missing root mapping")?;
+    /// let root = doc.as_ref().as_mapping().context("missing root mapping")?;
     /// root.iter().flat_map(|(key, value)| value.as_u32()).eq([1, 2, 3]);
     /// # Ok::<_, anyhow::Error>(())
     /// ```
@@ -261,7 +261,7 @@ impl fmt::Debug for Mapping<'_> {
 ///     "#,
 /// )?;
 ///
-/// let root = doc.root().as_mapping().context("missing root mapping")?;
+/// let root = doc.as_ref().as_mapping().context("missing root mapping")?;
 /// root.into_iter().flat_map(|(key, value)| value.as_u32()).eq([1, 2, 3]);
 /// # Ok::<_, anyhow::Error>(())
 /// ```

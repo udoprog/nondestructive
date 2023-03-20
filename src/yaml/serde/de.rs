@@ -11,7 +11,7 @@ impl<'de, 'a: 'de> IntoDeserializer<'de, Error> for &'a Document {
 
     #[inline]
     fn into_deserializer(self) -> Self::Deserializer {
-        self.root()
+        self.as_ref()
     }
 }
 

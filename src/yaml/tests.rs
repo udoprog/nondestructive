@@ -16,7 +16,7 @@ fn make_mapping() -> Result<()> {
         "#,
     )?;
     let mut mapping = doc
-        .root_mut()
+        .as_mut()
         .into_mapping_mut()
         .and_then(|m| Some(m.get_into_mut("first")?.make_mapping()))
         .context("missing first")?;
@@ -44,7 +44,7 @@ fn test_property_eol() -> Result<()> {
         "#,
     )?;
 
-    let root = doc.root().as_mapping().context("missing root mapping")?;
+    let root = doc.as_ref().as_mapping().context("missing root mapping")?;
 
     let mapping = root
         .get("mapping")
@@ -72,7 +72,10 @@ fn test_sequences() -> Result<()> {
         "#,
     )?;
 
-    let root = doc.root().as_sequence().context("missing root sequence")?;
+    let root = doc
+        .as_ref()
+        .as_sequence()
+        .context("missing root sequence")?;
 
     assert_eq!(root.get(0).and_then(|v| v.as_str()), Some("one"));
     assert_eq!(root.get(1).and_then(|v| v.as_str()), Some("two"));

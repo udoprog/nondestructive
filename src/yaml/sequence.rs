@@ -14,7 +14,7 @@
 //!     "#,
 //! )?;
 //!
-//! let root = doc.root().as_sequence().ok_or("missing root sequence")?;
+//! let root = doc.as_ref().as_sequence().ok_or("missing root sequence")?;
 //!
 //! assert_eq!(root.get(0).and_then(|v| v.as_str()), Some("one"));
 //! assert_eq!(root.get(1).and_then(|v| v.as_str()), Some("two"));

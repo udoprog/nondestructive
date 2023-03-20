@@ -17,7 +17,7 @@ impl Document {
         Self { suffix, root, data }
     }
 
-    /// Get the root value of a document.
+    /// Get the document as a [`Value`].
     ///
     /// # Examples
     ///
@@ -26,14 +26,32 @@ impl Document {
     /// use nondestructive::yaml;
     ///
     /// let doc = yaml::from_slice("32")?;
-    /// assert_eq!(doc.root().as_u32(), Some(32));
+    /// assert_eq!(doc.as_ref().as_u32(), Some(32));
     ///
     /// # Ok::<_, anyhow::Error>(())
     /// ```
     #[must_use]
     #[inline]
-    pub fn root(&self) -> Value<'_> {
+    pub fn as_ref(&self) -> Value<'_> {
         Value::new(&self.data, self.root)
+    }
+
+    /// Get the document as a [`ValueMut`].
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use anyhow::Context;
+    /// use nondestructive::yaml;
+    ///
+    /// let mut doc = yaml::from_slice("  32")?;
+    /// doc.as_mut().set_u32(42);
+    /// assert_eq!(doc.to_string(), "  42");
+    ///
+    /// # Ok::<_, anyhow::Error>(())
+    /// ```
+    pub fn as_mut(&mut self) -> ValueMut<'_> {
+        ValueMut::new(&mut self.data, self.root)
     }
 
     /// Get the given value.
@@ -58,11 +76,11 @@ impl Document {
     ///     "#
     /// )?;
     ///
-    /// let root = doc.root().as_mapping().context("missing mapping")?;
+    /// let root = doc.as_ref().as_mapping().context("missing mapping")?;
     /// let second = root.get("second").context("missing second")?;
     /// let id = second.id();
     ///
-    /// let mut root = doc.root_mut().into_mapping_mut().context("missing mapping")?;
+    /// let mut root = doc.as_mut().into_mapping_mut().context("missing mapping")?;
     /// assert!(root.remove("second"));
     ///
     /// // This will panic:
@@ -83,7 +101,7 @@ impl Document {
     ///     "#
     /// )?;
     ///
-    /// let root = doc.root().as_mapping().context("missing mapping")?;
+    /// let root = doc.as_ref().as_mapping().context("missing mapping")?;
     /// let second = root.get("second").context("missing second")?;
     /// let id = second.id();
     ///
@@ -119,11 +137,11 @@ impl Document {
     ///     "#
     /// )?;
     ///
-    /// let root = doc.root().as_mapping().context("missing mapping")?;
+    /// let root = doc.as_ref().as_mapping().context("missing mapping")?;
     /// let second = root.get("second").context("missing second")?;
     /// let id = second.id();
     ///
-    /// let mut root = doc.root_mut().into_mapping_mut().context("missing mapping")?;
+    /// let mut root = doc.as_mut().into_mapping_mut().context("missing mapping")?;
     /// assert!(root.remove("second"));
     ///
     /// // This will panic:
@@ -144,7 +162,7 @@ impl Document {
     ///     "#
     /// )?;
     ///
-    /// let root = doc.root().as_mapping().context("missing mapping")?;
+    /// let root = doc.as_ref().as_mapping().context("missing mapping")?;
     /// let second = root.get("second").context("missing second")?;
     /// let id = second.id();
     ///
@@ -163,27 +181,10 @@ impl Document {
     pub fn value_mut(&mut self, id: Id) -> ValueMut<'_> {
         ValueMut::new(&mut self.data, id)
     }
-
-    /// Get the root value of a document.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use anyhow::Context;
-    /// use nondestructive::yaml;
-    ///
-    /// let mut doc = yaml::from_slice("  32")?;
-    /// doc.root_mut().set_u32(42);
-    /// assert_eq!(doc.to_string(), "  42");
-    ///
-    /// # Ok::<_, anyhow::Error>(())
-    /// ```
-    pub fn root_mut(&mut self) -> ValueMut<'_> {
-        ValueMut::new(&mut self.data, self.root)
-    }
 }
 
 impl fmt::Display for Document {
+    #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.data.prefix(self.root).fmt(f)?;
         self.data.raw(self.root).display(&self.data, f)?;

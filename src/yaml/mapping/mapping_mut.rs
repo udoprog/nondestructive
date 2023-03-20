@@ -23,7 +23,7 @@ use crate::yaml::{Block, Mapping, Null, Separator, ValueMut};
 ///     "#
 /// )?;
 ///
-/// let mut root = doc.root_mut().into_mapping_mut().context("missing root mapping")?;
+/// let mut root = doc.as_mut().into_mapping_mut().context("missing root mapping")?;
 ///
 /// assert_eq!(root.as_ref().get("number1").and_then(|v| v.as_u32()), Some(10));
 /// assert_eq!(root.as_ref().get("number2").and_then(|v| v.as_u32()), Some(20));
@@ -67,7 +67,7 @@ macro_rules! insert_float {
         ///     "#
         /// )?;
         ///
-        /// let mut value = doc.root_mut().into_mapping_mut().context("not a mapping")?;
+        /// let mut value = doc.as_mut().into_mapping_mut().context("not a mapping")?;
         #[doc = concat!("value.", stringify!($name), "(\"number2\", ", stringify!($lit), ");")]
         ///
         /// assert_eq!(
@@ -107,7 +107,7 @@ macro_rules! insert_number {
         ///     "#
         /// )?;
         ///
-        /// let mut value = doc.root_mut().into_mapping_mut().context("not a mapping")?;
+        /// let mut value = doc.as_mut().into_mapping_mut().context("not a mapping")?;
         ///
         #[doc = concat!("value.", stringify!($name), "(\"number2\", ", stringify!($lit), ");")]
         ///
@@ -214,7 +214,7 @@ impl<'a> MappingMut<'a> {
     ///     "#
     /// )?;
     ///
-    /// let mut root = doc.root_mut();
+    /// let mut root = doc.as_mut();
     /// let root = root.as_mapping_mut().context("missing root mapping")?;
     /// let root = root.as_ref();
     ///
@@ -251,7 +251,7 @@ impl<'a> MappingMut<'a> {
     ///     "#
     /// )?;
     ///
-    /// let mut root = doc.root_mut();
+    /// let mut root = doc.as_mut();
     /// let root = root.as_mapping_mut().map(|t| t.into_ref()).context("missing root mapping")?;
     ///
     /// assert_eq!(root.get("number1").and_then(|v| v.as_u32()), Some(10));
@@ -286,7 +286,7 @@ impl<'a> MappingMut<'a> {
     ///     "#
     /// )?;
     ///
-    /// let mut root = doc.root_mut();
+    /// let mut root = doc.as_mut();
     /// let mut root = root.as_mapping_mut().context("missing root mapping")?;
     /// root.get_mut("number2").context("missing inner mapping")?.set_u32(30);
     ///
@@ -333,7 +333,7 @@ impl<'a> MappingMut<'a> {
     ///     "#
     /// )?;
     ///
-    /// let mut root = doc.root_mut();
+    /// let mut root = doc.as_mut();
     /// let mut value = root.as_mapping_mut().and_then(|v| v.get_into_mut("number2")).context("missing value")?;
     /// value.set_u32(30);
     ///
@@ -381,7 +381,7 @@ impl<'a> MappingMut<'a> {
     ///     "#
     /// )?;
     ///
-    /// let mut root = doc.root_mut();
+    /// let mut root = doc.as_mut();
     /// let mut root = root.as_mapping_mut().context("missing root mapping")?;
     ///
     /// assert!(!root.remove("no such key"));
@@ -437,7 +437,7 @@ impl<'a> MappingMut<'a> {
     ///     "#
     /// )?;
     ///
-    /// let mut root = doc.root_mut();
+    /// let mut root = doc.as_mut();
     /// let mut root = root.as_mapping_mut().context("missing root mapping")?;
     ///
     /// root.clear();
@@ -473,7 +473,7 @@ impl<'a> MappingMut<'a> {
     ///     "#,
     /// )?;
     ///
-    /// let mut root = doc.root_mut().into_mapping_mut().context("missing root mapping")?;
+    /// let mut root = doc.as_mut().into_mapping_mut().context("missing root mapping")?;
     /// root.insert("three", yaml::Separator::Custom("   ")).set_u32(3);
     ///
     /// assert_eq!(
@@ -508,7 +508,7 @@ impl<'a> MappingMut<'a> {
     ///     "#
     /// )?;
     ///
-    /// let mut value = doc.root_mut().into_mapping_mut().context("not a mapping")?;
+    /// let mut value = doc.as_mut().into_mapping_mut().context("not a mapping")?;
     /// value.insert_str("string2", "hello");
     ///
     /// assert_eq! (
@@ -547,7 +547,7 @@ impl<'a> MappingMut<'a> {
     ///     "#
     /// )?;
     ///
-    /// let mut sequence = doc.root_mut().make_mapping();
+    /// let mut sequence = doc.as_mut().make_mapping();
     /// sequence.clear();
     /// sequence.insert_block("key", ["foo", "bar", "baz"], yaml::Block::Literal(yaml::Chomp::Clip));
     /// assert_eq!(sequence.as_ref().get("key").and_then(|v| v.as_str()), Some("foo\nbar\nbaz\n"));
@@ -562,7 +562,7 @@ impl<'a> MappingMut<'a> {
     ///     "#
     /// );
     ///
-    /// let mut sequence = doc.root_mut().make_mapping();
+    /// let mut sequence = doc.as_mut().make_mapping();
     /// sequence.clear();
     /// sequence.insert_block("key", ["foo", "bar", "baz"], yaml::Block::Literal(yaml::Chomp::Keep));
     /// assert_eq!(sequence.as_ref().get("key").and_then(|v| v.as_str()), Some("foo\nbar\nbaz\n"));
@@ -577,7 +577,7 @@ impl<'a> MappingMut<'a> {
     ///     "#
     /// );
     ///
-    /// let mut sequence = doc.root_mut().make_mapping();
+    /// let mut sequence = doc.as_mut().make_mapping();
     /// sequence.clear();
     /// sequence.insert_block("key", ["foo", "bar", "baz"], yaml::Block::Literal(yaml::Chomp::Strip));
     /// assert_eq!(sequence.as_ref().get("key").and_then(|v| v.as_str()), Some("foo\nbar\nbaz"));
@@ -592,7 +592,7 @@ impl<'a> MappingMut<'a> {
     ///     "#
     /// );
     ///
-    /// let mut sequence = doc.root_mut().make_mapping();
+    /// let mut sequence = doc.as_mut().make_mapping();
     /// sequence.clear();
     /// sequence.insert_block("key", ["foo", "bar", "baz"], yaml::Block::Folded(yaml::Chomp::Clip));
     /// assert_eq!(sequence.as_ref().get("key").and_then(|v| v.as_str()), Some("foo bar baz\n"));
@@ -607,7 +607,7 @@ impl<'a> MappingMut<'a> {
     ///     "#
     /// );
     ///
-    /// let mut sequence = doc.root_mut().make_mapping();
+    /// let mut sequence = doc.as_mut().make_mapping();
     /// sequence.clear();
     /// sequence.insert_block("key", ["foo", "bar", "baz"], yaml::Block::Folded(yaml::Chomp::Keep));
     /// assert_eq!(sequence.as_ref().get("key").and_then(|v| v.as_str()), Some("foo bar baz\n"));
@@ -622,7 +622,7 @@ impl<'a> MappingMut<'a> {
     ///     "#
     /// );
     ///
-    /// let mut sequence = doc.root_mut().make_mapping();
+    /// let mut sequence = doc.as_mut().make_mapping();
     /// sequence.clear();
     /// sequence.insert_block("key", ["foo", "bar", "baz"], yaml::Block::Folded(yaml::Chomp::Strip));
     /// assert_eq!(sequence.as_ref().get("key").and_then(|v| v.as_str()), Some("foo bar baz"));
@@ -662,7 +662,7 @@ impl<'a> MappingMut<'a> {
     ///     "#
     /// )?;
     ///
-    /// let mut value = doc.root_mut().into_mapping_mut().context("not a mapping")?;
+    /// let mut value = doc.as_mut().into_mapping_mut().context("not a mapping")?;
     /// value.insert_bool("bool2", true);
     ///
     /// assert_eq!(

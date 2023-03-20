@@ -15,7 +15,7 @@ fn string_newlines() -> Result<()> {
         "#,
     )?;
 
-    let root = doc.root().as_mapping().context("missing root mapping")?;
+    let root = doc.as_ref().as_mapping().context("missing root mapping")?;
 
     assert_eq!(
         root.get("first").and_then(|v| v.as_str()),
@@ -45,7 +45,7 @@ fn string_newlines() -> Result<()> {
         "#,
     )?;
 
-    let root = doc.root().as_mapping().context("missing root mapping")?;
+    let root = doc.as_ref().as_mapping().context("missing root mapping")?;
 
     assert_eq!(
         root.get("first").and_then(|v| v.as_str()),
@@ -80,7 +80,7 @@ fn string_newlines_chomped() -> Result<()> {
         "#,
     )?;
 
-    let root = doc.root().as_mapping().context("missing root mapping")?;
+    let root = doc.as_ref().as_mapping().context("missing root mapping")?;
 
     assert_eq!(
         root.get("first").and_then(|v| v.as_str()),
@@ -104,7 +104,7 @@ fn string_newlines_keep() -> Result<()> {
         "#,
     )?;
 
-    let root = doc.root().as_mapping().context("missing root mapping")?;
+    let root = doc.as_ref().as_mapping().context("missing root mapping")?;
 
     assert_eq!(
         root.get("first").and_then(|v| v.as_str()),
@@ -127,13 +127,13 @@ fn string_spaces() -> Result<()> {
     )?;
 
     assert_eq!(
-        doc.root()
+        doc.as_ref()
             .as_mapping()
             .and_then(|m| m.get("first")?.as_str()),
         Some("foo bar baz\n")
     );
     assert_eq!(
-        doc.root()
+        doc.as_ref()
             .as_mapping()
             .and_then(|m| m.get("second")?.as_u32()),
         Some(2)
@@ -151,7 +151,7 @@ fn string_spaces() -> Result<()> {
     );
 
     if let Some(mut v) = doc
-        .root_mut()
+        .as_mut()
         .as_mapping_mut()
         .and_then(|m| m.get_into_mut("first"))
     {
@@ -178,7 +178,7 @@ fn string_spaces() -> Result<()> {
     )?;
 
     assert_eq!(
-        doc.root()
+        doc.as_ref()
             .as_mapping()
             .and_then(|m| m.get("first")?.as_str()),
         Some("foo bar baz\n")

@@ -13,7 +13,134 @@
 //!
 //! <br>
 //!
+//! ## Working with documents
+//!
+//! A document is deserialized into a large object from which all access and
+//! mutation must occur. This makes the API a bit harder to use than your
+//! typical serialization library but is necessary to ensure that it has access
+//! to all the necessary data to perform nondestructive editing.
+//!
+//! One particular complication is that each method which provides mutable
+//! access to the document needs to have two variations: `as_<something>_mut`
+//! and `into_<something>_mut`. If we look at [`ValueMut::as_mapping_mut`] and
+//! [`ValueMut::into_mapping_mut`] the difference is that the latter consumes
+//! `self` and returns a [`ValueMut`] with its associated lifetime.
+//!
+//! <br>
+//!
+//! ```
+//! use anyhow::Context;
+//! use nondestructive::yaml;
+//!
+//! let mut doc = yaml::from_slice(
+//!     r#"
+//!     greeting: Hello World!
+//!     "#
+//! )?;
+//!
+//! // Access through the document:
+//! assert_eq!(
+//!     doc.as_ref().as_mapping().and_then(|m| m.get("greeting")?.as_str()),
+//!     Some("Hello World!")
+//! );
+//!
+//! // Mutation through the document:
+//! let mut mapping = doc.as_mut().into_mapping_mut().context("missing root mapping")?;
+//! mapping.insert_str("greeting2", "Hello Rust!");
+//!
+//! assert_eq!(
+//!     doc.to_string(),
+//!     r#"
+//!     greeting: Hello World!
+//!     greeting2: Hello Rust!
+//!     "#
+//! );
+//! # Ok::<_, anyhow::Error>(())
+//! ```
+//!
+//! <br>
+//!
+//! If we were to change the line which uses `into_mapping_mut` we would get a
+//! lifetime error:
+//!
+//! <br>
+//!
+//! ```text
+//! error[E0716]: temporary value dropped while borrowed
+//!   --> src\lib.rs:43:19
+//!    |
+//! 20 | let mut mapping = doc.as_mut().as_mapping_mut().context("missing root mapping")?;
+//!    |                   ^^^^^^^^^^^^                                                  - temporary value is freed at the end of this statement
+//!    |                   |
+//!    |                   creates a temporary value which is freed while still in use
+//! 21 | mapping.insert_str("greeting2", "Hello Rust!");
+//!    | ---------------------------------------------- borrow later used here
+//!    |
+//! help: consider using a `let` binding to create a longer lived value
+//!    |
+//! 20 + let binding = doc.as_mut();
+//! 21 ~ let mut mapping = binding.as_mapping_mut().context("missing root mapping")?;
+//!    |
+//! ```
+//!
+//! We could following the recommendation and assign it to a local variable,
+//! however that wouldn't be possible if we were using helper methods such as
+//! [`Option::and_then`].
+//!
+//! <br>
+//!
+//! Another important aspect of working with documents is that we can address
+//! values *globally* through [identifiers][Id]. This makes it easier to store
+//! desired modifications in a collection before applying them.
+//!
+//! ```
+//! use anyhow::Context;
+//! use nondestructive::yaml;
+//!
+//! let mut doc = yaml::from_slice(
+//!     r#"
+//!     - 10
+//!     - 24
+//!     - 30
+//!     "#
+//! )?;
+//!
+//! let mut edits = Vec::new();
+//!
+//! for value in doc.as_ref().as_sequence().context("missing sequence")? {
+//!     let Some(n) = value.as_u32() else {
+//!         continue;
+//!     };
+//!
+//!     if n % 10 == 0 {
+//!         edits.push((value.id(), n / 10));
+//!     }
+//! }
+//!
+//! // Apply stored edits:
+//! for (id, new_number) in edits {
+//!     doc.value_mut(id).set_u32(new_number);
+//! }
+//!
+//! assert_eq!(
+//!     doc.to_string(),
+//!     r#"
+//!     - 1
+//!     - 24
+//!     - 3
+//!     "#
+//! );
+//! # Ok::<_, anyhow::Error>(())
+//! ```
+//!
+//! <br>
+//!
 //! ## Examples
+//!
+//! This provides a broader view of the available API, and the difference
+//! between accessors and mutators.
+//!
+//! <br>
 //!
 //! ```
 //! use anyhow::Context;
@@ -26,11 +153,11 @@
 //!     "#
 //! )?;
 //!
-//! let mapping = doc.root().as_mapping().context("missing mapping")?;
+//! let mapping = doc.as_ref().as_mapping().context("missing mapping")?;
 //! let name = mapping.get("name").context("missing name")?;
 //! assert_eq!(name.as_str(), Some("Descartes"));
 //!
-//! let mut mapping = doc.root_mut().into_mapping_mut().context("missing mapping")?;
+//! let mut mapping = doc.as_mut().into_mapping_mut().context("missing mapping")?;
 //! let mut name = mapping.get_mut("name").context("missing name")?;
 //! name.set_string("Plato");
 //!
@@ -47,6 +174,11 @@
 //! # Ok::<_, anyhow::Error>(())
 //! ```
 //!
+//! [`Option::and_then`]: https://doc.rust-lang.org/std/option/enum.Option.html#method.and_then
+//! [`ValueMut::as_mapping_mut`]: https://docs.rs/nondestructive/latest/nondestructive/yaml/struct.ValueMut.html#method.as_mapping_mut
+//! [`ValueMut::into_mapping_mut`]: https://docs.rs/nondestructive/latest/nondestructive/yaml/struct.ValueMut.html#method.into_mapping_mut
+//! [`ValueMut`]: https://docs.rs/nondestructive/latest/nondestructive/yaml/struct.ValueMut.html
+//! [Id]: https://docs.rs/nondestructive/latest/nondestructive/yaml/struct.Id.html
 //! [yaml]: https://docs.rs/nondestructive/latest/nondestructive/yaml/index.html
 
 #![deny(missing_docs)]

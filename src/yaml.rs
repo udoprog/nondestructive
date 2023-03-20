@@ -1,30 +1,36 @@
 //! Support for non-destructive YAML editing.
 //!
-//! YAML is parsed with [`from_slice`], which returns a [Document].
+//! YAML is parsed with [`from_slice`], which returns a [`Document`]. Documents
+//! are serialized through their [`std::fmt::Display`] and [`std::io::Write`]
+//! implementations.
 //!
-//! ## Specification Compliance
+//! With `serde` support enabled, [`Document`] can also be serialized through
+//! [`serde`].
 //!
-//! This parser does not strictly adhere to the YAML 1.2 specification.
+//! ## Specification compliance
+//!
+//! This parser does not strictly adhere to the [YAML specification].
 //!
 //! In particular:
-//! * We support any form of indentation.
-//! * Input is not required to be UTF-8.
+//! * We support any form of indentation, not just spaces.
+//! * Neither input nor output is not required to be UTF-8.
 //! * Keys in [Mappings][Mapping] can be anything, the only requirement is that
 //!   they are succeeded by a colon (`:`).
-//! * [Sequence] items can be anything, everything after the `-` is consumed.
+//! * [Sequences][Sequence] can also be anything, everything after the `-` is
+//!   used as a value.
 //!
 //! This means that we will validly parse both spec and non-spec compliant YAML.
 //! They key here is that editing performed by this crate is non-destructive. So
-//! if the source is spec compliant YAML we will produce spec compliant YAML, if
-//! the source is **not** spec compliant YAML we will produce the same non-spec
-//! compliant YAML.
+//! if the source is spec compliant YAML, then we will produce spec compliant
+//! YAML. If the source is **not** spec compliant YAML we will produce similarly
+//! non-spec compliant YAML.
 //!
-//! If you want to produce valid YAML, we recommend that you enable the `serde`
-//! feature and use a crate such [`serde-yaml`]. But keep in mind that it will
-//! not preserve the original structure of the document. See the [`serde`
-//! module][serde] for how to do this.
+//! If you want to ensure that valid YAML is produced, we recommend that you
+//! enable the `serde` feature and use a crate such [`serde-yaml`]. But keep in
+//! mind that it will not preserve the original structure of the document. See
+//! the [`serde` module][serde] for how this is done.
 //!
-//! [`serde-yaml`]: https://docs.rs/serde_yaml
+//! <br>
 //!
 //! ## Serde support
 //!
@@ -38,10 +44,13 @@
 //! use nondestructive::yaml;
 //!
 //! let doc = yaml::from_slice("32")?;
-//! assert_eq!(doc.root().as_u32(), Some(32));
+//! assert_eq!(doc.as_ref().as_u32(), Some(32));
 //!
 //! # Ok::<_, Box<dyn std::error::Error>>(())
 //! ```
+//!
+//! [`serde-yaml`]: https://docs.rs/serde_yaml
+//! [YAML specification]: https://yaml.org/
 
 #[cfg(test)]
 mod tests;
@@ -60,7 +69,7 @@ mod data;
 pub use self::data::Id;
 
 mod error;
-pub use self::error::Error;
+pub use self::error::{Error, ErrorKind};
 
 mod document;
 pub use self::document::Document;

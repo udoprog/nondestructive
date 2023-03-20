@@ -62,7 +62,7 @@ fn inline_mapping_only() -> Result<()> {
         "#,
     )?;
 
-    let root = doc.root().as_mapping().context("missing root mapping")?;
+    let root = doc.as_ref().as_mapping().context("missing root mapping")?;
     assert_eq!(root.get("one").and_then(|v| v.as_str()), Some("one"));
     assert_eq!(root.get("two").and_then(|v| v.as_str()), Some("two"));
     assert_eq!(root.get("three").and_then(|v| v.as_u32()), Some(3));
@@ -85,7 +85,7 @@ fn make_preserve_whitespace() -> Result<()> {
         "#,
     )?;
 
-    let mut mapping = doc.root_mut().make_mapping();
+    let mut mapping = doc.as_mut().make_mapping();
     mapping.insert_u32("first", 1);
     mapping.insert_u32("second", 2);
 
