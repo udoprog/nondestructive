@@ -76,3 +76,26 @@ fn inline_mapping_only() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn make_preserve_whitespace() -> Result<()> {
+    let mut doc = yaml::from_bytes(
+        r#"
+        string
+        "#,
+    )?;
+
+    let mut mapping = doc.root_mut().make_mapping();
+    mapping.insert_u32("first", 1);
+    mapping.insert_u32("second", 2);
+
+    assert_eq!(
+        doc.to_string(),
+        r#"
+        first: 1
+        second: 2
+        "#
+    );
+
+    Ok(())
+}

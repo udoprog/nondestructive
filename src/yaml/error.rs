@@ -53,6 +53,7 @@ pub enum ErrorKind {
     /// # Examples
     ///
     /// ```
+    /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
     /// const INPUT: &str = r#"[Aristotle, # this is a comment"#;
@@ -67,6 +68,7 @@ pub enum ErrorKind {
     /// # Examples
     ///
     /// ```
+    /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
     /// const INPUT: &str = r#"{name: Aristotle, age # this is a comment"#;
@@ -79,6 +81,7 @@ pub enum ErrorKind {
     /// Missing terminator in a non-inline mapping:
     ///
     /// ```
+    /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
     /// const INPUT: &str = r#"
@@ -95,6 +98,7 @@ pub enum ErrorKind {
     /// # Examples
     ///
     /// ```
+    /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
     /// const INPUT: &str = r#"{name: Aristotle, # this is a comment"#;
@@ -109,6 +113,7 @@ pub enum ErrorKind {
     /// # Examples
     ///
     /// ```
+    /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
     /// const INPUT: &str = r#""hello \o1u world""#;
@@ -123,6 +128,7 @@ pub enum ErrorKind {
     /// # Examples
     ///
     /// ```
+    /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
     /// const INPUT: &str = r#""hello \x1u world""#;
@@ -137,6 +143,7 @@ pub enum ErrorKind {
     /// # Examples
     ///
     /// ```
+    /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
     /// const INPUT: &str = r#""hello \ud800 world""#;

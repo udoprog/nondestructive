@@ -22,6 +22,7 @@ impl<'a> ValueMut<'a> {
     /// # Examples
     ///
     /// ```
+    /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
     /// let mut doc = yaml::from_bytes(r#"
@@ -43,7 +44,7 @@ impl<'a> ValueMut<'a> {
     /// "#)?;
     ///
     /// assert!(matches!(doc.root_mut().into_any_mut(), yaml::AnyMut::Sequence(..)));
-    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// # Ok::<_, anyhow::Error>(())
     /// ```
     #[must_use]
     pub fn into_any_mut(self) -> AnyMut<'a> {
@@ -62,6 +63,7 @@ impl<'a> ValueMut<'a> {
     /// # Examples
     ///
     /// ```
+    /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
     /// let mut doc = yaml::from_bytes(r#"
@@ -72,16 +74,16 @@ impl<'a> ValueMut<'a> {
     /// string3: "I am a quoted string!"
     /// "#)?;
     ///
-    /// let mut root = doc.root_mut().into_mapping_mut().ok_or("missing root mapping")?;
+    /// let mut root = doc.root_mut().into_mapping_mut().context("missing root mapping")?;
     ///
     /// assert_eq!(root.get_mut("number1").and_then(|v| v.as_ref().as_u32()), Some(10));
     /// assert_eq!(root.get_mut("number2").and_then(|v| v.as_ref().as_u32()), Some(20));
     ///
-    /// let mut mapping = root.get_mut("mapping").and_then(|v| v.into_mapping_mut()).ok_or("missing inner mapping")?;
+    /// let mut mapping = root.get_mut("mapping").and_then(|v| v.into_mapping_mut()).context("missing inner mapping")?;
     /// assert_eq!(mapping.get_mut("inner").and_then(|v| v.as_ref().as_u32()), Some(400));
     ///
     /// assert_eq!(root.get_mut("string3").and_then(|v| v.into_ref().as_str()), Some("I am a quoted string!"));
-    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// # Ok::<_, anyhow::Error>(())
     /// ```
     #[must_use]
     #[inline]
@@ -98,6 +100,7 @@ impl<'a> ValueMut<'a> {
     /// # Examples
     ///
     /// ```
+    /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
     /// let mut doc = yaml::from_bytes(r#"
@@ -108,16 +111,16 @@ impl<'a> ValueMut<'a> {
     /// string3: "I am a quoted string!"
     /// "#)?;
     ///
-    /// let mut root = doc.root_mut().into_mapping_mut().ok_or("missing root mapping")?;
+    /// let mut root = doc.root_mut().into_mapping_mut().context("missing root mapping")?;
     ///
     /// assert_eq!(root.get_mut("number1").and_then(|v| v.into_ref().as_u32()), Some(10));
     /// assert_eq!(root.get_mut("number2").and_then(|v| v.into_ref().as_u32()), Some(20));
     ///
-    /// let mut mapping = root.get_mut("mapping").and_then(|v| v.into_mapping_mut()).ok_or("missing inner mapping")?;
+    /// let mut mapping = root.get_mut("mapping").and_then(|v| v.into_mapping_mut()).context("missing inner mapping")?;
     /// assert_eq!(mapping.get_mut("inner").and_then(|v| v.into_ref().as_u32()), Some(400));
     ///
     /// assert_eq!(root.get_mut("string3").and_then(|v| v.into_ref().as_str()), Some("I am a quoted string!"));
-    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// # Ok::<_, anyhow::Error>(())
     /// ```
     #[must_use]
     #[inline]
@@ -130,6 +133,7 @@ impl<'a> ValueMut<'a> {
     /// # Examples
     ///
     /// ```
+    /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
     /// let mut doc = yaml::from_bytes(r#"
@@ -141,8 +145,8 @@ impl<'a> ValueMut<'a> {
     /// "#)?;
     ///
     /// let mut root = doc.root_mut();
-    /// let mut root = root.as_mapping_mut().ok_or("missing root mapping")?;
-    /// root.get_mut("number2").ok_or("missing inner mapping")?.set_u32(30);
+    /// let mut root = root.as_mapping_mut().context("missing root mapping")?;
+    /// root.get_mut("number2").context("missing inner mapping")?.set_u32(30);
     ///
     /// assert_eq!(
     /// doc.to_string(),
@@ -153,7 +157,7 @@ impl<'a> ValueMut<'a> {
     ///     inner: 400
     ///   string3: "I am a quoted string!"
     /// "#);
-    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// # Ok::<_, anyhow::Error>(())
     /// ```
     pub fn as_mapping_mut(&mut self) -> Option<MappingMut<'_>> {
         match self.data.raw_mut(self.id) {
@@ -168,6 +172,7 @@ impl<'a> ValueMut<'a> {
     /// # Examples
     ///
     /// ```
+    /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
     /// let mut doc = yaml::from_bytes(r#"
@@ -178,9 +183,9 @@ impl<'a> ValueMut<'a> {
     ///   string3: "I am a quoted string!"
     /// "#)?;
     ///
-    /// let mut root = doc.root_mut().into_mapping_mut().ok_or("missing root mapping")?;
-    /// root.get_mut("number2").ok_or("missing inner mapping")?.set_u32(30);
-    /// root.get_mut("string3").ok_or("missing inner mapping")?.set_string("i-am-a-bare-string");
+    /// let mut root = doc.root_mut().into_mapping_mut().context("missing root mapping")?;
+    /// root.get_mut("number2").context("missing inner mapping")?.set_u32(30);
+    /// root.get_mut("string3").context("missing inner mapping")?.set_string("i-am-a-bare-string");
     ///
     /// assert_eq!(
     /// doc.to_string(),
@@ -192,8 +197,8 @@ impl<'a> ValueMut<'a> {
     ///   string3: i-am-a-bare-string
     /// "#);
     ///
-    /// let mut root = doc.root_mut().into_mapping_mut().ok_or("missing root mapping")?;
-    /// root.get_mut("string3").ok_or("missing inner mapping")?.set_string("It's \n a good day!");
+    /// let mut root = doc.root_mut().into_mapping_mut().context("missing root mapping")?;
+    /// root.get_mut("string3").context("missing inner mapping")?.set_string("It's \n a good day!");
     ///
     /// assert_eq!(
     /// doc.to_string(),
@@ -205,7 +210,7 @@ impl<'a> ValueMut<'a> {
     ///   string3: "It's \n a good day!"
     /// "#);
     ///
-    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// # Ok::<_, anyhow::Error>(())
     /// ```
     #[must_use]
     pub fn into_mapping_mut(self) -> Option<MappingMut<'a>> {
@@ -220,6 +225,7 @@ impl<'a> ValueMut<'a> {
     /// # Examples
     ///
     /// ```
+    /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
     /// let mut doc = yaml::from_bytes(r#"
@@ -230,8 +236,8 @@ impl<'a> ValueMut<'a> {
     /// "#)?;
     ///
     /// let mut root = doc.root_mut();
-    /// let mut root = root.as_sequence_mut().ok_or("missing root sequence")?;
-    /// root.get_mut(1).ok_or("missing inner mapping")?.set_u32(30);
+    /// let mut root = root.as_sequence_mut().context("missing root sequence")?;
+    /// root.get_mut(1).context("missing inner mapping")?.set_u32(30);
     ///
     /// assert_eq!(
     /// doc.to_string(),
@@ -241,7 +247,7 @@ impl<'a> ValueMut<'a> {
     ///   - inner: 400
     ///   - "I am a quoted string!"
     /// "#);
-    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// # Ok::<_, anyhow::Error>(())
     /// ```
     pub fn as_sequence_mut(&mut self) -> Option<SequenceMut<'_>> {
         match self.data.raw_mut(self.id) {
@@ -256,6 +262,7 @@ impl<'a> ValueMut<'a> {
     /// # Examples
     ///
     /// ```
+    /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
     /// let mut doc = yaml::from_bytes(r#"
@@ -266,8 +273,8 @@ impl<'a> ValueMut<'a> {
     /// "#)?;
     ///
     /// let mut root = doc.root_mut();
-    /// let mut root = root.into_sequence_mut().ok_or("missing root sequence")?;
-    /// root.get_mut(1).ok_or("missing inner mapping")?.set_u32(30);
+    /// let mut root = root.into_sequence_mut().context("missing root sequence")?;
+    /// root.get_mut(1).context("missing inner mapping")?.set_u32(30);
     ///
     /// assert_eq!(
     /// doc.to_string(),
@@ -277,7 +284,7 @@ impl<'a> ValueMut<'a> {
     ///   - inner: 400
     ///   - "I am a quoted string!"
     /// "#);
-    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// # Ok::<_, anyhow::Error>(())
     /// ```
     #[must_use]
     pub fn into_sequence_mut(self) -> Option<SequenceMut<'a>> {
@@ -295,12 +302,13 @@ macro_rules! set_float {
         /// # Examples
         ///
         /// ```
+        /// use anyhow::Context;
         /// use nondestructive::yaml;
         ///
         /// let mut doc = yaml::from_bytes("10")?;
         #[doc = concat!("let value = doc.root_mut().", stringify!($name), "(", stringify!($lit), ");")]
         #[doc = concat!("assert_eq!(doc.to_string(), \"", stringify!($lit), "\");")]
-        /// # Ok::<_, Box<dyn std::error::Error>>(())
+        /// # Ok::<_, anyhow::Error>(())
         /// ```
         pub fn $name(&mut self, value: $ty) {
             let mut buffer = ryu::Buffer::new();
@@ -317,12 +325,13 @@ macro_rules! set_number {
         /// # Examples
         ///
         /// ```
+        /// use anyhow::Context;
         /// use nondestructive::yaml;
         ///
         /// let mut doc = yaml::from_bytes("  10")?;
         #[doc = concat!("let value = doc.root_mut().", stringify!($name), "(", stringify!($lit), ");")]
         #[doc = concat!("assert_eq!(doc.to_string(), \"  ", stringify!($lit), "\");")]
-        /// # Ok::<_, Box<dyn std::error::Error>>(())
+        /// # Ok::<_, anyhow::Error>(())
         /// ```
         pub fn $name(&mut self, value: $ty) {
             let mut buffer = itoa::Buffer::new();
@@ -338,6 +347,7 @@ impl<'a> ValueMut<'a> {
     /// # Examples
     ///
     /// ```
+    /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
     /// let mut doc = yaml::from_bytes("  string")?;
@@ -352,7 +362,7 @@ impl<'a> ValueMut<'a> {
     /// doc.root_mut().set_null(yaml::Null::Empty);
     /// assert_eq!(doc.to_string(), "  ");
     ///
-    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// # Ok::<_, anyhow::Error>(())
     /// ```
     #[inline]
     pub fn set_null(&mut self, kind: Null) {
@@ -364,6 +374,7 @@ impl<'a> ValueMut<'a> {
     /// # Examples
     ///
     /// ```
+    /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
     /// let mut doc = yaml::from_bytes("  string")?;
@@ -385,7 +396,7 @@ impl<'a> ValueMut<'a> {
     /// let mut doc = yaml::from_bytes("  string")?;
     /// doc.root_mut().set_string("null");
     /// assert_eq!(doc.to_string(), "  'null'");
-    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// # Ok::<_, anyhow::Error>(())
     /// ```
     #[inline]
     pub fn set_string<S>(&mut self, string: S)
@@ -401,12 +412,13 @@ impl<'a> ValueMut<'a> {
     /// # Examples
     ///
     /// ```
+    /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
     /// let mut doc = yaml::from_bytes("  string")?;
     /// doc.root_mut().set_bool(true);
     /// assert_eq!(doc.to_string(), "  true");
-    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// # Ok::<_, anyhow::Error>(())
     /// ```
     pub fn set_bool(&mut self, value: bool) {
         let value = raw::new_bool(value);
@@ -431,6 +443,7 @@ impl<'a> ValueMut<'a> {
     /// # Examples
     ///
     /// ```
+    /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
     /// let mut doc = yaml::from_bytes(
@@ -456,7 +469,7 @@ impl<'a> ValueMut<'a> {
     ///     first: second
     ///     "#
     /// )?;
-    /// let mut mapping = doc.root_mut().into_mapping_mut().and_then(|m| Some(m.get_into_mut("first")?.make_mapping())).ok_or("missing first")?;
+    /// let mut mapping = doc.root_mut().into_mapping_mut().and_then(|m| Some(m.get_into_mut("first")?.make_mapping())).context("missing first")?;
     /// mapping.insert_u32("second", 2);
     /// mapping.insert_u32("third", 3);
     ///
@@ -468,7 +481,7 @@ impl<'a> ValueMut<'a> {
     ///       third: 3
     ///     "#
     /// );
-    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// # Ok::<_, anyhow::Error>(())
     /// ```
     #[inline]
     #[must_use]
@@ -493,6 +506,7 @@ impl<'a> ValueMut<'a> {
     /// # Examples
     ///
     /// ```
+    /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
     /// let mut doc = yaml::from_bytes(
@@ -507,8 +521,8 @@ impl<'a> ValueMut<'a> {
     /// assert_eq!(
     ///     doc.to_string(),
     ///     r#"
+    ///     - 1
     ///     - 2
-    ///     - 3
     ///     "#
     /// );
     ///
@@ -517,7 +531,7 @@ impl<'a> ValueMut<'a> {
     ///     first: second
     ///     "#
     /// )?;
-    /// let mut sequence = doc.root_mut().into_mapping_mut().and_then(|m| Some(m.get_into_mut("first")?.make_sequence())).ok_or("missing first")?;
+    /// let mut sequence = doc.root_mut().into_mapping_mut().and_then(|m| Some(m.get_into_mut("first")?.make_sequence())).context("missing first")?;
     /// sequence.push_u32(2);
     /// sequence.push_u32(3);
     ///
@@ -529,7 +543,7 @@ impl<'a> ValueMut<'a> {
     ///       - 3
     ///     "#
     /// );
-    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// # Ok::<_, anyhow::Error>(())
     /// ```
     #[inline]
     #[must_use]
@@ -550,27 +564,39 @@ impl<'a> ValueMut<'a> {
     }
 
     fn make_indent_prefix(&mut self) -> (usize, StringId) {
+        use bstr::ByteSlice;
+
         let container = self
             .data
             .layout(self.id)
             .parent
             .and_then(|id| Some(self.data.layout(id).parent?))
-            .map(|id| self.data.raw(id));
+            .map(|id| self.data.pair(id));
 
-        let (container, indent) = match container {
-            Some(Raw::Mapping(raw)) => (true, raw.indent.saturating_add(2)),
-            Some(Raw::Sequence(raw)) => (true, raw.indent.saturating_add(2)),
-            _ => (false, 0),
+        let (indent, layout) = match container {
+            Some((Raw::Mapping(raw), layout)) => (raw.indent, layout),
+            Some((Raw::Sequence(raw), layout)) => (raw.indent, layout),
+            _ => {
+                let prefix = self.data.layout(self.id).prefix;
+                let indent = raw::count_indent(self.data.str(prefix));
+                return (indent, prefix);
+            }
         };
+
+        let indent = indent.saturating_add(2);
+        // Take some pains to preserve the existing suffix, synthesize extra spaces characters where needed.
+        let mut existing = raw::indent(self.data.str(layout.prefix)).chars();
 
         let mut prefix = Vec::new();
 
-        if container {
-            prefix.push(raw::NEWLINE);
-        }
+        prefix.push(raw::NEWLINE);
 
         for _ in 0..indent {
-            prefix.push(raw::SPACE);
+            if let Some(c) = existing.next() {
+                prefix.extend(c.encode_utf8(&mut [0; 4]).as_bytes());
+            } else {
+                prefix.push(raw::SPACE);
+            }
         }
 
         (indent, self.data.insert_str(prefix))

@@ -9,6 +9,7 @@ use crate::yaml::Value;
 /// # Examples
 ///
 /// ```
+/// use anyhow::Context;
 /// use nondestructive::yaml;
 ///
 /// let doc = yaml::from_bytes(
@@ -19,17 +20,18 @@ use crate::yaml::Value;
 ///     "#,
 /// )?;
 ///
-/// let root = doc.root().as_sequence().ok_or("missing root sequence")?;
+/// let root = doc.root().as_sequence().context("missing root sequence")?;
 ///
 /// assert_eq!(root.get(0).and_then(|v| v.as_str()), Some("one"));
 /// assert_eq!(root.get(1).and_then(|v| v.as_str()), Some("two"));
 /// assert_eq!(root.get(2).and_then(|v| v.as_str()), Some("three"));
-/// # Ok::<_, Box<dyn std::error::Error>>(())
+/// # Ok::<_, anyhow::Error>(())
 /// ```
 ///
 /// More complex example:
 ///
 /// ```
+/// use anyhow::Context;
 /// use nondestructive::yaml;
 ///
 /// let doc = yaml::from_bytes(
@@ -43,7 +45,7 @@ use crate::yaml::Value;
 ///     "#,
 /// )?;
 ///
-/// let root = doc.root().as_sequence().ok_or("missing root sequence")?;
+/// let root = doc.root().as_sequence().context("missing root sequence")?;
 ///
 /// assert_eq!(root.get(0).and_then(|v| v.as_str()), Some("one"));
 /// assert_eq!(root.get(1).and_then(|v| v.as_str()), Some("two"));
@@ -51,32 +53,33 @@ use crate::yaml::Value;
 /// let three = root
 ///     .get(2)
 ///     .and_then(|v| v.as_sequence())
-///     .ok_or("missing three")?;
+///     .context("missing three")?;
 ///
 /// assert_eq!(three.get(0).and_then(|v| v.as_str()), Some("three"));
 ///
 /// let four = three
 ///     .get(1)
 ///     .and_then(|v| v.as_mapping())
-///     .ok_or("missing four")?;
+///     .context("missing four")?;
 ///
 /// assert_eq!(four.get("four").and_then(|v| v.as_u32()), Some(2));
 /// assert_eq!(four.get("five").and_then(|v| v.as_u32()), Some(1));
 ///
 /// assert_eq!(root.get(3).and_then(|v| v.as_str()), Some("six"));
-/// # Ok::<_, Box<dyn std::error::Error>>(())
+/// # Ok::<_, anyhow::Error>(())
 /// ```
 ///
 /// Sequences can also be defined in an inline form:
 ///
 /// ```
+/// use anyhow::Context;
 /// use nondestructive::yaml;
 ///
 /// let doc = yaml::from_bytes("[]")?;
 /// assert_eq!(doc.to_string(), "[]");
 ///
 /// let doc = yaml::from_bytes("[,]")?;
-/// let sequence = doc.root().as_sequence().ok_or("missing root sequence")?;
+/// let sequence = doc.root().as_sequence().context("missing root sequence")?;
 /// assert!(!sequence.is_empty());
 /// assert_eq!(sequence.len(), 1);
 /// assert_eq!(doc.to_string(), "[,]");
@@ -87,7 +90,7 @@ use crate::yaml::Value;
 ///     "#,
 /// )?;
 ///
-/// let root = doc.root().as_sequence().ok_or("missing root sequence")?;
+/// let root = doc.root().as_sequence().context("missing root sequence")?;
 /// assert_eq!(root.get(0).and_then(|v| v.as_str()), Some("one"));
 /// assert_eq!(root.get(1).and_then(|v| v.as_str()), Some("two"));
 /// assert_eq!(root.get(2).and_then(|v| v.as_u32()), Some(3));
@@ -98,7 +101,7 @@ use crate::yaml::Value;
 ///     [one, two, 3,]
 ///     "#
 /// );
-/// # Ok::<_, Box<dyn std::error::Error>>(())
+/// # Ok::<_, anyhow::Error>(())
 /// ```
 pub struct Sequence<'a> {
     data: &'a Data,
@@ -115,6 +118,7 @@ impl<'a> Sequence<'a> {
     /// # Examples
     ///
     /// ```
+    /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
     /// let doc = yaml::from_bytes(r#"
@@ -122,14 +126,14 @@ impl<'a> Sequence<'a> {
     /// - [1, 2, 3]
     /// "#)?;
     ///
-    /// let root = doc.root().as_sequence().ok_or("missing sequence")?;
-    /// let second = root.get(1).and_then(|v| v.as_sequence()).ok_or("missing second")?;
+    /// let root = doc.root().as_sequence().context("missing sequence")?;
+    /// let second = root.get(1).and_then(|v| v.as_sequence()).context("missing second")?;
     /// let id = second.id();
     ///
     /// // Reference the same value again using the id.
-    /// let second = doc.value(id).as_sequence().ok_or("missing id")?;
+    /// let second = doc.value(id).as_sequence().context("missing id")?;
     /// assert!(second.iter().flat_map(|v| v.as_u32()).eq([1, 2, 3]));
-    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// # Ok::<_, anyhow::Error>(())
     /// ```
     #[must_use]
     #[inline]
@@ -142,6 +146,7 @@ impl<'a> Sequence<'a> {
     /// # Examples
     ///
     /// ```
+    /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
     /// let doc = yaml::from_bytes(
@@ -152,9 +157,9 @@ impl<'a> Sequence<'a> {
     ///     "#,
     /// )?;
     ///
-    /// let root = doc.root().as_sequence().ok_or("missing root sequence")?;
+    /// let root = doc.root().as_sequence().context("missing root sequence")?;
     /// assert_eq!(root.len(), 3);
-    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// # Ok::<_, anyhow::Error>(())
     /// ```
     #[must_use]
     #[inline]
@@ -167,6 +172,7 @@ impl<'a> Sequence<'a> {
     /// # Examples
     ///
     /// ```
+    /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
     /// let doc = yaml::from_bytes(
@@ -177,9 +183,9 @@ impl<'a> Sequence<'a> {
     ///     "#,
     /// )?;
     ///
-    /// let root = doc.root().as_sequence().ok_or("missing root sequence")?;
+    /// let root = doc.root().as_sequence().context("missing root sequence")?;
     /// assert!(!root.is_empty());
-    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// # Ok::<_, anyhow::Error>(())
     /// ```
     #[must_use]
     #[inline]
@@ -192,6 +198,7 @@ impl<'a> Sequence<'a> {
     /// # Examples
     ///
     /// ```
+    /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
     /// let doc = yaml::from_bytes(
@@ -202,12 +209,12 @@ impl<'a> Sequence<'a> {
     ///     "#,
     /// )?;
     ///
-    /// let root = doc.root().as_sequence().ok_or("missing root sequence")?;
+    /// let root = doc.root().as_sequence().context("missing root sequence")?;
     ///
     /// assert_eq!(root.get(0).and_then(|v| v.as_str()), Some("one"));
     /// assert_eq!(root.get(1).and_then(|v| v.as_str()), Some("two"));
     /// assert_eq!(root.get(2).and_then(|v| v.as_str()), Some("three"));
-    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// # Ok::<_, anyhow::Error>(())
     /// ```
     #[must_use]
     #[inline]
@@ -222,6 +229,7 @@ impl<'a> Sequence<'a> {
     /// # Examples
     ///
     /// ```
+    /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
     /// let doc = yaml::from_bytes(
@@ -232,9 +240,9 @@ impl<'a> Sequence<'a> {
     ///     "#,
     /// )?;
     ///
-    /// let root = doc.root().as_sequence().ok_or("missing root sequence")?;
+    /// let root = doc.root().as_sequence().context("missing root sequence")?;
     /// root.iter().flat_map(|v| v.as_str()).eq(["one", "two", "three"]);
-    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// # Ok::<_, anyhow::Error>(())
     /// ```
     #[must_use]
     #[inline]
@@ -262,6 +270,7 @@ impl fmt::Debug for Sequence<'_> {
 /// # Examples
 ///
 /// ```
+/// use anyhow::Context;
 /// use nondestructive::yaml;
 ///
 /// let doc = yaml::from_bytes(
@@ -272,9 +281,9 @@ impl fmt::Debug for Sequence<'_> {
 ///     "#,
 /// )?;
 ///
-/// let root = doc.root().as_sequence().ok_or("missing root sequence")?;
+/// let root = doc.root().as_sequence().context("missing root sequence")?;
 /// root.into_iter().flat_map(|v| v.as_str()).eq(["one", "two", "three"]);
-/// # Ok::<_, Box<dyn std::error::Error>>(())
+/// # Ok::<_, anyhow::Error>(())
 /// ```
 impl<'a> IntoIterator for Sequence<'a> {
     type Item = Value<'a>;

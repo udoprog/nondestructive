@@ -34,6 +34,7 @@
 //! # Examples
 //!
 //! ```
+//! use anyhow::Context;
 //! use nondestructive::yaml;
 //!
 //! let doc = yaml::from_bytes("32")?;

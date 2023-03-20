@@ -18,13 +18,14 @@ macro_rules! push_float {
         /// # Examples
         ///
         /// ```
+        /// use anyhow::Context;
         /// use nondestructive::yaml;
         ///
         /// let mut doc = yaml::from_bytes(r#"
         /// - 10
         /// "#)?;
         ///
-        /// let mut value = doc.root_mut().into_sequence_mut().ok_or("not a sequence")?;
+        /// let mut value = doc.root_mut().into_sequence_mut().context("not a sequence")?;
         ///
         #[doc = concat!("value.", stringify!($name), "(", stringify!($lit), ");")]
         /// assert_eq!(
@@ -33,7 +34,7 @@ macro_rules! push_float {
         /// - 10
         #[doc = concat!("- ", $lit)]
         /// "#);
-        /// # Ok::<_, Box<dyn std::error::Error>>(())
+        /// # Ok::<_, anyhow::Error>(())
         /// ```
         pub fn $name(&mut self, value: $ty) {
             let mut buffer = ryu::Buffer::new();
@@ -51,12 +52,13 @@ macro_rules! push_number {
         /// # Examples
         ///
         /// ```
+        /// use anyhow::Context;
         /// use nondestructive::yaml;
         ///
         /// let mut doc = yaml::from_bytes(r#"
         /// - 10
         /// "#)?;
-        /// let mut value = doc.root_mut().into_sequence_mut().ok_or("not a sequence")?;
+        /// let mut value = doc.root_mut().into_sequence_mut().context("not a sequence")?;
         ///
         #[doc = concat!("value.", stringify!($name), "(", stringify!($lit), ");")]
         ///
@@ -66,7 +68,7 @@ macro_rules! push_number {
         /// - 10
         #[doc = concat!("- ", stringify!($lit))]
         /// "#);
-        /// # Ok::<_, Box<dyn std::error::Error>>(())
+        /// # Ok::<_, anyhow::Error>(())
         /// ```
         pub fn $name(&mut self, value: $ty) {
             let mut buffer = itoa::Buffer::new();
@@ -134,6 +136,7 @@ impl<'a> SequenceMut<'a> {
     /// # Examples
     ///
     /// ```
+    /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
     /// let mut doc = yaml::from_bytes(
@@ -144,13 +147,13 @@ impl<'a> SequenceMut<'a> {
     /// "#,
     /// )?;
     ///
-    /// let root = doc.root_mut().into_sequence_mut().ok_or("missing root sequence")?;
+    /// let root = doc.root_mut().into_sequence_mut().context("missing root sequence")?;
     /// let root = root.as_ref();
     ///
     /// assert_eq!(root.get(0).and_then(|v| v.as_str()), Some("one"));
     /// assert_eq!(root.get(1).and_then(|v| v.as_str()), Some("two"));
     /// assert_eq!(root.get(2).and_then(|v| v.as_str()), Some("three"));
-    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// # Ok::<_, anyhow::Error>(())
     /// ```
     #[must_use]
     #[inline]
@@ -164,6 +167,7 @@ impl<'a> SequenceMut<'a> {
     /// # Examples
     ///
     /// ```
+    /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
     /// let mut doc = yaml::from_bytes(
@@ -174,12 +178,12 @@ impl<'a> SequenceMut<'a> {
     /// "#,
     /// )?;
     ///
-    /// let root = doc.root_mut().into_sequence_mut().ok_or("missing root sequence")?.into_ref();
+    /// let root = doc.root_mut().into_sequence_mut().context("missing root sequence")?.into_ref();
     ///
     /// assert_eq!(root.get(0).and_then(|v| v.as_str()), Some("one"));
     /// assert_eq!(root.get(1).and_then(|v| v.as_str()), Some("two"));
     /// assert_eq!(root.get(2).and_then(|v| v.as_str()), Some("three"));
-    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// # Ok::<_, anyhow::Error>(())
     /// ```
     #[must_use]
     #[inline]
@@ -192,6 +196,7 @@ impl<'a> SequenceMut<'a> {
     /// # Examples
     ///
     /// ```
+    /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
     /// let mut doc = yaml::from_bytes(r#"
@@ -202,8 +207,8 @@ impl<'a> SequenceMut<'a> {
     /// "#)?;
     ///
     /// let mut root = doc.root_mut();
-    /// let mut root = root.as_sequence_mut().ok_or("missing root sequence")?;
-    /// root.get_mut(1).ok_or("missing inner sequence")?.set_u32(30);
+    /// let mut root = root.as_sequence_mut().context("missing root sequence")?;
+    /// root.get_mut(1).context("missing inner sequence")?.set_u32(30);
     ///
     /// assert_eq!(
     /// doc.to_string(),
@@ -213,7 +218,7 @@ impl<'a> SequenceMut<'a> {
     ///   - inner: 400
     ///   - "I am a quoted string!"
     /// "#);
-    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// # Ok::<_, anyhow::Error>(())
     /// ```
     pub fn get_mut(&mut self, index: usize) -> Option<ValueMut<'_>> {
         if let Some(item) = self.data.sequence(self.id).items.get(index) {
@@ -229,6 +234,7 @@ impl<'a> SequenceMut<'a> {
     /// # Examples
     ///
     /// ```
+    /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
     /// let mut doc = yaml::from_bytes(r#"
@@ -239,7 +245,7 @@ impl<'a> SequenceMut<'a> {
     /// "#)?;
     ///
     /// let mut root = doc.root_mut();
-    /// let mut value = root.as_sequence_mut().and_then(|v| v.get_into_mut(1)).ok_or("missing value")?;
+    /// let mut value = root.as_sequence_mut().and_then(|v| v.get_into_mut(1)).context("missing value")?;
     /// value.set_u32(30);
     ///
     /// assert_eq!(
@@ -250,7 +256,7 @@ impl<'a> SequenceMut<'a> {
     ///   - inner: 400
     ///   - "I am a quoted string!"
     /// "#);
-    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// # Ok::<_, anyhow::Error>(())
     /// ```
     #[must_use]
     pub fn get_into_mut(self, index: usize) -> Option<ValueMut<'a>> {
@@ -268,6 +274,7 @@ impl<'a> SequenceMut<'a> {
     /// # Examples
     ///
     /// ```
+    /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
     /// let mut doc = yaml::from_bytes(r#"
@@ -278,7 +285,7 @@ impl<'a> SequenceMut<'a> {
     /// "#)?;
     ///
     /// let mut root = doc.root_mut();
-    /// let mut root = root.as_sequence_mut().ok_or("missing root sequence")?;
+    /// let mut root = root.as_sequence_mut().context("missing root sequence")?;
     ///
     /// assert!(!root.remove(4));
     /// assert!(root.remove(2));
@@ -290,7 +297,7 @@ impl<'a> SequenceMut<'a> {
     ///   - 20
     ///   - "I am a quoted string!"
     /// "#);
-    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// # Ok::<_, anyhow::Error>(())
     /// ```
     pub fn remove(&mut self, index: usize) -> bool {
         let raw = self.data.sequence_mut(self.id);
@@ -309,6 +316,7 @@ impl<'a> SequenceMut<'a> {
     /// # Examples
     ///
     /// ```
+    /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
     /// let mut doc = yaml::from_bytes(r#"
@@ -319,12 +327,12 @@ impl<'a> SequenceMut<'a> {
     /// "#)?;
     ///
     /// let mut root = doc.root_mut();
-    /// let mut root = root.as_sequence_mut().ok_or("missing root sequence")?;
+    /// let mut root = root.as_sequence_mut().context("missing root sequence")?;
     ///
     /// root.clear();
     ///
     /// assert_eq!(doc.to_string(), "\n  \n");
-    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// # Ok::<_, anyhow::Error>(())
     /// ```
     pub fn clear(&mut self) {
         let mut items = mem::take(&mut self.data.sequence_mut(self.id).items);
@@ -343,6 +351,7 @@ impl<'a> SequenceMut<'a> {
     /// # Examples
     ///
     /// ```
+    /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
     /// let mut doc = yaml::from_bytes(
@@ -352,7 +361,7 @@ impl<'a> SequenceMut<'a> {
     ///     "#,
     /// )?;
     ///
-    /// let mut root = doc.root_mut().into_sequence_mut().ok_or("missing root sequence")?;
+    /// let mut root = doc.root_mut().into_sequence_mut().context("missing root sequence")?;
     /// root.push(yaml::Separator::Custom("   ")).set_bool(true);
     ///
     /// assert_eq! {
@@ -363,7 +372,7 @@ impl<'a> SequenceMut<'a> {
     ///     -   true
     ///     "#
     /// };
-    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// # Ok::<_, anyhow::Error>(())
     /// ```
     pub fn push(&mut self, separator: Separator<'_>) -> ValueMut<'_> {
         let value = self._push(separator, Raw::Null(Null::Empty));
@@ -375,12 +384,13 @@ impl<'a> SequenceMut<'a> {
     /// # Examples
     ///
     /// ```
+    /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
     /// let mut doc = yaml::from_bytes(r#"
     ///   - - 10
     /// "#)?;
-    /// let mut value = doc.root_mut().into_sequence_mut().ok_or("not a sequence")?;
+    /// let mut value = doc.root_mut().into_sequence_mut().context("not a sequence")?;
     /// let mut value = value.get_mut(0).and_then(|v| v.into_sequence_mut()).expect("missing inner");
     /// value.push_string("nice string");
     ///
@@ -390,7 +400,7 @@ impl<'a> SequenceMut<'a> {
     ///   - - 10
     ///     - nice string
     /// "#);
-    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// # Ok::<_, anyhow::Error>(())
     /// ```
     pub fn push_string<S>(&mut self, string: S)
     where
@@ -405,12 +415,13 @@ impl<'a> SequenceMut<'a> {
     /// # Examples
     ///
     /// ```
+    /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
     /// let mut doc = yaml::from_bytes(r#"
     ///   - - 10
     /// "#)?;
-    /// let mut value = doc.root_mut().into_sequence_mut().ok_or("not a sequence")?;
+    /// let mut value = doc.root_mut().into_sequence_mut().context("not a sequence")?;
     /// let mut value = value.get_mut(0).and_then(|v| v.into_sequence_mut()).expect("missing inner");
     /// value.push_bool(false);
     ///
@@ -420,7 +431,7 @@ impl<'a> SequenceMut<'a> {
     ///   - - 10
     ///     - false
     /// "#);
-    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// # Ok::<_, anyhow::Error>(())
     /// ```
     pub fn push_bool(&mut self, value: bool) {
         let value = new_bool(value);

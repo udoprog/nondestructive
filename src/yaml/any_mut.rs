@@ -15,11 +15,12 @@ pub enum AnyMut<'a> {
 }
 
 impl AnyMut<'_> {
-    /// Coerce into [`Any`] to help discriminate the value type.
+    /// Coerce into [`AnyMut`] to help discriminate the value type.
     ///
     /// # Examples
     ///
     /// ```
+    /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
     /// let mut doc = yaml::from_bytes(r#"
@@ -29,7 +30,7 @@ impl AnyMut<'_> {
     ///
     /// let id = doc.root_mut().into_any_mut().id();
     /// assert_eq!(doc.value(id).to_string(), "- 10\n- 20");
-    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// # Ok::<_, anyhow::Error>(())
     /// ```
     #[must_use]
     pub fn id(&self) -> ValueId {

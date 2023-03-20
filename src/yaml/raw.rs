@@ -11,6 +11,22 @@ pub(crate) const NEWLINE: u8 = b'\n';
 /// Space character used in YAML.
 pub(crate) const SPACE: u8 = b' ';
 
+/// Get the indentation for the given string.
+pub(crate) fn indent(string: &[u8]) -> &[u8] {
+    match memchr::memrchr(NEWLINE, string) {
+        Some(n) => n
+            .checked_add(1)
+            .and_then(|n| string.get(n..))
+            .unwrap_or_default(),
+        None => string,
+    }
+}
+
+/// Count indentation level for the given string.
+pub(crate) fn count_indent(string: &[u8]) -> usize {
+    indent(string).chars().count()
+}
+
 /// Construct a raw kind associated with booleans.
 pub(crate) fn new_bool(value: bool) -> Raw {
     Raw::Boolean(value)
@@ -404,8 +420,11 @@ pub(crate) enum MappingKind {
 /// A YAML mapping.
 #[derive(Debug, Clone)]
 pub(crate) struct Mapping {
+    /// Number of unicode characters worth of indentation in this mapping.
     pub(crate) indent: usize,
+    /// The kind of the mapping.
     pub(crate) kind: MappingKind,
+    /// Items inside of the mapping.
     pub(crate) items: Vec<ValueId>,
 }
 

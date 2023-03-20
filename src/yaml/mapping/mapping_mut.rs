@@ -10,6 +10,7 @@ use crate::yaml::{Mapping, Null, Separator, ValueMut};
 /// # Examples
 ///
 /// ```
+/// use anyhow::Context;
 /// use nondestructive::yaml;
 ///
 /// let mut doc = yaml::from_bytes(r#"
@@ -20,16 +21,16 @@ use crate::yaml::{Mapping, Null, Separator, ValueMut};
 ///   string3: "I am a quoted string!"
 /// "#)?;
 ///
-/// let mut root = doc.root_mut().into_mapping_mut().ok_or("missing root mapping")?;
+/// let mut root = doc.root_mut().into_mapping_mut().context("missing root mapping")?;
 ///
 /// assert_eq!(root.as_ref().get("number1").and_then(|v| v.as_u32()), Some(10));
 /// assert_eq!(root.as_ref().get("number2").and_then(|v| v.as_u32()), Some(20));
 /// assert_eq!(root.as_ref().get("string3").and_then(|v| v.as_str()), Some("I am a quoted string!"));
 ///
-/// let mapping = root.get_mut("mapping").and_then(|v| v.into_mapping_mut()).ok_or("missing inner mapping")?;
+/// let mapping = root.get_mut("mapping").and_then(|v| v.into_mapping_mut()).context("missing inner mapping")?;
 /// assert_eq!(mapping.as_ref().get("inner").and_then(|v| v.as_u32()), Some(400));
 ///
-/// root.get_mut("number2").ok_or("missing inner mapping")?.set_u32(30);
+/// root.get_mut("number2").context("missing inner mapping")?.set_u32(30);
 ///
 /// assert_eq!(
 /// doc.to_string(),
@@ -40,7 +41,7 @@ use crate::yaml::{Mapping, Null, Separator, ValueMut};
 ///     inner: 400
 ///   string3: "I am a quoted string!"
 /// "#);
-/// # Ok::<_, Box<dyn std::error::Error>>(())
+/// # Ok::<_, anyhow::Error>(())
 /// ```
 pub struct MappingMut<'a> {
     data: &'a mut Data,
@@ -54,13 +55,14 @@ macro_rules! insert_float {
         /// # Examples
         ///
         /// ```
+        /// use anyhow::Context;
         /// use nondestructive::yaml;
         ///
         /// let mut doc = yaml::from_bytes(r#"
         ///   number1: 10
         /// "#)?;
         ///
-        /// let mut value = doc.root_mut().into_mapping_mut().ok_or("not a mapping")?;
+        /// let mut value = doc.root_mut().into_mapping_mut().context("not a mapping")?;
         #[doc = concat!("value.", stringify!($name), "(\"number2\", ", stringify!($lit), ");")]
         ///
         /// assert_eq!(
@@ -69,7 +71,7 @@ macro_rules! insert_float {
         ///   number1: 10
         #[doc = concat!("  number2: ", stringify!($lit))]
         /// "#);
-        /// # Ok::<_, Box<dyn std::error::Error>>(())
+        /// # Ok::<_, anyhow::Error>(())
         /// ```
         pub fn $name(&mut self, key: &str, value: $ty) {
             let mut buffer = ryu::Buffer::new();
@@ -87,12 +89,13 @@ macro_rules! insert_number {
         /// # Examples
         ///
         /// ```
+        /// use anyhow::Context;
         /// use nondestructive::yaml;
         ///
         /// let mut doc = yaml::from_bytes(r#"
         ///   number1: 10
         /// "#)?;
-        /// let mut value = doc.root_mut().into_mapping_mut().ok_or("not a mapping")?;
+        /// let mut value = doc.root_mut().into_mapping_mut().context("not a mapping")?;
         ///
         #[doc = concat!("value.", stringify!($name), "(\"number2\", ", stringify!($lit), ");")]
         ///
@@ -102,7 +105,7 @@ macro_rules! insert_number {
         ///   number1: 10
         #[doc = concat!("  number2: ", stringify!($lit))]
         /// "#);
-        /// # Ok::<_, Box<dyn std::error::Error>>(())
+        /// # Ok::<_, anyhow::Error>(())
         /// ```
         pub fn $name(&mut self, key: &str, value: $ty) {
             let mut buffer = itoa::Buffer::new();
@@ -183,6 +186,7 @@ impl<'a> MappingMut<'a> {
     /// # Examples
     ///
     /// ```
+    /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
     /// let mut doc = yaml::from_bytes(r#"
@@ -194,16 +198,16 @@ impl<'a> MappingMut<'a> {
     /// "#)?;
     ///
     /// let mut root = doc.root_mut();
-    /// let root = root.as_mapping_mut().ok_or("missing root mapping")?;
+    /// let root = root.as_mapping_mut().context("missing root mapping")?;
     /// let root = root.as_ref();
     ///
     /// assert_eq!(root.get("number1").and_then(|v| v.as_u32()), Some(10));
     /// assert_eq!(root.get("number2").and_then(|v| v.as_u32()), Some(20));
     /// assert_eq!(root.get("string3").and_then(|v| v.as_str()), Some("I am a quoted string!"));
     ///
-    /// let mapping = root.get("mapping").and_then(|v| v.as_mapping()).ok_or("missing inner mapping")?;
+    /// let mapping = root.get("mapping").and_then(|v| v.as_mapping()).context("missing inner mapping")?;
     /// assert_eq!(mapping.get("inner").and_then(|v| v.as_u32()), Some(400));
-    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// # Ok::<_, anyhow::Error>(())
     /// ```
     #[must_use]
     #[inline]
@@ -217,6 +221,7 @@ impl<'a> MappingMut<'a> {
     /// # Examples
     ///
     /// ```
+    /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
     /// let mut doc = yaml::from_bytes(r#"
@@ -228,15 +233,15 @@ impl<'a> MappingMut<'a> {
     /// "#)?;
     ///
     /// let mut root = doc.root_mut();
-    /// let root = root.as_mapping_mut().map(|t| t.into_ref()).ok_or("missing root mapping")?;
+    /// let root = root.as_mapping_mut().map(|t| t.into_ref()).context("missing root mapping")?;
     ///
     /// assert_eq!(root.get("number1").and_then(|v| v.as_u32()), Some(10));
     /// assert_eq!(root.get("number2").and_then(|v| v.as_u32()), Some(20));
     /// assert_eq!(root.get("string3").and_then(|v| v.as_str()), Some("I am a quoted string!"));
     ///
-    /// let mapping = root.get("mapping").and_then(|v| v.as_mapping()).ok_or("missing inner mapping")?;
+    /// let mapping = root.get("mapping").and_then(|v| v.as_mapping()).context("missing inner mapping")?;
     /// assert_eq!(mapping.get("inner").and_then(|v| v.as_u32()), Some(400));
-    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// # Ok::<_, anyhow::Error>(())
     /// ```
     #[must_use]
     #[inline]
@@ -249,6 +254,7 @@ impl<'a> MappingMut<'a> {
     /// # Examples
     ///
     /// ```
+    /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
     /// let mut doc = yaml::from_bytes(r#"
@@ -260,8 +266,8 @@ impl<'a> MappingMut<'a> {
     /// "#)?;
     ///
     /// let mut root = doc.root_mut();
-    /// let mut root = root.as_mapping_mut().ok_or("missing root mapping")?;
-    /// root.get_mut("number2").ok_or("missing inner mapping")?.set_u32(30);
+    /// let mut root = root.as_mapping_mut().context("missing root mapping")?;
+    /// root.get_mut("number2").context("missing inner mapping")?.set_u32(30);
     ///
     /// assert_eq!(
     /// doc.to_string(),
@@ -272,7 +278,7 @@ impl<'a> MappingMut<'a> {
     ///     inner: 400
     ///   string3: "I am a quoted string!"
     /// "#);
-    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// # Ok::<_, anyhow::Error>(())
     /// ```
     pub fn get_mut(&mut self, key: &str) -> Option<ValueMut<'_>> {
         for item in &self.data.mapping(self.id).items {
@@ -292,6 +298,7 @@ impl<'a> MappingMut<'a> {
     /// # Examples
     ///
     /// ```
+    /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
     /// let mut doc = yaml::from_bytes(r#"
@@ -303,7 +310,7 @@ impl<'a> MappingMut<'a> {
     /// "#)?;
     ///
     /// let mut root = doc.root_mut();
-    /// let mut value = root.as_mapping_mut().and_then(|v| v.get_into_mut("number2")).ok_or("missing value")?;
+    /// let mut value = root.as_mapping_mut().and_then(|v| v.get_into_mut("number2")).context("missing value")?;
     /// value.set_u32(30);
     ///
     /// assert_eq!(
@@ -315,7 +322,7 @@ impl<'a> MappingMut<'a> {
     ///     inner: 400
     ///   string3: "I am a quoted string!"
     /// "#);
-    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// # Ok::<_, anyhow::Error>(())
     /// ```
     #[must_use]
     pub fn get_into_mut(self, key: &str) -> Option<ValueMut<'a>> {
@@ -336,6 +343,7 @@ impl<'a> MappingMut<'a> {
     /// # Examples
     ///
     /// ```
+    /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
     /// let mut doc = yaml::from_bytes(r#"
@@ -347,7 +355,7 @@ impl<'a> MappingMut<'a> {
     /// "#)?;
     ///
     /// let mut root = doc.root_mut();
-    /// let mut root = root.as_mapping_mut().ok_or("missing root mapping")?;
+    /// let mut root = root.as_mapping_mut().context("missing root mapping")?;
     ///
     /// assert!(!root.remove("no such key"));
     /// assert!(root.remove("mapping"));
@@ -360,7 +368,7 @@ impl<'a> MappingMut<'a> {
     ///   number2: 20
     ///   string3: "I am a quoted string!"
     /// "#);
-    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// # Ok::<_, anyhow::Error>(())
     /// ```
     pub fn remove(&mut self, key: &str) -> bool {
         let mut index = None;
@@ -388,6 +396,7 @@ impl<'a> MappingMut<'a> {
     /// # Examples
     ///
     /// ```
+    /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
     /// let mut doc = yaml::from_bytes(r#"
@@ -399,12 +408,12 @@ impl<'a> MappingMut<'a> {
     /// "#)?;
     ///
     /// let mut root = doc.root_mut();
-    /// let mut root = root.as_mapping_mut().ok_or("missing root mapping")?;
+    /// let mut root = root.as_mapping_mut().context("missing root mapping")?;
     ///
     /// root.clear();
     ///
     /// assert_eq!(doc.to_string(), "\n  \n");
-    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// # Ok::<_, anyhow::Error>(())
     /// ```
     pub fn clear(&mut self) {
         let mut items = mem::take(&mut self.data.mapping_mut(self.id).items);
@@ -424,6 +433,7 @@ impl<'a> MappingMut<'a> {
     /// # Examples
     ///
     /// ```
+    /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
     /// let mut doc = yaml::from_bytes(
@@ -433,7 +443,7 @@ impl<'a> MappingMut<'a> {
     ///     "#,
     /// )?;
     ///
-    /// let mut root = doc.root_mut().into_mapping_mut().ok_or("missing root mapping")?;
+    /// let mut root = doc.root_mut().into_mapping_mut().context("missing root mapping")?;
     /// root.insert("three", yaml::Separator::Custom("   ")).set_u32(3);
     ///
     /// assert_eq! {
@@ -444,7 +454,7 @@ impl<'a> MappingMut<'a> {
     ///     three:   3
     ///     "#
     /// };
-    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// # Ok::<_, anyhow::Error>(())
     /// ```
     pub fn insert(&mut self, key: &str, separator: Separator<'_>) -> ValueMut<'_> {
         let value = self._insert(key, separator, Raw::Null(Null::Empty));
@@ -456,13 +466,14 @@ impl<'a> MappingMut<'a> {
     /// # Examples
     ///
     /// ```
+    /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
     /// let mut doc = yaml::from_bytes(r#"
     ///   number1:  10
     /// "#)?;
     ///
-    /// let mut value = doc.root_mut().into_mapping_mut().ok_or("not a mapping")?;
+    /// let mut value = doc.root_mut().into_mapping_mut().context("not a mapping")?;
     /// value.insert_str("string2", "hello");
     ///
     /// assert_eq! (
@@ -471,7 +482,7 @@ impl<'a> MappingMut<'a> {
     ///   number1:  10
     ///   string2:  hello
     /// "#);
-    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// # Ok::<_, anyhow::Error>(())
     /// ```
     pub fn insert_str<S>(&mut self, key: &str, string: S)
     where
@@ -486,12 +497,13 @@ impl<'a> MappingMut<'a> {
     /// # Examples
     ///
     /// ```
+    /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
     /// let mut doc = yaml::from_bytes(r#"
     ///   number1: 10
     /// "#)?;
-    /// let mut value = doc.root_mut().into_mapping_mut().ok_or("not a mapping")?;
+    /// let mut value = doc.root_mut().into_mapping_mut().context("not a mapping")?;
     /// value.insert_bool("bool2", true);
     ///
     /// assert_eq! (
@@ -500,7 +512,7 @@ impl<'a> MappingMut<'a> {
     ///   number1: 10
     ///   bool2: true
     /// "#);
-    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// # Ok::<_, anyhow::Error>(())
     /// ```
     pub fn insert_bool(&mut self, key: &str, value: bool) {
         let value = new_bool(value);

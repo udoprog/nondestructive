@@ -82,7 +82,7 @@ impl Null {
 /// let doc = yaml::from_bytes("'It''s a bargain!'")?;
 /// assert_eq!(doc.root().as_str(), Some("It's a bargain!"));
 ///
-/// # Ok::<_, Box<dyn std::error::Error>>(())
+/// # Ok::<_, anyhow::Error>(())
 /// ```
 pub struct Value<'a> {
     pub(crate) data: &'a Data,
@@ -96,12 +96,13 @@ macro_rules! as_number {
         /// # Examples
         ///
         /// ```
+        /// use anyhow::Context;
         /// use nondestructive::yaml;
         ///
         #[doc = concat!("let doc = yaml::from_bytes(\"", stringify!($lit), "\")?;")]
         #[doc = concat!("let value = doc.root().", stringify!($name), "();")]
         #[doc = concat!("assert_eq!(value, Some(", stringify!($lit), "));")]
-        /// # Ok::<_, Box<dyn std::error::Error>>(())
+        /// # Ok::<_, anyhow::Error>(())
         /// ```
         #[must_use]
         pub fn $name(&self) -> Option<$ty> {
@@ -126,6 +127,7 @@ impl<'a> Value<'a> {
     /// # Examples
     ///
     /// ```
+    /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
     /// let doc = yaml::from_bytes(r#"
@@ -147,7 +149,7 @@ impl<'a> Value<'a> {
     /// "#)?;
     ///
     /// assert!(matches!(doc.root().into_any(), yaml::Any::Sequence(..)));
-    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// # Ok::<_, anyhow::Error>(())
     /// ```
     #[must_use]
     pub fn into_any(self) -> Any<'a> {
@@ -165,9 +167,36 @@ impl<'a> Value<'a> {
     ///
     /// [`Document::value`]: crate::yaml::Document::value
     ///
+    /// # Panics
+    ///
+    /// Values constructed from identifiers might cause panics if used
+    /// incorrectly, such as when it refers to a value which has been deleted.
+    ///
+    /// ```should_panic
+    /// use anyhow::Context;
+    /// use nondestructive::yaml;
+    ///
+    /// let mut doc = yaml::from_bytes(r#"
+    /// first: 32
+    /// second: [1, 2, 3]
+    /// "#)?;
+    ///
+    /// let root = doc.root().as_mapping().context("missing mapping")?;
+    /// let second = root.get("second").context("missing second")?;
+    /// let id = second.id();
+    ///
+    /// let mut root = doc.root_mut().into_mapping_mut().context("missing mapping")?;
+    /// assert!(root.remove("second"));
+    ///
+    /// // This will panic:
+    /// let _ = doc.value(id).as_mapping();
+    /// # Ok::<_, anyhow::Error>(())
+    /// ```
+    ///
     /// # Examples
     ///
     /// ```
+    /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
     /// let doc = yaml::from_bytes(r#"
@@ -175,13 +204,13 @@ impl<'a> Value<'a> {
     /// second: [1, 2, 3]
     /// "#)?;
     ///
-    /// let root = doc.root().as_mapping().ok_or("missing mapping")?;
-    /// let second = root.get("second").ok_or("missing second")?;
+    /// let root = doc.root().as_mapping().context("missing mapping")?;
+    /// let second = root.get("second").context("missing second")?;
     /// let id = second.id();
     ///
     /// // Reference the same value again using the id.
     /// assert_eq!(doc.value(id).to_string(), "[1, 2, 3]");
-    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// # Ok::<_, anyhow::Error>(())
     /// ```
     #[must_use]
     #[inline]
@@ -194,6 +223,7 @@ impl<'a> Value<'a> {
     /// # Examples
     ///
     /// ```
+    /// use anyhow::Context;
     /// use nondestructive::yaml;
     /// use bstr::BStr;
     ///
@@ -206,12 +236,12 @@ impl<'a> Value<'a> {
     /// - 'It''s the same string!'
     /// "#)?;
     ///
-    /// let array = doc.root().as_sequence().ok_or("expected sequence")?;
+    /// let array = doc.root().as_sequence().context("expected sequence")?;
     ///
     /// for item in array {
     ///     assert_eq!(item.as_bstr(), Some(BStr::new("It's the same string!")));
     /// }
-    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// # Ok::<_, anyhow::Error>(())
     /// ```
     #[must_use]
     pub fn as_bstr(&self) -> Option<&'a BStr> {
@@ -232,25 +262,28 @@ impl<'a> Value<'a> {
     /// this parser.
     ///
     /// ```
+    /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
     /// let doc = yaml::from_bytes("フェリスと言います！")?;
     /// assert_eq!(doc.root().as_str(), Some("フェリスと言います！"));
-    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// # Ok::<_, anyhow::Error>(())
     /// ```
     ///
     /// ```
+    /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
     /// let doc = yaml::from_bytes("\"hello \\x20 world\"")?;
     /// assert_eq!(doc.root().as_str(), Some("hello \x20 world"));
     /// assert_eq!(doc.to_string(), "\"hello \\x20 world\"");
-    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// # Ok::<_, anyhow::Error>(())
     /// ```
     ///
     /// # Examples
     ///
     /// ```
+    /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
     /// let doc = yaml::from_bytes("string")?;
@@ -262,12 +295,12 @@ impl<'a> Value<'a> {
     /// - 'It''s the same string!'
     /// "#)?;
     ///
-    /// let array = doc.root().as_sequence().ok_or("expected sequence")?;
+    /// let array = doc.root().as_sequence().context("expected sequence")?;
     ///
     /// for item in array {
     ///     assert_eq!(item.as_str(), Some("It's the same string!"));
     /// }
-    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// # Ok::<_, anyhow::Error>(())
     /// ```
     #[must_use]
     pub fn as_str(&self) -> Option<&'a str> {
@@ -282,6 +315,7 @@ impl<'a> Value<'a> {
     /// # Examples
     ///
     /// ```
+    /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
     /// let doc = yaml::from_bytes("true")?;
@@ -289,7 +323,7 @@ impl<'a> Value<'a> {
     ///
     /// let doc = yaml::from_bytes("string")?;
     /// assert_eq!(doc.root().as_bool(), None);
-    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// # Ok::<_, anyhow::Error>(())
     /// ```
     #[must_use]
     pub fn as_bool(&self) -> Option<bool> {
@@ -304,6 +338,7 @@ impl<'a> Value<'a> {
     /// # Examples
     ///
     /// ```
+    /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
     /// let doc = yaml::from_bytes(r#"
@@ -314,16 +349,16 @@ impl<'a> Value<'a> {
     /// string3: "I am a quoted string!"
     /// "#)?;
     ///
-    /// let root = doc.root().as_mapping().ok_or("missing root mapping")?;
+    /// let root = doc.root().as_mapping().context("missing root mapping")?;
     ///
     /// assert_eq!(root.get("number1").and_then(|v| v.as_u32()), Some(10));
     /// assert_eq!(root.get("number2").and_then(|v| v.as_u32()), Some(20));
     ///
-    /// let mapping = root.get("mapping").and_then(|v| v.as_mapping()).ok_or("missing inner mapping")?;
+    /// let mapping = root.get("mapping").and_then(|v| v.as_mapping()).context("missing inner mapping")?;
     /// assert_eq!(mapping.get("inner").and_then(|v| v.as_u32()), Some(400));
     ///
     /// assert_eq!(root.get("string3").and_then(|v| v.as_str()), Some("I am a quoted string!"));
-    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// # Ok::<_, anyhow::Error>(())
     /// ```
     #[must_use]
     pub fn as_mapping(&self) -> Option<Mapping<'a>> {
@@ -338,6 +373,7 @@ impl<'a> Value<'a> {
     /// # Examples
     ///
     /// ```
+    /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
     /// let doc = yaml::from_bytes(
@@ -348,12 +384,12 @@ impl<'a> Value<'a> {
     ///     "#,
     /// )?;
     ///
-    /// let root = doc.root().as_sequence().ok_or("missing root sequence")?;
+    /// let root = doc.root().as_sequence().context("missing root sequence")?;
     ///
     /// assert_eq!(root.get(0).and_then(|v| v.as_str()), Some("one"));
     /// assert_eq!(root.get(1).and_then(|v| v.as_str()), Some("two"));
     /// assert_eq!(root.get(2).and_then(|v| v.as_str()), Some("three"));
-    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// # Ok::<_, anyhow::Error>(())
     /// ```
     #[must_use]
     pub fn as_sequence(&self) -> Option<Sequence<'a>> {

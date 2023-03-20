@@ -606,16 +606,7 @@ impl<'a> Parser<'a> {
     /// Count indentation up until the current cursor.
     fn indent_from(&self, to: usize) -> usize {
         let string = self.input.get(..to).unwrap_or_default();
-
-        let string = match memchr::memrchr(raw::NEWLINE, string) {
-            Some(n) => n
-                .checked_add(1)
-                .and_then(|n| string.get(n..))
-                .unwrap_or_default(),
-            None => self.input,
-        };
-
-        string.chars().count()
+        raw::count_indent(string)
     }
 
     /// Process a key up until `:` or end of the current line.

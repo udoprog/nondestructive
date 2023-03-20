@@ -6,6 +6,7 @@
 //! [`Document`]: crate::yaml::Document
 //!
 //! ```
+//! use anyhow::Context;
 //! use nondestructive::yaml;
 //! use serde::Deserialize;
 //! use serde::de::IntoDeserializer;

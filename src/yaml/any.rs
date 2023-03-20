@@ -20,6 +20,7 @@ impl Any<'_> {
     /// # Examples
     ///
     /// ```
+    /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
     /// let doc = yaml::from_bytes(r#"
@@ -29,7 +30,7 @@ impl Any<'_> {
     ///
     /// let id = doc.root().into_any().id();
     /// assert_eq!(doc.value(id).to_string(), "- 10\n- 20");
-    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// # Ok::<_, anyhow::Error>(())
     /// ```
     #[must_use]
     pub fn id(&self) -> ValueId {

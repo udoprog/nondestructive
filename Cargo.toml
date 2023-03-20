@@ -19,16 +19,16 @@ yaml = []
 serde = ["dep:serde", "bstr/serde"]
 
 [dependencies]
-bstr = "1.3.0"
+bstr = "1.4.0"
 itoa = "1.0.6"
 lexical-core = "0.8.5"
 memchr = "2.5.0"
 ryu = "1.0.13"
-serde = { version = "1.0.156", optional = true }
+serde = { version = "1.0.157", optional = true }
 slab = "0.4.8"
 twox-hash = "1.6.3"
 
 [dev-dependencies]
-anyhow = "1.0.69"
-serde = { version = "1.0.156", features = ["derive"] }
+anyhow = "1.0.70"
+serde = { version = "1.0.157", features = ["derive"] }
 serde_yaml = "0.9.19"

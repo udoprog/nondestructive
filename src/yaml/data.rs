@@ -106,6 +106,15 @@ impl Data {
     }
 
     #[inline]
+    pub(crate) fn pair(&self, id: ValueId) -> (&raw::Raw, &raw::Layout) {
+        if let Some(raw) = self.slab.get(id.get()) {
+            return (&raw.raw, &raw.layout);
+        }
+
+        panic!("expected raw at {id}")
+    }
+
+    #[inline]
     pub(crate) fn raw(&self, id: ValueId) -> &raw::Raw {
         if let Some(raw) = self.slab.get(id.get()) {
             return &raw.raw;

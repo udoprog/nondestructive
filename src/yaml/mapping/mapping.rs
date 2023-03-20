@@ -11,6 +11,7 @@ use crate::yaml::Value;
 /// # Examples
 ///
 /// ```
+/// use anyhow::Context;
 /// use nondestructive::yaml;
 ///
 /// let doc = yaml::from_bytes(r#"
@@ -21,28 +22,29 @@ use crate::yaml::Value;
 /// string3: "I am a quoted string!"
 /// "#)?;
 ///
-/// let root = doc.root().as_mapping().ok_or("missing root mapping")?;
+/// let root = doc.root().as_mapping().context("missing root mapping")?;
 ///
 /// assert_eq!(root.get("number1").and_then(|v| v.as_u32()), Some(10));
 /// assert_eq!(root.get("number2").and_then(|v| v.as_u32()), Some(20));
 ///
-/// let mapping = root.get("mapping").and_then(|v| v.as_mapping()).ok_or("missing inner mapping")?;
+/// let mapping = root.get("mapping").and_then(|v| v.as_mapping()).context("missing inner mapping")?;
 /// assert_eq!(mapping.get("inner").and_then(|v| v.as_u32()), Some(400));
 ///
 /// assert_eq!(root.get("string3").and_then(|v| v.as_str()), Some("I am a quoted string!"));
-/// # Ok::<_, Box<dyn std::error::Error>>(())
+/// # Ok::<_, anyhow::Error>(())
 /// ```
 ///
 /// Mappings can also be defined in an inline form:
 ///
 /// ```
+/// use anyhow::Context;
 /// use nondestructive::yaml;
 ///
 /// let doc = yaml::from_bytes("{}")?;
 /// assert_eq!(doc.to_string(), "{}");
 ///
 /// let doc = yaml::from_bytes("{test: 1,}")?;
-/// let mapping = doc.root().as_mapping().ok_or("missing root mapping")?;
+/// let mapping = doc.root().as_mapping().context("missing root mapping")?;
 /// assert!(!mapping.is_empty());
 /// assert_eq!(mapping.len(), 1);
 /// assert_eq!(doc.to_string(), "{test: 1,}");
@@ -53,7 +55,7 @@ use crate::yaml::Value;
 ///     "#,
 /// )?;
 ///
-/// let root = doc.root().as_mapping().ok_or("missing root mapping")?;
+/// let root = doc.root().as_mapping().context("missing root mapping")?;
 /// assert_eq!(root.get("one").and_then(|v| v.as_str()), Some("one"));
 /// assert_eq!(root.get("two").and_then(|v| v.as_str()), Some("two"));
 /// assert_eq!(root.get("three").and_then(|v| v.as_u32()), Some(3));
@@ -64,7 +66,7 @@ use crate::yaml::Value;
 ///     {one: one, two: two, three: 3,}
 ///     "#
 /// );
-/// # Ok::<_, Box<dyn std::error::Error>>(())
+/// # Ok::<_, anyhow::Error>(())
 /// ```
 pub struct Mapping<'a> {
     data: &'a Data,
@@ -81,6 +83,7 @@ impl<'a> Mapping<'a> {
     /// # Examples
     ///
     /// ```
+    /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
     /// let doc = yaml::from_bytes(r#"
@@ -88,14 +91,14 @@ impl<'a> Mapping<'a> {
     /// second: [1, 2, 3]
     /// "#)?;
     ///
-    /// let root = doc.root().as_mapping().ok_or("missing mapping")?;
-    /// let second = root.get("second").and_then(|v| v.as_sequence()).ok_or("missing second")?;
+    /// let root = doc.root().as_mapping().context("missing mapping")?;
+    /// let second = root.get("second").and_then(|v| v.as_sequence()).context("missing second")?;
     /// let id = second.id();
     ///
     /// // Reference the same value again using the id.
-    /// let second = doc.value(id).as_sequence().ok_or("missing id")?;
+    /// let second = doc.value(id).as_sequence().context("missing id")?;
     /// assert!(second.iter().flat_map(|v| v.as_u32()).eq([1, 2, 3]));
-    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// # Ok::<_, anyhow::Error>(())
     /// ```
     #[must_use]
     #[inline]
@@ -108,6 +111,7 @@ impl<'a> Mapping<'a> {
     /// # Examples
     ///
     /// ```
+    /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
     /// let doc = yaml::from_bytes(
@@ -118,9 +122,9 @@ impl<'a> Mapping<'a> {
     ///     "#,
     /// )?;
     ///
-    /// let root = doc.root().as_mapping().ok_or("missing root mapping")?;
+    /// let root = doc.root().as_mapping().context("missing root mapping")?;
     /// assert_eq!(root.len(), 3);
-    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// # Ok::<_, anyhow::Error>(())
     /// ```
     #[must_use]
     #[inline]
@@ -133,6 +137,7 @@ impl<'a> Mapping<'a> {
     /// # Examples
     ///
     /// ```
+    /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
     /// let doc = yaml::from_bytes(
@@ -143,9 +148,9 @@ impl<'a> Mapping<'a> {
     ///     "#,
     /// )?;
     ///
-    /// let root = doc.root().as_mapping().ok_or("missing root mapping")?;
+    /// let root = doc.root().as_mapping().context("missing root mapping")?;
     /// assert!(!root.is_empty());
-    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// # Ok::<_, anyhow::Error>(())
     /// ```
     #[must_use]
     #[inline]
@@ -158,6 +163,7 @@ impl<'a> Mapping<'a> {
     /// # Examples
     ///
     /// ```
+    /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
     /// let doc = yaml::from_bytes(r#"
@@ -168,16 +174,16 @@ impl<'a> Mapping<'a> {
     /// string3: "I am a quoted string!"
     /// "#)?;
     ///
-    /// let root = doc.root().as_mapping().ok_or("missing root mapping")?;
+    /// let root = doc.root().as_mapping().context("missing root mapping")?;
     ///
     /// assert_eq!(root.get("number1").and_then(|v| v.as_u32()), Some(10));
     /// assert_eq!(root.get("number2").and_then(|v| v.as_u32()), Some(20));
     ///
-    /// let mapping = root.get("mapping").and_then(|v| v.as_mapping()).ok_or("missing inner mapping")?;
+    /// let mapping = root.get("mapping").and_then(|v| v.as_mapping()).context("missing inner mapping")?;
     /// assert_eq!(mapping.get("inner").and_then(|v| v.as_u32()), Some(400));
     ///
     /// assert_eq!(root.get("string3").and_then(|v| v.as_str()), Some("I am a quoted string!"));
-    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// # Ok::<_, anyhow::Error>(())
     /// ```
     #[must_use]
     pub fn get(&self, key: &str) -> Option<Value<'a>> {
@@ -197,6 +203,7 @@ impl<'a> Mapping<'a> {
     /// # Examples
     ///
     /// ```
+    /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
     /// let doc = yaml::from_bytes(
@@ -207,9 +214,9 @@ impl<'a> Mapping<'a> {
     ///     "#,
     /// )?;
     ///
-    /// let root = doc.root().as_mapping().ok_or("missing root mapping")?;
+    /// let root = doc.root().as_mapping().context("missing root mapping")?;
     /// root.iter().flat_map(|(key, value)| value.as_u32()).eq([1, 2, 3]);
-    /// # Ok::<_, Box<dyn std::error::Error>>(())
+    /// # Ok::<_, anyhow::Error>(())
     /// ```
     #[must_use]
     #[inline]
@@ -237,6 +244,7 @@ impl fmt::Debug for Mapping<'_> {
 /// # Examples
 ///
 /// ```
+/// use anyhow::Context;
 /// use nondestructive::yaml;
 ///
 /// let doc = yaml::from_bytes(
@@ -247,9 +255,9 @@ impl fmt::Debug for Mapping<'_> {
 ///     "#,
 /// )?;
 ///
-/// let root = doc.root().as_mapping().ok_or("missing root mapping")?;
+/// let root = doc.root().as_mapping().context("missing root mapping")?;
 /// root.into_iter().flat_map(|(key, value)| value.as_u32()).eq([1, 2, 3]);
-/// # Ok::<_, Box<dyn std::error::Error>>(())
+/// # Ok::<_, anyhow::Error>(())
 /// ```
 impl<'a> IntoIterator for Mapping<'a> {
     type Item = (&'a BStr, Value<'a>);
