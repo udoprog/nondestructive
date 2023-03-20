@@ -8,6 +8,57 @@ use crate::yaml::{Any, Mapping, Sequence};
 
 use super::data::ValueId;
 
+/// The kind of a multiline string.
+#[derive(Default, Debug, Clone, Copy)]
+#[non_exhaustive]
+pub enum Chomp {
+    /// This is the `-` chomping indicator, which strips the final line break.
+    Strip,
+    /// This is the default chomping indicator, which keeps a single final line
+    /// break.
+    #[default]
+    Clip,
+    /// This is the `+` chomping indicator, which keeps any final line breaks as
+    /// they are considered apart of the content.
+    Keep,
+}
+
+/// The kind of a string.
+#[derive(Debug, Clone, Copy)]
+#[non_exhaustive]
+pub enum StringKind {
+    /// A bare string, without any escaping.
+    Bare,
+    /// A single-quoted string.
+    ///
+    /// ```
+    /// ```
+    Single,
+    /// A double-quoted string.
+    ///
+    /// ```yaml
+    /// "Hello\nWorld"
+    /// ```
+    Double,
+    /// The default `|` block, with a chomping mode as indicated by [`Chomp`].
+    ///
+    /// ```yaml
+    /// |
+    ///   Hello
+    ///   World
+    /// ```
+    Block(Chomp),
+    /// The folded `>` block, with a chomping mode as indicated by [`Chomp`].
+    /// Line breaks are converted into a single `' '` space.
+    ///
+    /// ```yaml
+    /// >
+    ///   Hello
+    ///   World
+    /// ```
+    FoldedBlock(Chomp),
+}
+
 /// Separator to use when separating the value from its key or sequence marker.
 ///
 /// ```yaml

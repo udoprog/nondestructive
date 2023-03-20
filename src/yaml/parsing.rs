@@ -216,7 +216,7 @@ impl<'a> Parser<'a> {
 
         let string = self.data.insert_str(self.string(start));
         self.bump(usize::from(!self.is_eof()));
-        Raw::String(raw::String::new(raw::StringKind::SingleQuoted, string))
+        Raw::String(raw::String::new(raw::RawStringKind::Single, string))
     }
 
     /// Read a single-quoted escaped string.
@@ -246,7 +246,7 @@ impl<'a> Parser<'a> {
         let original = self.data.insert_str(self.string(original));
 
         Raw::String(raw::String::new(
-            raw::StringKind::Original(original),
+            raw::RawStringKind::Original(original),
             string,
         ))
     }
@@ -273,7 +273,7 @@ impl<'a> Parser<'a> {
         self.bump(usize::from(!self.is_eof()));
 
         Ok(Raw::String(raw::String::new(
-            raw::StringKind::DoubleQuoted,
+            raw::RawStringKind::Double,
             string,
         )))
     }
@@ -304,7 +304,7 @@ impl<'a> Parser<'a> {
         let original = self.data.insert_str(self.string(original));
 
         Ok(Raw::String(raw::String::new(
-            raw::StringKind::Original(original),
+            raw::RawStringKind::Original(original),
             string,
         )))
     }
@@ -517,7 +517,6 @@ impl<'a> Parser<'a> {
             let (value, ws) = self.value(value_prefix, Some(item_id), false)?;
 
             self.data.replace(item_id, raw::SequenceItem { value });
-
             items.push(item_id);
 
             let ws = ws.unwrap_or_else(|| self.ws());
@@ -615,7 +614,7 @@ impl<'a> Parser<'a> {
 
         if self.peek() == b':' {
             let key = self.data.insert_str(self.string(start));
-            return Some(raw::String::new(raw::StringKind::Bare, key));
+            return Some(raw::String::new(raw::RawStringKind::Bare, key));
         }
 
         None
@@ -632,23 +631,31 @@ impl<'a> Parser<'a> {
         }
 
         let key = self.data.insert_str(self.string(start));
-        Some(raw::String::new(raw::StringKind::Bare, key))
+        Some(raw::String::new(raw::RawStringKind::Bare, key))
     }
 
-    /// Process a multiline string.
-    fn multiline_string(&mut self, join: u8) -> (Raw, Option<StringId>) {
-        let prefix = self.peek();
-        self.bump(1);
+    /// Process a block as a string.
+    fn block(
+        &mut self,
+        n: usize,
+        join: u8,
+        folded: bool,
+        chomp: bool,
+        clip: bool,
+    ) -> (Raw, Option<StringId>) {
+        let start = self.n;
+        self.bump(n);
+        let prefix = self.data.insert_str(self.string(start));
 
         let start = self.n;
-        let (mut ws, nl) = self.ws_nl();
+        let (mut ws, mut nl) = self.ws_nl();
 
         if nl == 0 {
             self.find(raw::NEWLINE);
             let out = self.input.get(start..self.n).unwrap_or_default().trim();
             self.scratch.extend_from_slice(out);
 
-            ws = self.ws();
+            (ws, nl) = self.ws_nl();
 
             if !self.is_eof() {
                 self.scratch.push(join);
@@ -665,13 +672,23 @@ impl<'a> Parser<'a> {
             self.scratch.extend_from_slice(out);
 
             end = self.n;
-            ws = self.ws();
+            (ws, nl) = self.ws_nl();
 
             if self.indent() < indent {
                 break;
             }
 
-            self.scratch.push(join);
+            for _ in 0..if folded { 1 } else { nl } {
+                self.scratch.push(join);
+            }
+        }
+
+        for _ in 0..chomp.then_some(nl).unwrap_or_default() {
+            self.scratch.push(raw::NEWLINE);
+
+            if clip {
+                break;
+            }
         }
 
         let string = self.data.insert_str(&self.scratch);
@@ -680,7 +697,7 @@ impl<'a> Parser<'a> {
         let out = self.input.get(start..end).unwrap_or_default();
         let original = self.data.insert_str(out);
 
-        let kind = raw::StringKind::Multiline(prefix, original);
+        let kind = raw::RawStringKind::Multiline(prefix, original);
         (Raw::String(raw::String::new(kind, string)), Some(ws))
     }
 
@@ -700,8 +717,13 @@ impl<'a> Parser<'a> {
             (b'[', _) => return Ok((self.inline_sequence(prefix, parent)?, None)),
             (b'{', _) => return Ok((self.inline_mapping(prefix, parent)?, None)),
             (b'~', _) => (Raw::Null(Null::Tilde), None),
-            (b'|', _) => self.multiline_string(raw::NEWLINE),
-            (b'>', _) => self.multiline_string(raw::SPACE),
+            (a @ (b'>' | b'|'), b) => self.block(
+                matches!(b, b'-' | b'+').then_some(2).unwrap_or(1),
+                if a == b'>' { raw::SPACE } else { raw::NEWLINE },
+                a == b'>',
+                b != b'-',
+                b == b'-',
+            ),
             _ => {
                 'default: {
                     let start = self.n;
@@ -729,7 +751,7 @@ impl<'a> Parser<'a> {
                         b"false" => (Raw::Boolean(false), None),
                         string => {
                             let string = self.data.insert_str(string);
-                            let string = raw::String::new(raw::StringKind::Bare, string);
+                            let string = raw::String::new(raw::RawStringKind::Bare, string);
                             (Raw::String(string), None)
                         }
                     }
@@ -763,6 +785,6 @@ impl<'a> Parser<'a> {
         };
 
         let string = self.data.insert_str(string);
-        Some(raw::String::new(raw::StringKind::Bare, string))
+        Some(raw::String::new(raw::RawStringKind::Bare, string))
     }
 }

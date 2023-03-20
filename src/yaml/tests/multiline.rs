@@ -19,7 +19,7 @@ fn string_newlines() -> Result<()> {
 
     assert_eq!(
         root.get("first").and_then(|v| v.as_str()),
-        Some("foo\nbar\nbaz")
+        Some("foo\n\nbar\nbaz\n")
     );
     assert_eq!(root.get("second").and_then(|v| v.as_u32()), Some(2));
 
@@ -49,7 +49,7 @@ fn string_newlines() -> Result<()> {
 
     assert_eq!(
         root.get("first").and_then(|v| v.as_str()),
-        Some("foo\nbar\nbaz")
+        Some("foo\nbar\nbaz\n")
     );
     assert_eq!(root.get("second").and_then(|v| v.as_u32()), Some(2));
 
@@ -64,6 +64,53 @@ fn string_newlines() -> Result<()> {
         "#,
     );
 
+    Ok(())
+}
+
+#[test]
+fn string_newlines_chomped() -> Result<()> {
+    let doc = yaml::from_slice(
+        r#"
+        first: |-
+          foo
+
+          bar
+          baz
+        second: 2
+        "#,
+    )?;
+
+    let root = doc.root().as_mapping().context("missing root mapping")?;
+
+    assert_eq!(
+        root.get("first").and_then(|v| v.as_str()),
+        Some("foo\n\nbar\nbaz")
+    );
+    assert_eq!(root.get("second").and_then(|v| v.as_u32()), Some(2));
+    Ok(())
+}
+
+#[test]
+fn string_newlines_keep() -> Result<()> {
+    let doc = yaml::from_slice(
+        r#"
+        first: |+
+          foo
+
+          bar
+          baz
+
+        second: 2
+        "#,
+    )?;
+
+    let root = doc.root().as_mapping().context("missing root mapping")?;
+
+    assert_eq!(
+        root.get("first").and_then(|v| v.as_str()),
+        Some("foo\n\nbar\nbaz\n\n")
+    );
+    assert_eq!(root.get("second").and_then(|v| v.as_u32()), Some(2));
     Ok(())
 }
 
@@ -83,7 +130,7 @@ fn string_spaces() -> Result<()> {
         doc.root()
             .as_mapping()
             .and_then(|m| m.get("first")?.as_str()),
-        Some("foo bar baz")
+        Some("foo bar baz\n")
     );
     assert_eq!(
         doc.root()
@@ -134,7 +181,7 @@ fn string_spaces() -> Result<()> {
         doc.root()
             .as_mapping()
             .and_then(|m| m.get("first")?.as_str()),
-        Some("foo bar baz")
+        Some("foo bar baz\n")
     );
 
     assert_eq!(

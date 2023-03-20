@@ -1,10 +1,11 @@
 use std::fmt::{self, Write};
+use std::mem;
 
 use bstr::ByteSlice;
 
 use crate::yaml::data::{Data, StringId, ValueId};
 use crate::yaml::serde::RawNumberHint;
-use crate::yaml::Null;
+use crate::yaml::{Null, StringKind};
 
 /// Newline character used in YAML.
 pub(crate) const NEWLINE: u8 = b'\n';
@@ -37,7 +38,24 @@ pub(crate) fn new_string<S>(data: &mut Data, string: S) -> Raw
 where
     S: AsRef<str>,
 {
-    let kind = StringKind::detect(string.as_ref());
+    let kind = RawStringKind::detect(string.as_ref());
+    let string = data.insert_str(string.as_ref());
+    Raw::String(String::new(kind, string))
+}
+
+/// Construct a raw kind associated with a string with a custom string kind.
+pub(crate) fn new_string_with<S>(data: &mut Data, string: S, kind: StringKind) -> Raw
+where
+    S: AsRef<str>,
+{
+    let kind = match kind {
+        StringKind::Bare => RawStringKind::Bare,
+        StringKind::Single => RawStringKind::Single,
+        StringKind::Double => RawStringKind::Double,
+        StringKind::Block(..) => todo!(),
+        StringKind::FoldedBlock(..) => todo!(),
+    };
+
     let string = data.insert_str(string.as_ref());
     Raw::String(String::new(kind, string))
 }
@@ -148,38 +166,42 @@ impl Number {
 /// The kind of string value.
 #[derive(Debug, Clone, Copy)]
 #[non_exhaustive]
-pub(crate) enum StringKind {
+pub(crate) enum RawStringKind {
     /// A bare string without quotes, such as `hello-world`.
     Bare,
     /// A single-quoted string.
-    SingleQuoted,
+    Single,
     /// A double-quoted string.
-    DoubleQuoted,
+    Double,
     /// An escaped string, where the string id points to the original string.
     Original(StringId),
     /// A multiline string.
-    Multiline(u8, StringId),
+    Multiline(StringId, StringId),
 }
 
-impl StringKind {
+impl RawStringKind {
     /// Detect the appropriate kind to use for the given string.
-    pub(crate) fn detect(string: &str) -> StringKind {
+    pub(crate) fn detect(string: &str) -> RawStringKind {
         if matches!(string, "true" | "false" | "null") {
-            return StringKind::SingleQuoted;
+            return RawStringKind::Single;
         }
 
-        let mut kind = StringKind::Bare;
+        let mut kind = RawStringKind::Bare;
+        let mut first = true;
 
         for c in string.chars() {
             match c {
+                '0'..='9' if mem::take(&mut first) => {
+                    kind = RawStringKind::Single;
+                }
                 '\'' => {
-                    return StringKind::DoubleQuoted;
+                    return RawStringKind::Double;
                 }
                 ':' => {
-                    kind = StringKind::SingleQuoted;
+                    kind = RawStringKind::Single;
                 }
                 b if b.is_control() => {
-                    return StringKind::DoubleQuoted;
+                    return RawStringKind::Double;
                 }
                 _ => {}
             }
@@ -193,14 +215,14 @@ impl StringKind {
 #[derive(Debug, Clone)]
 pub(crate) struct String {
     /// The kind of the string.
-    pub(crate) kind: StringKind,
+    pub(crate) kind: RawStringKind,
     /// The content of the string.
     pub(crate) string: StringId,
 }
 
 impl String {
     /// A simple number.
-    pub(crate) fn new(kind: StringKind, string: StringId) -> Self {
+    pub(crate) fn new(kind: RawStringKind, string: StringId) -> Self {
         Self { kind, string }
     }
 
@@ -282,25 +304,25 @@ impl String {
         }
 
         match &self.kind {
-            StringKind::Bare => {
+            RawStringKind::Bare => {
                 let string = data.str(self.string);
                 write!(f, "{string}")?;
             }
-            StringKind::DoubleQuoted => {
+            RawStringKind::Double => {
                 let string = data.str(self.string);
                 escape_double_quoted(string, f)?;
             }
-            StringKind::SingleQuoted => {
+            RawStringKind::Single => {
                 let string = data.str(self.string);
                 escape_single_quoted(string, f)?;
             }
-            StringKind::Original(original) => {
+            RawStringKind::Original(original) => {
                 let string = data.str(*original);
                 write!(f, "{string}")?;
             }
-            StringKind::Multiline(prefix, original) => {
+            RawStringKind::Multiline(prefix, original) => {
                 let string = data.str(*original);
-                write!(f, "{}{string}", char::from(*prefix))?;
+                write!(f, "{}{string}", data.str(*prefix))?;
             }
         }
 

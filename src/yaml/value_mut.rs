@@ -1,7 +1,7 @@
 use crate::yaml::data::{Data, ValueId};
 use crate::yaml::raw::{self, Raw};
 use crate::yaml::serde;
-use crate::yaml::{AnyMut, MappingMut, Null, SequenceMut, Value};
+use crate::yaml::{AnyMut, MappingMut, Null, SequenceMut, StringKind, Value};
 
 use super::data::StringId;
 
@@ -306,6 +306,7 @@ macro_rules! set_float {
         /// use nondestructive::yaml;
         ///
         /// let mut doc = yaml::from_slice("10")?;
+        ///
         #[doc = concat!("let value = doc.root_mut().", stringify!($name), "(", stringify!($lit), ");")]
         #[doc = concat!("assert_eq!(doc.to_string(), \"", stringify!($lit), "\");")]
         /// # Ok::<_, anyhow::Error>(())
@@ -329,6 +330,7 @@ macro_rules! set_number {
         /// use nondestructive::yaml;
         ///
         /// let mut doc = yaml::from_slice("  10")?;
+        ///
         #[doc = concat!("let value = doc.root_mut().", stringify!($name), "(", stringify!($lit), ");")]
         #[doc = concat!("assert_eq!(doc.to_string(), \"  ", stringify!($lit), "\");")]
         /// # Ok::<_, anyhow::Error>(())
@@ -351,14 +353,13 @@ impl<'a> ValueMut<'a> {
     /// use nondestructive::yaml;
     ///
     /// let mut doc = yaml::from_slice("  string")?;
+    ///
     /// doc.root_mut().set_null(yaml::Null::Keyword);
     /// assert_eq!(doc.to_string(), "  null");
     ///
-    /// let mut doc = yaml::from_slice("  string")?;
     /// doc.root_mut().set_null(yaml::Null::Tilde);
     /// assert_eq!(doc.to_string(), "  ~");
     ///
-    /// let mut doc = yaml::from_slice("  string")?;
     /// doc.root_mut().set_null(yaml::Null::Empty);
     /// assert_eq!(doc.to_string(), "  ");
     ///
@@ -371,6 +372,16 @@ impl<'a> ValueMut<'a> {
 
     /// Set the value as a string.
     ///
+    /// The [`StringKind`] used will follow a fairly simple heuristic documented
+    /// below, if this is not suitable then [`ValueMut::set_string_with`] may be
+    /// used.
+    ///
+    /// The heuristic used is:
+    /// * [`StringKind::Single`] will be used if the leading digit is numeric.
+    /// * [`StringKind::Double`] will be used if either a single `'` is
+    ///   encounted, or a non-graphical component that requires escaping.
+    /// * Otherwise, [`StringKind::Bare`] is used.
+    ///
     /// # Examples
     ///
     /// ```
@@ -378,24 +389,24 @@ impl<'a> ValueMut<'a> {
     /// use nondestructive::yaml;
     ///
     /// let mut doc = yaml::from_slice("  string")?;
+    ///
     /// doc.root_mut().set_string("i-am-a-string");
     /// assert_eq!(doc.to_string(), "  i-am-a-string");
     ///
-    /// let mut doc = yaml::from_slice("  string")?;
     /// doc.root_mut().set_string("I am a string");
     /// assert_eq!(doc.to_string(), "  I am a string");
     ///
-    /// let mut doc = yaml::from_slice("  string")?;
     /// doc.root_mut().set_string("I am a\n string");
     /// assert_eq!(doc.to_string(), "  \"I am a\\n string\"");
     ///
-    /// let mut doc = yaml::from_slice("  string")?;
     /// doc.root_mut().set_string("I am a string with \"quotes\"");
     /// assert_eq!(doc.to_string(), "  I am a string with \"quotes\"");
     ///
-    /// let mut doc = yaml::from_slice("  string")?;
     /// doc.root_mut().set_string("null");
     /// assert_eq!(doc.to_string(), "  'null'");
+    ///
+    /// doc.root_mut().set_string("1.65");
+    /// assert_eq!(doc.to_string(), "  '1.65'");
     /// # Ok::<_, anyhow::Error>(())
     /// ```
     #[inline]
@@ -404,6 +415,29 @@ impl<'a> ValueMut<'a> {
         S: AsRef<str>,
     {
         let value = raw::new_string(self.data, string);
+        self.data.replace(self.id, value);
+    }
+
+    /// Set the value as a string with a custom [`StringKind`].
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use anyhow::Context;
+    /// use nondestructive::yaml;
+    ///
+    /// let mut doc = yaml::from_slice("  string")?;
+    ///
+    /// doc.root_mut().set_string_with("i-am-a-string", yaml::StringKind::Double);
+    /// assert_eq!(doc.to_string(), "  \"i-am-a-string\"");
+    /// # Ok::<_, anyhow::Error>(())
+    /// ```
+    #[inline]
+    pub fn set_string_with<S>(&mut self, string: S, kind: StringKind)
+    where
+        S: AsRef<str>,
+    {
+        let value = raw::new_string_with(self.data, string, kind);
         self.data.replace(self.id, value);
     }
 
@@ -416,6 +450,7 @@ impl<'a> ValueMut<'a> {
     /// use nondestructive::yaml;
     ///
     /// let mut doc = yaml::from_slice("  string")?;
+    ///
     /// doc.root_mut().set_bool(true);
     /// assert_eq!(doc.to_string(), "  true");
     /// # Ok::<_, anyhow::Error>(())

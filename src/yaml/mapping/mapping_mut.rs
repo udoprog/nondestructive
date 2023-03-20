@@ -149,7 +149,7 @@ impl<'a> MappingMut<'a> {
             return id;
         }
 
-        let key = raw::String::new(raw::StringKind::Bare, key);
+        let key = raw::String::new(raw::RawStringKind::Bare, key);
 
         let item_prefix = if self.data.mapping(self.id).items.last().is_some() {
             self.make_prefix()
