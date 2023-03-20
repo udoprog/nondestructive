@@ -570,7 +570,7 @@ impl<'a> ValueMut<'a> {
             .data
             .layout(self.id)
             .parent
-            .and_then(|id| Some(self.data.layout(id).parent?))
+            .and_then(|id| self.data.layout(id).parent)
             .map(|id| self.data.pair(id));
 
         let (indent, layout) = match container {

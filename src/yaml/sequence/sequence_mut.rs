@@ -88,11 +88,10 @@ impl<'a> SequenceMut<'a> {
     fn make_prefix(&mut self) -> StringId {
         let mut out = Vec::new();
         out.push(raw::NEWLINE);
-
-        for _ in 0..self.data.sequence(self.id).indent {
-            out.push(raw::SPACE);
-        }
-
+        out.resize(
+            self.data.sequence(self.id).indent.saturating_add(1),
+            raw::SPACE,
+        );
         self.data.insert_str(out)
     }
 
