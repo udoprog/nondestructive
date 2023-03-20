@@ -68,7 +68,7 @@ pub use self::document::Document;
 mod raw;
 
 mod value;
-pub use self::value::{Chomp, Null, Separator, StringKind, Value};
+pub use self::value::{Block, Chomp, Null, Separator, StringKind, Value};
 
 mod value_mut;
 pub use self::value_mut::ValueMut;

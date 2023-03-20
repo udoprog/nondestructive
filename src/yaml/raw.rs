@@ -1,11 +1,12 @@
 use std::fmt::{self, Write};
+use std::iter;
 use std::mem;
 
 use bstr::ByteSlice;
 
 use crate::yaml::data::{Data, StringId, ValueId};
 use crate::yaml::serde::RawNumberHint;
-use crate::yaml::{Null, StringKind};
+use crate::yaml::{Block, Chomp, Null, StringKind};
 
 /// Newline character used in YAML.
 pub(crate) const NEWLINE: u8 = b'\n';
@@ -43,6 +44,51 @@ where
     Raw::String(String::new(kind, string))
 }
 
+/// Construct an indentation prefix.
+pub(crate) fn make_indent(data: &mut Data, id: ValueId, extra: usize) -> (usize, StringId) {
+    let container = data
+        .layout(id)
+        .parent
+        .and_then(|id| data.layout(id).parent)
+        .map(|id| data.pair(id));
+
+    let (indent, layout) = match container {
+        Some((Raw::Mapping(raw), layout)) => (raw.indent, layout),
+        Some((Raw::Sequence(raw), layout)) => (raw.indent, layout),
+        _ => {
+            let prefix = data.layout(id).prefix;
+            let indent = self::count_indent(data.str(prefix)).saturating_add(extra);
+
+            if extra == 0 {
+                return (indent, prefix);
+            }
+
+            let mut out = data.str(prefix).to_vec();
+            out.extend(iter::repeat(SPACE).take(extra));
+            let prefix = data.insert_str(&out);
+            return (indent, prefix);
+        }
+    };
+
+    let indent = indent.saturating_add(2);
+    // Take some pains to preserve the existing suffix, synthesize extra spaces characters where needed.
+    let mut existing = self::indent(data.str(layout.prefix)).chars();
+
+    let mut prefix = Vec::new();
+
+    prefix.push(NEWLINE);
+
+    for _ in 0..indent {
+        if let Some(c) = existing.next() {
+            prefix.extend(c.encode_utf8(&mut [0; 4]).as_bytes());
+        } else {
+            prefix.push(SPACE);
+        }
+    }
+
+    (indent, data.insert_str(prefix))
+}
+
 /// Construct a raw kind associated with a string with a custom string kind.
 pub(crate) fn new_string_with<S>(data: &mut Data, string: S, kind: StringKind) -> Raw
 where
@@ -52,12 +98,50 @@ where
         StringKind::Bare => RawStringKind::Bare,
         StringKind::Single => RawStringKind::Single,
         StringKind::Double => RawStringKind::Double,
-        StringKind::Block(..) => todo!(),
-        StringKind::FoldedBlock(..) => todo!(),
     };
 
     let string = data.insert_str(string.as_ref());
     Raw::String(String::new(kind, string))
+}
+
+/// Construct a block with the given configuration.
+pub(crate) fn new_block<I>(data: &mut Data, id: ValueId, iter: I, block: Block) -> Raw
+where
+    I: IntoIterator,
+    I::Item: AsRef<str>,
+{
+    let (_, prefix) = make_indent(data, id, 2);
+
+    let mut original = Vec::new();
+    let mut out = Vec::new();
+
+    let (mark, join, chomp) = match block {
+        Block::Literal(chomp) => (b'|', b'\n', chomp),
+        Block::Folded(chomp) => (b'>', b' ', chomp),
+    };
+
+    original.push(mark);
+    original.extend(chomp.as_byte());
+
+    let mut it = iter.into_iter().peekable();
+
+    while let Some(part) = it.next() {
+        original.extend_from_slice(data.str(prefix));
+        original.extend(part.as_ref().as_bytes());
+        out.extend(part.as_ref().as_bytes());
+
+        if it.peek().is_some() {
+            out.push(join);
+        }
+    }
+
+    if let Chomp::Clip | Chomp::Keep = chomp {
+        out.push(NEWLINE);
+    }
+
+    let original = data.insert_str(&original);
+    let string = data.insert_str(out);
+    Raw::String(self::String::new(RawStringKind::Original(original), string))
 }
 
 #[derive(Debug, Clone, Copy)]

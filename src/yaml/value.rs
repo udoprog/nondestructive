@@ -23,6 +23,16 @@ pub enum Chomp {
     Keep,
 }
 
+impl Chomp {
+    pub(crate) fn as_byte(self) -> Option<u8> {
+        match self {
+            Chomp::Strip => Some(b'-'),
+            Chomp::Clip => None,
+            Chomp::Keep => Some(b'+'),
+        }
+    }
+}
+
 /// The kind of a string.
 #[derive(Debug, Clone, Copy)]
 #[non_exhaustive]
@@ -40,14 +50,20 @@ pub enum StringKind {
     /// "Hello\nWorld"
     /// ```
     Double,
-    /// The default `|` block, with a chomping mode as indicated by [`Chomp`].
+}
+
+/// The kind of a block.
+#[derive(Debug, Clone, Copy)]
+#[non_exhaustive]
+pub enum Block {
+    /// The literal `|` block, with a chomping mode as indicated by [`Chomp`].
     ///
     /// ```yaml
     /// |
     ///   Hello
     ///   World
     /// ```
-    Block(Chomp),
+    Literal(Chomp),
     /// The folded `>` block, with a chomping mode as indicated by [`Chomp`].
     /// Line breaks are converted into a single `' '` space.
     ///
@@ -56,7 +72,7 @@ pub enum StringKind {
     ///   Hello
     ///   World
     /// ```
-    FoldedBlock(Chomp),
+    Folded(Chomp),
 }
 
 /// Separator to use when separating the value from its key or sequence marker.

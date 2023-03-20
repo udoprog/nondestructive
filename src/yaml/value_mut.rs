@@ -1,9 +1,7 @@
 use crate::yaml::data::{Data, ValueId};
 use crate::yaml::raw::{self, Raw};
 use crate::yaml::serde;
-use crate::yaml::{AnyMut, MappingMut, Null, SequenceMut, StringKind, Value};
-
-use super::data::StringId;
+use crate::yaml::{AnyMut, Block, MappingMut, Null, SequenceMut, StringKind, Value};
 
 /// A mutable value inside of a document.
 pub struct ValueMut<'a> {
@@ -441,6 +439,112 @@ impl<'a> ValueMut<'a> {
         self.data.replace(self.id, value);
     }
 
+    /// Set the value as a literal block.
+    ///
+    /// This takes an iterator, which will be used to construct the block. The
+    /// underlying value type produced is in fact a string, and can be read
+    /// through methods such as [`Value::as_str`].
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use anyhow::Context;
+    /// use nondestructive::yaml;
+    ///
+    /// let mut doc = yaml::from_slice(
+    ///     r#"
+    ///     string
+    ///     "#
+    /// )?;
+    ///
+    /// doc.root_mut().set_block(["foo", "bar", "baz"], yaml::Block::Literal(yaml::Chomp::Clip));
+    /// assert_eq!(doc.root().as_str(), Some("foo\nbar\nbaz\n"));
+    ///
+    /// assert_eq!(
+    ///     doc.to_string(),
+    ///     r#"
+    ///     |
+    ///       foo
+    ///       bar
+    ///       baz
+    ///     "#
+    /// );
+    ///
+    /// doc.root_mut().set_block(["foo", "bar", "baz"], yaml::Block::Literal(yaml::Chomp::Keep));
+    /// assert_eq!(doc.root().as_str(), Some("foo\nbar\nbaz\n"));
+    ///
+    /// assert_eq!(
+    ///     doc.to_string(),
+    ///     r#"
+    ///     |+
+    ///       foo
+    ///       bar
+    ///       baz
+    ///     "#
+    /// );
+    ///
+    /// doc.root_mut().set_block(["foo", "bar", "baz"], yaml::Block::Literal(yaml::Chomp::Strip));
+    /// assert_eq!(doc.root().as_str(), Some("foo\nbar\nbaz"));
+    ///
+    /// assert_eq!(
+    ///     doc.to_string(),
+    ///     r#"
+    ///     |-
+    ///       foo
+    ///       bar
+    ///       baz
+    ///     "#
+    /// );
+    ///
+    /// doc.root_mut().set_block(["foo", "bar", "baz"], yaml::Block::Folded(yaml::Chomp::Clip));
+    /// assert_eq!(doc.root().as_str(), Some("foo bar baz\n"));
+    ///
+    /// assert_eq!(
+    ///     doc.to_string(),
+    ///     r#"
+    ///     >
+    ///       foo
+    ///       bar
+    ///       baz
+    ///     "#
+    /// );
+    ///
+    /// doc.root_mut().set_block(["foo", "bar", "baz"], yaml::Block::Folded(yaml::Chomp::Keep));
+    /// assert_eq!(doc.root().as_str(), Some("foo bar baz\n"));
+    ///
+    /// assert_eq!(
+    ///     doc.to_string(),
+    ///     r#"
+    ///     >+
+    ///       foo
+    ///       bar
+    ///       baz
+    ///     "#
+    /// );
+    ///
+    /// doc.root_mut().set_block(["foo", "bar", "baz"], yaml::Block::Folded(yaml::Chomp::Strip));
+    /// assert_eq!(doc.root().as_str(), Some("foo bar baz"));
+    ///
+    /// assert_eq!(
+    ///     doc.to_string(),
+    ///     r#"
+    ///     >-
+    ///       foo
+    ///       bar
+    ///       baz
+    ///     "#
+    /// );
+    /// # Ok::<_, anyhow::Error>(())
+    /// ```
+    pub fn set_block<I>(&mut self, iter: I, block: Block)
+    where
+        I: IntoIterator,
+        I::Item: AsRef<str>,
+    {
+        let value = raw::new_block(self.data, self.id, iter, block);
+        self.data.replace(self.id, value);
+    }
+
     /// Set the value as a boolean.
     ///
     /// # Examples
@@ -520,9 +624,9 @@ impl<'a> ValueMut<'a> {
     /// ```
     #[inline]
     #[must_use]
-    pub fn make_mapping(mut self) -> MappingMut<'a> {
+    pub fn make_mapping(self) -> MappingMut<'a> {
         if !matches!(self.data.raw(self.id), Raw::Mapping(..)) {
-            let (indent, prefix) = self.make_indent_prefix();
+            let (indent, prefix) = raw::make_indent(self.data, self.id, 0);
 
             let value = Raw::Mapping(raw::Mapping {
                 indent,
@@ -582,9 +686,9 @@ impl<'a> ValueMut<'a> {
     /// ```
     #[inline]
     #[must_use]
-    pub fn make_sequence(mut self) -> SequenceMut<'a> {
+    pub fn make_sequence(self) -> SequenceMut<'a> {
         if !matches!(self.data.raw(self.id), Raw::Sequence(..)) {
-            let (indent, prefix) = self.make_indent_prefix();
+            let (indent, prefix) = raw::make_indent(self.data, self.id, 0);
 
             let raw = Raw::Sequence(raw::Sequence {
                 indent,
@@ -596,44 +700,5 @@ impl<'a> ValueMut<'a> {
         }
 
         SequenceMut::new(self.data, self.id)
-    }
-
-    fn make_indent_prefix(&mut self) -> (usize, StringId) {
-        use bstr::ByteSlice;
-
-        let container = self
-            .data
-            .layout(self.id)
-            .parent
-            .and_then(|id| self.data.layout(id).parent)
-            .map(|id| self.data.pair(id));
-
-        let (indent, layout) = match container {
-            Some((Raw::Mapping(raw), layout)) => (raw.indent, layout),
-            Some((Raw::Sequence(raw), layout)) => (raw.indent, layout),
-            _ => {
-                let prefix = self.data.layout(self.id).prefix;
-                let indent = raw::count_indent(self.data.str(prefix));
-                return (indent, prefix);
-            }
-        };
-
-        let indent = indent.saturating_add(2);
-        // Take some pains to preserve the existing suffix, synthesize extra spaces characters where needed.
-        let mut existing = raw::indent(self.data.str(layout.prefix)).chars();
-
-        let mut prefix = Vec::new();
-
-        prefix.push(raw::NEWLINE);
-
-        for _ in 0..indent {
-            if let Some(c) = existing.next() {
-                prefix.extend(c.encode_utf8(&mut [0; 4]).as_bytes());
-            } else {
-                prefix.push(raw::SPACE);
-            }
-        }
-
-        (indent, self.data.insert_str(prefix))
     }
 }
