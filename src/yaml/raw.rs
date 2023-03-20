@@ -4,7 +4,7 @@ use std::mem;
 
 use bstr::ByteSlice;
 
-use crate::yaml::data::{Data, StringId, ValueId};
+use crate::yaml::data::{Data, Id, StringId};
 use crate::yaml::serde::RawNumberHint;
 use crate::yaml::{Block, Chomp, Null, StringKind};
 
@@ -45,7 +45,7 @@ where
 }
 
 /// Construct an indentation prefix.
-pub(crate) fn make_indent(data: &mut Data, id: ValueId, extra: usize) -> (usize, StringId) {
+pub(crate) fn make_indent(data: &mut Data, id: Id, extra: usize) -> (usize, StringId) {
     let container = data
         .layout(id)
         .parent
@@ -105,7 +105,7 @@ where
 }
 
 /// Construct a block with the given configuration.
-pub(crate) fn new_block<I>(data: &mut Data, id: ValueId, iter: I, block: Block) -> Raw
+pub(crate) fn new_block<I>(data: &mut Data, id: Id, iter: I, block: Block) -> Raw
 where
     I: IntoIterator,
     I::Item: AsRef<str>,
@@ -150,7 +150,7 @@ pub(crate) struct Layout {
     pub(crate) prefix: StringId,
     /// Reference to the parent of a value.
     #[allow(unused)]
-    pub(crate) parent: Option<ValueId>,
+    pub(crate) parent: Option<Id>,
 }
 
 /// A raw value.
@@ -446,7 +446,7 @@ pub(crate) struct Sequence {
     /// The kind of a raw sequence.
     pub(crate) kind: SequenceKind,
     /// Items in the sequence.
-    pub(crate) items: Vec<ValueId>,
+    pub(crate) items: Vec<Id>,
 }
 
 impl Sequence {
@@ -489,7 +489,7 @@ impl Sequence {
 /// An element in a YAML sequence.
 #[derive(Debug, Clone)]
 pub(crate) struct SequenceItem {
-    pub(crate) value: ValueId,
+    pub(crate) value: Id,
 }
 
 impl SequenceItem {
@@ -531,7 +531,7 @@ pub(crate) struct Mapping {
     /// The kind of the mapping.
     pub(crate) kind: MappingKind,
     /// Items inside of the mapping.
-    pub(crate) items: Vec<ValueId>,
+    pub(crate) items: Vec<Id>,
 }
 
 impl Mapping {
@@ -572,7 +572,7 @@ impl Mapping {
 #[derive(Debug, Clone)]
 pub(crate) struct MappingItem {
     pub(crate) key: String,
-    pub(crate) value: ValueId,
+    pub(crate) value: Id,
 }
 
 impl MappingItem {

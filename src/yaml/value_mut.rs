@@ -1,4 +1,4 @@
-use crate::yaml::data::{Data, ValueId};
+use crate::yaml::data::{Data, Id};
 use crate::yaml::raw::{self, Raw};
 use crate::yaml::serde;
 use crate::yaml::{AnyMut, Block, MappingMut, Null, SequenceMut, StringKind, Value};
@@ -6,12 +6,12 @@ use crate::yaml::{AnyMut, Block, MappingMut, Null, SequenceMut, StringKind, Valu
 /// A mutable value inside of a document.
 pub struct ValueMut<'a> {
     data: &'a mut Data,
-    pub(crate) id: ValueId,
+    pub(crate) id: Id,
 }
 
 impl<'a> ValueMut<'a> {
     /// Construct a new mutable value.
-    pub(crate) fn new(data: &'a mut Data, id: ValueId) -> Self {
+    pub(crate) fn new(data: &'a mut Data, id: Id) -> Self {
         Self { data, id }
     }
 

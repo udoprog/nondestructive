@@ -1,4 +1,4 @@
-use crate::yaml::{MappingMut, SequenceMut, ValueId, ValueMut};
+use crate::yaml::{Id, MappingMut, SequenceMut, ValueMut};
 
 /// An enum which helps to externally discriminate the interior type of a
 /// [`ValueMut`].
@@ -39,7 +39,7 @@ impl AnyMut<'_> {
     /// # Ok::<_, anyhow::Error>(())
     /// ```
     #[must_use]
-    pub fn id(&self) -> ValueId {
+    pub fn id(&self) -> Id {
         match self {
             AnyMut::Scalar(v) => v.id,
             AnyMut::Mapping(v) => v.id,

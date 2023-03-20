@@ -1,6 +1,6 @@
 use bstr::ByteSlice;
 
-use crate::yaml::data::{Data, StringId, ValueId};
+use crate::yaml::data::{Data, Id, StringId};
 use crate::yaml::error::{Error, ErrorKind};
 use crate::yaml::raw::{self, Raw};
 use crate::yaml::serde;
@@ -190,7 +190,7 @@ impl<'a> Parser<'a> {
     }
 
     /// Insert a null value as a placeholder.
-    fn placeholder(&mut self, prefix: StringId, parent: Option<ValueId>) -> ValueId {
+    fn placeholder(&mut self, prefix: StringId, parent: Option<Id>) -> Id {
         self.data.insert(Raw::Null(Null::Empty), prefix, parent)
     }
 
@@ -370,7 +370,7 @@ impl<'a> Parser<'a> {
     }
 
     /// Parse an inline sequence.
-    fn inline_sequence(&mut self, prefix: StringId, parent: Option<ValueId>) -> Result<ValueId> {
+    fn inline_sequence(&mut self, prefix: StringId, parent: Option<Id>) -> Result<Id> {
         let id = self.placeholder(prefix, parent);
 
         self.bump(1);
@@ -431,7 +431,7 @@ impl<'a> Parser<'a> {
     }
 
     /// Parse an inline mapping.
-    fn inline_mapping(&mut self, prefix: StringId, parent: Option<ValueId>) -> Result<ValueId> {
+    fn inline_mapping(&mut self, prefix: StringId, parent: Option<Id>) -> Result<Id> {
         let id = self.placeholder(prefix, parent);
         self.bump(1);
 
@@ -495,11 +495,7 @@ impl<'a> Parser<'a> {
     }
 
     /// Parse a sequence.
-    fn sequence(
-        &mut self,
-        prefix: StringId,
-        parent: Option<ValueId>,
-    ) -> Result<(ValueId, Option<StringId>)> {
+    fn sequence(&mut self, prefix: StringId, parent: Option<Id>) -> Result<(Id, Option<StringId>)> {
         let empty = self.data.insert_str("");
         let mapping_id = self.placeholder(prefix, parent);
 
@@ -544,9 +540,9 @@ impl<'a> Parser<'a> {
         &mut self,
         mut start: usize,
         prefix: StringId,
-        parent: Option<ValueId>,
+        parent: Option<Id>,
         key: raw::String,
-    ) -> Result<(ValueId, Option<StringId>)> {
+    ) -> Result<(Id, Option<StringId>)> {
         let empty = self.data.insert_str("");
         let mapping_id = self.placeholder(prefix, parent);
 
@@ -705,9 +701,9 @@ impl<'a> Parser<'a> {
     fn value(
         &mut self,
         prefix: StringId,
-        parent: Option<ValueId>,
+        parent: Option<Id>,
         inline: bool,
-    ) -> Result<(ValueId, Option<StringId>)> {
+    ) -> Result<(Id, Option<StringId>)> {
         let (raw, ws) = match self.peek2() {
             (b'-', ws!()) if !inline => {
                 return self.sequence(prefix, parent);

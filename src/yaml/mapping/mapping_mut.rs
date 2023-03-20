@@ -1,6 +1,6 @@
 use core::mem;
 
-use crate::yaml::data::{Data, StringId, ValueId};
+use crate::yaml::data::{Data, Id, StringId};
 use crate::yaml::raw::{self, new_bool, new_string, Raw};
 use crate::yaml::serde;
 use crate::yaml::{Block, Mapping, Null, Separator, ValueMut};
@@ -48,7 +48,7 @@ use crate::yaml::{Block, Mapping, Null, Separator, ValueMut};
 /// ```
 pub struct MappingMut<'a> {
     data: &'a mut Data,
-    pub(crate) id: ValueId,
+    pub(crate) id: Id,
 }
 
 macro_rules! insert_float {
@@ -133,7 +133,7 @@ macro_rules! insert_number {
 }
 
 impl<'a> MappingMut<'a> {
-    pub(crate) fn new(data: &'a mut Data, id: ValueId) -> Self {
+    pub(crate) fn new(data: &'a mut Data, id: Id) -> Self {
         Self { data, id }
     }
 
@@ -149,7 +149,7 @@ impl<'a> MappingMut<'a> {
     }
 
     /// Insert a value into the mapping.
-    fn _insert(&mut self, key: &[u8], separator: Separator<'_>, value: Raw) -> ValueId {
+    fn _insert(&mut self, key: &[u8], separator: Separator<'_>, value: Raw) -> Id {
         let key = self.data.insert_str(key);
 
         if let Some(id) = self
@@ -533,7 +533,7 @@ impl<'a> MappingMut<'a> {
     ///
     /// This takes an iterator, which will be used to construct the block. The
     /// underlying value type produced is in fact a string, and can be read
-    /// through methods such as [`Value::as_str`].
+    /// through methods such as [`Value::as_str`][crate::yaml::Value::as_str].
     ///
     /// # Examples
     ///

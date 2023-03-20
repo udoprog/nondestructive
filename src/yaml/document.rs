@@ -1,19 +1,19 @@
 use core::fmt;
 
-use crate::yaml::data::{Data, StringId, ValueId};
+use crate::yaml::data::{Data, Id, StringId};
 use crate::yaml::{Value, ValueMut};
 
 /// A whitespace preserving YAML document.
 #[derive(Clone)]
 pub struct Document {
     suffix: StringId,
-    pub(crate) root: ValueId,
+    pub(crate) root: Id,
     pub(crate) data: Data,
 }
 
 impl Document {
     /// Construct a new document.
-    pub(crate) fn new(suffix: StringId, root: ValueId, data: Data) -> Self {
+    pub(crate) fn new(suffix: StringId, root: Id, data: Data) -> Self {
         Self { suffix, root, data }
     }
 
@@ -38,7 +38,7 @@ impl Document {
 
     /// Get the given value.
     ///
-    /// If [`ValueId`]'s are shared between documents, this might also result in
+    /// If [`Id`]'s are shared between documents, this might also result in
     /// unspecified behavior, such as it referencing a random value in the other
     /// document.
     ///
@@ -93,13 +93,13 @@ impl Document {
     /// ```
     #[must_use]
     #[inline]
-    pub fn value(&self, id: ValueId) -> Value<'_> {
+    pub fn value(&self, id: Id) -> Value<'_> {
         Value::new(&self.data, id)
     }
 
     /// Get the given value mutably.
     ///
-    /// If [`ValueId`]'s are shared between documents, this might also result in
+    /// If [`Id`]'s are shared between documents, this might also result in
     /// unspecified behavior, such as it referencing a random value in the other
     /// document.
     ///
@@ -160,7 +160,7 @@ impl Document {
     /// );
     /// # Ok::<_, anyhow::Error>(())
     /// ```
-    pub fn value_mut(&mut self, id: ValueId) -> ValueMut<'_> {
+    pub fn value_mut(&mut self, id: Id) -> ValueMut<'_> {
         ValueMut::new(&mut self.data, id)
     }
 

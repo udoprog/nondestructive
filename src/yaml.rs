@@ -57,9 +57,9 @@ mod any_mut;
 pub use self::any_mut::AnyMut;
 
 mod data;
-pub use self::data::ValueId;
+pub use self::data::Id;
 
-pub mod error;
+mod error;
 pub use self::error::Error;
 
 mod document;
@@ -74,9 +74,11 @@ mod value_mut;
 pub use self::value_mut::ValueMut;
 
 pub mod sequence;
+#[doc(inline)]
 pub use self::sequence::{Sequence, SequenceMut};
 
 pub mod mapping;
+#[doc(inline)]
 pub use self::mapping::{Mapping, MappingMut};
 
 #[cfg(feature = "serde")]

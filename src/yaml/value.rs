@@ -6,7 +6,7 @@ use crate::yaml::data::Data;
 use crate::yaml::raw::Raw;
 use crate::yaml::{Any, Mapping, Sequence};
 
-use super::data::ValueId;
+use super::data::Id;
 
 /// The kind of a multiline string.
 #[derive(Default, Debug, Clone, Copy)]
@@ -41,7 +41,8 @@ pub enum StringKind {
     Bare,
     /// A single-quoted string.
     ///
-    /// ```
+    /// ```yaml
+    /// 'Hello World'
     /// ```
     Single,
     /// A double-quoted string.
@@ -153,7 +154,7 @@ impl Null {
 /// ```
 pub struct Value<'a> {
     pub(crate) data: &'a Data,
-    pub(crate) id: ValueId,
+    pub(crate) id: Id,
 }
 
 macro_rules! as_number {
@@ -185,7 +186,7 @@ macro_rules! as_number {
 }
 
 impl<'a> Value<'a> {
-    pub(crate) fn new(data: &'a Data, id: ValueId) -> Self {
+    pub(crate) fn new(data: &'a Data, id: Id) -> Self {
         Self { data, id }
     }
 
@@ -233,7 +234,7 @@ impl<'a> Value<'a> {
         }
     }
 
-    /// Get the opaque [`ValueId`] associated with this value.
+    /// Get the opaque [`Id`] associated with this value.
     ///
     /// This can be used through [`Document::value`] to look up the same value
     /// again.
@@ -291,7 +292,7 @@ impl<'a> Value<'a> {
     /// ```
     #[must_use]
     #[inline]
-    pub fn id(&self) -> ValueId {
+    pub fn id(&self) -> Id {
         self.id
     }
 

@@ -1,6 +1,6 @@
 use core::mem;
 
-use crate::yaml::data::{Data, StringId, ValueId};
+use crate::yaml::data::{Data, Id, StringId};
 use crate::yaml::raw::{self, Raw};
 use crate::yaml::serde;
 use crate::yaml::{Block, Null, Separator, Sequence, ValueMut};
@@ -8,7 +8,7 @@ use crate::yaml::{Block, Null, Separator, Sequence, ValueMut};
 /// Mutator for a sequence.
 pub struct SequenceMut<'a> {
     data: &'a mut Data,
-    pub(crate) id: ValueId,
+    pub(crate) id: Id,
 }
 
 macro_rules! push_float {
@@ -87,7 +87,7 @@ macro_rules! push_number {
 }
 
 impl<'a> SequenceMut<'a> {
-    pub(crate) fn new(data: &'a mut Data, id: ValueId) -> Self {
+    pub(crate) fn new(data: &'a mut Data, id: Id) -> Self {
         Self { data, id }
     }
 
@@ -103,7 +103,7 @@ impl<'a> SequenceMut<'a> {
     }
 
     /// Push a value on the sequence.
-    fn _push(&mut self, separator: Separator, value: Raw) -> ValueId {
+    fn _push(&mut self, separator: Separator, value: Raw) -> Id {
         let item_prefix = if self.data.sequence(self.id).items.last().is_some() {
             self.make_prefix()
         } else {
@@ -438,7 +438,7 @@ impl<'a> SequenceMut<'a> {
     ///
     /// This takes an iterator, which will be used to construct the block. The
     /// underlying value type produced is in fact a string, and can be read
-    /// through methods such as [`Value::as_str`].
+    /// through methods such as [`Value::as_str`][crate::yaml::Value::as_str].
     ///
     /// # Examples
     ///

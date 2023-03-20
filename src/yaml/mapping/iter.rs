@@ -2,20 +2,20 @@ use core::slice;
 
 use bstr::BStr;
 
-use crate::yaml::data::{Data, ValueId};
+use crate::yaml::data::{Data, Id};
 use crate::yaml::Value;
 
-/// An immutable iterator over a [`Mapping`][crate::yaml::mapping::Mapping].
+/// An immutable iterator over a [`Mapping`][crate::yaml::Mapping].
 ///
-/// See [`Mapping::iter`][crate::yaml::mapping::Mapping::iter].
+/// See [`Mapping::iter`][crate::yaml::Mapping::iter].
 pub struct Iter<'a> {
     data: &'a Data,
-    iter: slice::Iter<'a, ValueId>,
+    iter: slice::Iter<'a, Id>,
 }
 
 impl<'a> Iter<'a> {
     #[inline]
-    pub(crate) fn new(data: &'a Data, slice: &'a [ValueId]) -> Self {
+    pub(crate) fn new(data: &'a Data, slice: &'a [Id]) -> Self {
         Self {
             data,
             iter: slice.iter(),

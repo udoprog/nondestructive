@@ -2,7 +2,7 @@ use core::fmt;
 
 use bstr::BStr;
 
-use crate::yaml::data::{Data, ValueId};
+use crate::yaml::data::{Data, Id};
 use crate::yaml::mapping::Iter;
 use crate::yaml::Value;
 
@@ -72,15 +72,15 @@ use crate::yaml::Value;
 /// ```
 pub struct Mapping<'a> {
     data: &'a Data,
-    pub(crate) id: ValueId,
+    pub(crate) id: Id,
 }
 
 impl<'a> Mapping<'a> {
-    pub(crate) fn new(data: &'a Data, id: ValueId) -> Self {
+    pub(crate) fn new(data: &'a Data, id: Id) -> Self {
         Self { data, id }
     }
 
-    /// Get the opaque [`ValueId`] associated with this mapping.
+    /// Get the opaque [`Id`] associated with this mapping.
     ///
     /// # Examples
     ///
@@ -106,7 +106,7 @@ impl<'a> Mapping<'a> {
     /// ```
     #[must_use]
     #[inline]
-    pub fn id(&self) -> ValueId {
+    pub fn id(&self) -> Id {
         self.id
     }
 

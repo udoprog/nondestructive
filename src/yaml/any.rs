@@ -1,4 +1,4 @@
-use crate::yaml::{Mapping, Sequence, Value, ValueId};
+use crate::yaml::{Id, Mapping, Sequence, Value};
 
 /// An enum which helps to externally discriminate the interior type of a
 /// [`Value`].
@@ -39,7 +39,7 @@ impl Any<'_> {
     /// # Ok::<_, anyhow::Error>(())
     /// ```
     #[must_use]
-    pub fn id(&self) -> ValueId {
+    pub fn id(&self) -> Id {
         match self {
             Any::Scalar(v) => v.id,
             Any::Mapping(v) => v.id,

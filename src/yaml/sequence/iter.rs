@@ -1,19 +1,19 @@
 use core::slice;
 
-use crate::yaml::data::{Data, ValueId};
+use crate::yaml::data::{Data, Id};
 use crate::yaml::Value;
 
-/// An immutable iterator over a [`Sequence`][crate::yaml::sequence::Sequence].
+/// An immutable iterator over a [`Sequence`][crate::yaml::Sequence].
 ///
-/// See [`Sequence::iter`][crate::yaml::sequence::Sequence::iter].
+/// See [`Sequence::iter`][crate::yaml::Sequence::iter].
 pub struct Iter<'a> {
     data: &'a Data,
-    iter: slice::Iter<'a, ValueId>,
+    iter: slice::Iter<'a, Id>,
 }
 
 impl<'a> Iter<'a> {
     #[inline]
-    pub(crate) fn new(data: &'a Data, slice: &'a [ValueId]) -> Self {
+    pub(crate) fn new(data: &'a Data, slice: &'a [Id]) -> Self {
         Self {
             data,
             iter: slice.iter(),
