@@ -121,10 +121,12 @@ impl<'a> Sequence<'a> {
     /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
-    /// let doc = yaml::from_slice(r#"
-    /// - 32
-    /// - [1, 2, 3]
-    /// "#)?;
+    /// let doc = yaml::from_slice(
+    ///     r#"
+    ///     - 32
+    ///     - [1, 2, 3]
+    ///     "#
+    /// )?;
     ///
     /// let root = doc.root().as_sequence().context("missing sequence")?;
     /// let second = root.get(1).and_then(|v| v.as_sequence()).context("missing second")?;
@@ -220,6 +222,64 @@ impl<'a> Sequence<'a> {
     #[inline]
     pub fn get(&self, index: usize) -> Option<Value<'_>> {
         let item = self.data.sequence(self.id).items.get(index)?;
+        let item = self.data.sequence_item(*item);
+        Some(Value::new(self.data, item.value))
+    }
+
+    /// Get the first value of a sequence.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use anyhow::Context;
+    /// use nondestructive::yaml;
+    ///
+    /// let doc = yaml::from_slice(
+    ///     r#"
+    ///     - one
+    ///     - two
+    ///     - three
+    ///     "#,
+    /// )?;
+    ///
+    /// let root = doc.root().as_sequence().context("missing root sequence")?;
+    ///
+    /// assert_eq!(root.first().and_then(|v| v.as_str()), Some("one"));
+    /// # Ok::<_, anyhow::Error>(())
+    /// ```
+    #[must_use]
+    #[inline]
+    pub fn first(&self) -> Option<Value<'_>> {
+        let item = self.data.sequence(self.id).items.first()?;
+        let item = self.data.sequence_item(*item);
+        Some(Value::new(self.data, item.value))
+    }
+
+    /// Get the last value of a sequence.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use anyhow::Context;
+    /// use nondestructive::yaml;
+    ///
+    /// let doc = yaml::from_slice(
+    ///     r#"
+    ///     - one
+    ///     - two
+    ///     - three
+    ///     "#,
+    /// )?;
+    ///
+    /// let root = doc.root().as_sequence().context("missing root sequence")?;
+    ///
+    /// assert_eq!(root.last().and_then(|v| v.as_str()), Some("three"));
+    /// # Ok::<_, anyhow::Error>(())
+    /// ```
+    #[must_use]
+    #[inline]
+    pub fn last(&self) -> Option<Value<'_>> {
+        let item = self.data.sequence(self.id).items.last()?;
         let item = self.data.sequence_item(*item);
         Some(Value::new(self.data, item.value))
     }

@@ -51,10 +51,12 @@ impl Document {
     /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
-    /// let mut doc = yaml::from_slice(r#"
-    /// first: 32
-    /// second: [1, 2, 3]
-    /// "#)?;
+    /// let mut doc = yaml::from_slice(
+    ///     r#"
+    ///     first: 32
+    ///     second: [1, 2, 3]
+    ///     "#
+    /// )?;
     ///
     /// let root = doc.root().as_mapping().context("missing mapping")?;
     /// let second = root.get("second").context("missing second")?;
@@ -74,10 +76,12 @@ impl Document {
     /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
-    /// let doc = yaml::from_slice(r#"
-    /// first: 32
-    /// second: [1, 2, 3]
-    /// "#)?;
+    /// let doc = yaml::from_slice(
+    ///     r#"
+    ///     first: 32
+    ///     second: [1, 2, 3]
+    ///     "#
+    /// )?;
     ///
     /// let root = doc.root().as_mapping().context("missing mapping")?;
     /// let second = root.get("second").context("missing second")?;
@@ -108,10 +112,12 @@ impl Document {
     /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
-    /// let mut doc = yaml::from_slice(r#"
-    /// first: 32
-    /// second: [1, 2, 3]
-    /// "#)?;
+    /// let mut doc = yaml::from_slice(
+    ///     r#"
+    ///     first: 32
+    ///     second: [1, 2, 3]
+    ///     "#
+    /// )?;
     ///
     /// let root = doc.root().as_mapping().context("missing mapping")?;
     /// let second = root.get("second").context("missing second")?;
@@ -131,10 +137,12 @@ impl Document {
     /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
-    /// let mut doc = yaml::from_slice(r#"
-    /// first: 32
-    /// second: [1, 2, 3]
-    /// "#)?;
+    /// let mut doc = yaml::from_slice(
+    ///     r#"
+    ///     first: 32
+    ///     second: [1, 2, 3]
+    ///     "#
+    /// )?;
     ///
     /// let root = doc.root().as_mapping().context("missing mapping")?;
     /// let second = root.get("second").context("missing second")?;
@@ -144,11 +152,11 @@ impl Document {
     /// doc.value_mut(id).set_string("Hello World");
     ///
     /// assert_eq!(
-    /// doc.to_string(),
-    /// r#"
-    /// first: 32
-    /// second: Hello World
-    /// "#
+    ///     doc.to_string(),
+    ///     r#"
+    ///     first: 32
+    ///     second: Hello World
+    ///     "#
     /// );
     /// # Ok::<_, anyhow::Error>(())
     /// ```

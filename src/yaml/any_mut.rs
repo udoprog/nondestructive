@@ -23,13 +23,19 @@ impl AnyMut<'_> {
     /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
-    /// let mut doc = yaml::from_slice(r#"
-    /// - 10
-    /// - 20
-    /// "#)?;
+    /// let mut doc = yaml::from_slice(
+    ///     r#"
+    ///     - 10
+    ///     - 20
+    ///     "#
+    /// )?;
     ///
     /// let id = doc.root_mut().into_any_mut().id();
-    /// assert_eq!(doc.value(id).to_string(), "- 10\n- 20");
+    ///
+    /// assert_eq!(
+    ///     doc.value(id).to_string(),
+    ///     "- 10\n    - 20"
+    /// );
     /// # Ok::<_, anyhow::Error>(())
     /// ```
     #[must_use]

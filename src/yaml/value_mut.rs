@@ -23,23 +23,29 @@ impl<'a> ValueMut<'a> {
     /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
-    /// let mut doc = yaml::from_slice(r#"
-    /// Hello World
-    /// "#)?;
+    /// let mut doc = yaml::from_slice(
+    ///     r#"
+    ///     Hello World
+    ///     "#
+    /// )?;
     ///
     /// assert!(matches!(doc.root_mut().into_any_mut(), yaml::AnyMut::Scalar(..)));
     ///
-    /// let mut doc = yaml::from_slice(r#"
-    /// number1: 10
-    /// number2: 20
-    /// "#)?;
+    /// let mut doc = yaml::from_slice(
+    ///     r#"
+    ///     number1: 10
+    ///     number2: 20
+    ///     "#
+    /// )?;
     ///
     /// assert!(matches!(doc.root_mut().into_any_mut(), yaml::AnyMut::Mapping(..)));
     ///
-    /// let mut doc = yaml::from_slice(r#"
-    /// - 10
-    /// - 20
-    /// "#)?;
+    /// let mut doc = yaml::from_slice(
+    ///     r#"
+    ///     - 10
+    ///     - 20
+    ///     "#
+    /// )?;
     ///
     /// assert!(matches!(doc.root_mut().into_any_mut(), yaml::AnyMut::Sequence(..)));
     /// # Ok::<_, anyhow::Error>(())
@@ -64,13 +70,15 @@ impl<'a> ValueMut<'a> {
     /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
-    /// let mut doc = yaml::from_slice(r#"
-    /// number1: 10
-    /// number2: 20
-    /// mapping:
-    ///   inner: 400
-    /// string3: "I am a quoted string!"
-    /// "#)?;
+    /// let mut doc = yaml::from_slice(
+    ///     r#"
+    ///     number1: 10
+    ///     number2: 20
+    ///     mapping:
+    ///         inner: 400
+    ///     string3: "I am a quoted string!"
+    ///     "#
+    /// )?;
     ///
     /// let mut root = doc.root_mut().into_mapping_mut().context("missing root mapping")?;
     ///
@@ -101,13 +109,15 @@ impl<'a> ValueMut<'a> {
     /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
-    /// let mut doc = yaml::from_slice(r#"
-    /// number1: 10
-    /// number2: 20
-    /// mapping:
-    ///   inner: 400
-    /// string3: "I am a quoted string!"
-    /// "#)?;
+    /// let mut doc = yaml::from_slice(
+    ///     r#"
+    ///     number1: 10
+    ///     number2: 20
+    ///     mapping:
+    ///         inner: 400
+    ///     string3: "I am a quoted string!"
+    ///     "#
+    /// )?;
     ///
     /// let mut root = doc.root_mut().into_mapping_mut().context("missing root mapping")?;
     ///
@@ -134,27 +144,30 @@ impl<'a> ValueMut<'a> {
     /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
-    /// let mut doc = yaml::from_slice(r#"
-    ///   number1: 10
-    ///   number2: 20
-    ///   mapping:
-    ///     inner: 400
-    ///   string3: "I am a quoted string!"
-    /// "#)?;
+    /// let mut doc = yaml::from_slice(
+    ///     r#"
+    ///     number1: 10
+    ///     number2: 20
+    ///     mapping:
+    ///         inner: 400
+    ///     string3: "I am a quoted string!"
+    ///     "#
+    /// )?;
     ///
     /// let mut root = doc.root_mut();
     /// let mut root = root.as_mapping_mut().context("missing root mapping")?;
     /// root.get_mut("number2").context("missing inner mapping")?.set_u32(30);
     ///
     /// assert_eq!(
-    /// doc.to_string(),
-    /// r#"
-    ///   number1: 10
-    ///   number2: 30
-    ///   mapping:
-    ///     inner: 400
-    ///   string3: "I am a quoted string!"
-    /// "#);
+    ///     doc.to_string(),
+    ///     r#"
+    ///     number1: 10
+    ///     number2: 30
+    ///     mapping:
+    ///         inner: 400
+    ///     string3: "I am a quoted string!"
+    ///     "#
+    /// );
     /// # Ok::<_, anyhow::Error>(())
     /// ```
     pub fn as_mapping_mut(&mut self) -> Option<MappingMut<'_>> {
@@ -173,40 +186,44 @@ impl<'a> ValueMut<'a> {
     /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
-    /// let mut doc = yaml::from_slice(r#"
-    ///   number1: 10
-    ///   number2: 20
-    ///   mapping:
-    ///     inner: 400
-    ///   string3: "I am a quoted string!"
-    /// "#)?;
+    /// let mut doc = yaml::from_slice(
+    ///     r#"
+    ///     number1: 10
+    ///     number2: 20
+    ///     mapping:
+    ///         inner: 400
+    ///     string3: "I am a quoted string!"
+    ///     "#
+    /// )?;
     ///
     /// let mut root = doc.root_mut().into_mapping_mut().context("missing root mapping")?;
     /// root.get_mut("number2").context("missing inner mapping")?.set_u32(30);
     /// root.get_mut("string3").context("missing inner mapping")?.set_string("i-am-a-bare-string");
     ///
     /// assert_eq!(
-    /// doc.to_string(),
-    /// r#"
-    ///   number1: 10
-    ///   number2: 30
-    ///   mapping:
-    ///     inner: 400
-    ///   string3: i-am-a-bare-string
-    /// "#);
+    ///     doc.to_string(),
+    ///     r#"
+    ///     number1: 10
+    ///     number2: 30
+    ///     mapping:
+    ///         inner: 400
+    ///     string3: i-am-a-bare-string
+    ///     "#
+    /// );
     ///
     /// let mut root = doc.root_mut().into_mapping_mut().context("missing root mapping")?;
     /// root.get_mut("string3").context("missing inner mapping")?.set_string("It's \n a good day!");
     ///
     /// assert_eq!(
-    /// doc.to_string(),
-    /// r#"
-    ///   number1: 10
-    ///   number2: 30
-    ///   mapping:
-    ///     inner: 400
-    ///   string3: "It's \n a good day!"
-    /// "#);
+    ///     doc.to_string(),
+    ///     r#"
+    ///     number1: 10
+    ///     number2: 30
+    ///     mapping:
+    ///         inner: 400
+    ///     string3: "It's \n a good day!"
+    ///     "#
+    /// );
     ///
     /// # Ok::<_, anyhow::Error>(())
     /// ```
@@ -226,25 +243,28 @@ impl<'a> ValueMut<'a> {
     /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
-    /// let mut doc = yaml::from_slice(r#"
-    ///   - 10
-    ///   - 20
-    ///   - inner: 400
-    ///   - "I am a quoted string!"
-    /// "#)?;
+    /// let mut doc = yaml::from_slice(
+    ///     r#"
+    ///     - 10
+    ///     - 20
+    ///     - inner: 400
+    ///     - "I am a quoted string!"
+    ///     "#
+    /// )?;
     ///
     /// let mut root = doc.root_mut();
     /// let mut root = root.as_sequence_mut().context("missing root sequence")?;
     /// root.get_mut(1).context("missing inner mapping")?.set_u32(30);
     ///
     /// assert_eq!(
-    /// doc.to_string(),
-    /// r#"
-    ///   - 10
-    ///   - 30
-    ///   - inner: 400
-    ///   - "I am a quoted string!"
-    /// "#);
+    ///     doc.to_string(),
+    ///     r#"
+    ///     - 10
+    ///     - 30
+    ///     - inner: 400
+    ///     - "I am a quoted string!"
+    ///     "#
+    /// );
     /// # Ok::<_, anyhow::Error>(())
     /// ```
     pub fn as_sequence_mut(&mut self) -> Option<SequenceMut<'_>> {
@@ -263,25 +283,28 @@ impl<'a> ValueMut<'a> {
     /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
-    /// let mut doc = yaml::from_slice(r#"
-    ///   - 10
-    ///   - 20
-    ///   - inner: 400
-    ///   - "I am a quoted string!"
-    /// "#)?;
+    /// let mut doc = yaml::from_slice(
+    ///     r#"
+    ///     - 10
+    ///     - 20
+    ///     - inner: 400
+    ///     - "I am a quoted string!"
+    ///     "#
+    /// )?;
     ///
     /// let mut root = doc.root_mut();
     /// let mut root = root.into_sequence_mut().context("missing root sequence")?;
     /// root.get_mut(1).context("missing inner mapping")?.set_u32(30);
     ///
     /// assert_eq!(
-    /// doc.to_string(),
-    /// r#"
-    ///   - 10
-    ///   - 30
-    ///   - inner: 400
-    ///   - "I am a quoted string!"
-    /// "#);
+    ///     doc.to_string(),
+    ///     r#"
+    ///     - 10
+    ///     - 30
+    ///     - inner: 400
+    ///     - "I am a quoted string!"
+    ///     "#
+    /// );
     /// # Ok::<_, anyhow::Error>(())
     /// ```
     #[must_use]
@@ -608,6 +631,7 @@ impl<'a> ValueMut<'a> {
     ///     first: second
     ///     "#
     /// )?;
+    ///
     /// let mut mapping = doc.root_mut().into_mapping_mut().and_then(|m| Some(m.get_into_mut("first")?.make_mapping())).context("missing first")?;
     /// mapping.insert_u32("second", 2);
     /// mapping.insert_u32("third", 3);
@@ -653,6 +677,7 @@ impl<'a> ValueMut<'a> {
     ///     string
     ///     "#
     /// )?;
+    ///
     /// let mut sequence = doc.root_mut().make_sequence();
     /// sequence.push_u32(1);
     /// sequence.push_u32(2);
@@ -670,6 +695,7 @@ impl<'a> ValueMut<'a> {
     ///     first: second
     ///     "#
     /// )?;
+    ///
     /// let mut sequence = doc.root_mut().into_mapping_mut().and_then(|m| Some(m.get_into_mut("first")?.make_sequence())).context("missing first")?;
     /// sequence.push_u32(2);
     /// sequence.push_u32(3);

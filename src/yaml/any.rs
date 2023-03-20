@@ -23,13 +23,19 @@ impl Any<'_> {
     /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
-    /// let doc = yaml::from_slice(r#"
-    /// - 10
-    /// - 20
-    /// "#)?;
+    /// let doc = yaml::from_slice(
+    ///     r#"
+    ///     - 10
+    ///     - 20
+    ///     "#
+    /// )?;
     ///
     /// let id = doc.root().into_any().id();
-    /// assert_eq!(doc.value(id).to_string(), "- 10\n- 20");
+    ///
+    /// assert_eq!(
+    ///     doc.value(id).to_string(),
+    ///     "- 10\n    - 20"
+    /// );
     /// # Ok::<_, anyhow::Error>(())
     /// ```
     #[must_use]

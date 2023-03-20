@@ -6,13 +6,15 @@
 //! use anyhow::Context;
 //! use nondestructive::yaml;
 //!
-//! let doc = yaml::from_slice(r#"
-//! number1: 10
-//! number2: 20
-//! mapping:
-//!   inner: 400
-//! string3: "I am a quoted string!"
-//! "#)?;
+//! let doc = yaml::from_slice(
+//!     r#"
+//!     number1: 10
+//!     number2: 20
+//!     mapping:
+//!         inner: 400
+//!     string3: "I am a quoted string!"
+//!     "#
+//! )?;
 //!
 //! let root = doc.root().as_mapping().ok_or("missing root mapping")?;
 //!

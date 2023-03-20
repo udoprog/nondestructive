@@ -197,23 +197,29 @@ impl<'a> Value<'a> {
     /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
-    /// let doc = yaml::from_slice(r#"
-    /// Hello World
-    /// "#)?;
+    /// let doc = yaml::from_slice(
+    ///     r#"
+    ///     Hello World
+    ///     "#
+    /// )?;
     ///
     /// assert!(matches!(doc.root().into_any(), yaml::Any::Scalar(..)));
     ///
-    /// let doc = yaml::from_slice(r#"
-    /// number1: 10
-    /// number2: 20
-    /// "#)?;
+    /// let doc = yaml::from_slice(
+    ///     r#"
+    ///     number1: 10
+    ///     number2: 20
+    ///     "#
+    /// )?;
     ///
     /// assert!(matches!(doc.root().into_any(), yaml::Any::Mapping(..)));
     ///
-    /// let doc = yaml::from_slice(r#"
-    /// - 10
-    /// - 20
-    /// "#)?;
+    /// let doc = yaml::from_slice(
+    ///     r#"
+    ///     - 10
+    ///     - 20
+    ///     "#
+    /// )?;
     ///
     /// assert!(matches!(doc.root().into_any(), yaml::Any::Sequence(..)));
     /// # Ok::<_, anyhow::Error>(())
@@ -243,10 +249,12 @@ impl<'a> Value<'a> {
     /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
-    /// let mut doc = yaml::from_slice(r#"
-    /// first: 32
-    /// second: [1, 2, 3]
-    /// "#)?;
+    /// let mut doc = yaml::from_slice(
+    ///     r#"
+    ///     first: 32
+    ///     second: [1, 2, 3]
+    ///     "#
+    /// )?;
     ///
     /// let root = doc.root().as_mapping().context("missing mapping")?;
     /// let second = root.get("second").context("missing second")?;
@@ -266,10 +274,12 @@ impl<'a> Value<'a> {
     /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
-    /// let doc = yaml::from_slice(r#"
-    /// first: 32
-    /// second: [1, 2, 3]
-    /// "#)?;
+    /// let doc = yaml::from_slice(
+    ///     r#"
+    ///     first: 32
+    ///     second: [1, 2, 3]
+    ///     "#
+    /// )?;
     ///
     /// let root = doc.root().as_mapping().context("missing mapping")?;
     /// let second = root.get("second").context("missing second")?;
@@ -297,11 +307,13 @@ impl<'a> Value<'a> {
     /// let doc = yaml::from_slice("string")?;
     /// assert_eq!(doc.root().as_str(), Some("string"));
     ///
-    /// let doc = yaml::from_slice(r#"
-    /// - It's the same string!
-    /// - "It's the same string!"
-    /// - 'It''s the same string!'
-    /// "#)?;
+    /// let doc = yaml::from_slice(
+    ///     r#"
+    ///     - It's the same string!
+    ///     - "It's the same string!"
+    ///     - 'It''s the same string!'
+    ///     "#
+    /// )?;
     ///
     /// let array = doc.root().as_sequence().context("expected sequence")?;
     ///
@@ -356,11 +368,13 @@ impl<'a> Value<'a> {
     /// let doc = yaml::from_slice("string")?;
     /// assert_eq!(doc.root().as_str(), Some("string"));
     ///
-    /// let doc = yaml::from_slice(r#"
-    /// - It's the same string!
-    /// - "It's the same string!"
-    /// - 'It''s the same string!'
-    /// "#)?;
+    /// let doc = yaml::from_slice(
+    ///     r#"
+    ///     - It's the same string!
+    ///     - "It's the same string!"
+    ///     - 'It''s the same string!'
+    ///     "#
+    /// )?;
     ///
     /// let array = doc.root().as_sequence().context("expected sequence")?;
     ///
@@ -408,13 +422,15 @@ impl<'a> Value<'a> {
     /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
-    /// let doc = yaml::from_slice(r#"
-    /// number1: 10
-    /// number2: 20
-    /// mapping:
-    ///   inner: 400
-    /// string3: "I am a quoted string!"
-    /// "#)?;
+    /// let doc = yaml::from_slice(
+    ///     r#"
+    ///     number1: 10
+    ///     number2: 20
+    ///     mapping:
+    ///         inner: 400
+    ///     string3: "I am a quoted string!"
+    ///     "#
+    /// )?;
     ///
     /// let root = doc.root().as_mapping().context("missing root mapping")?;
     ///

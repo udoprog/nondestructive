@@ -14,13 +14,15 @@ use crate::yaml::Value;
 /// use anyhow::Context;
 /// use nondestructive::yaml;
 ///
-/// let doc = yaml::from_slice(r#"
-/// number1: 10
-/// number2: 20
-/// mapping:
-///   inner: 400
-/// string3: "I am a quoted string!"
-/// "#)?;
+/// let doc = yaml::from_slice(
+///     r#"
+///     number1: 10
+///     number2: 20
+///     mapping:
+///         inner: 400
+///     string3: "I am a quoted string!"
+///     "#
+/// )?;
 ///
 /// let root = doc.root().as_mapping().context("missing root mapping")?;
 ///
@@ -86,10 +88,12 @@ impl<'a> Mapping<'a> {
     /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
-    /// let doc = yaml::from_slice(r#"
-    /// first: 32
-    /// second: [1, 2, 3]
-    /// "#)?;
+    /// let doc = yaml::from_slice(
+    ///     r#"
+    ///     first: 32
+    ///     second: [1, 2, 3]
+    ///     "#
+    /// )?;
     ///
     /// let root = doc.root().as_mapping().context("missing mapping")?;
     /// let second = root.get("second").and_then(|v| v.as_sequence()).context("missing second")?;
@@ -166,13 +170,15 @@ impl<'a> Mapping<'a> {
     /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
-    /// let doc = yaml::from_slice(r#"
-    /// number1: 10
-    /// number2: 20
-    /// mapping:
-    ///   inner: 400
-    /// string3: "I am a quoted string!"
-    /// "#)?;
+    /// let doc = yaml::from_slice(
+    ///     r#"
+    ///     number1: 10
+    ///     number2: 20
+    ///     mapping:
+    ///         inner: 400
+    ///     string3: "I am a quoted string!"
+    ///     "#
+    /// )?;
     ///
     /// let root = doc.root().as_mapping().context("missing root mapping")?;
     ///
