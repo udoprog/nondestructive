@@ -24,14 +24,14 @@ itoa = "1.0.6"
 lexical-core = "0.8.5"
 memchr = "2.5.0"
 ryu = "1.0.13"
-serde = { version = "1.0.157", optional = true }
+serde = { version = "1.0.160", optional = true }
 slab = "0.4.8"
 twox-hash = "1.6.3"
 
 [dev-dependencies]
 anyhow = "1.0.70"
-serde = { version = "1.0.157", features = ["derive"] }
-serde_yaml = "0.9.19"
+serde = { version = "1.0.160", features = ["derive"] }
+serde_yaml = "0.9.21"
 
 [package.metadata.docs.rs]
 all-features = true
