@@ -1,6 +1,5 @@
 use crate::yaml::data::{Data, Id};
 use crate::yaml::raw::{self, Raw};
-use crate::yaml::serde;
 use crate::yaml::{AnyMut, Block, MappingMut, Null, SequenceMut, StringKind, Value};
 
 /// A mutable value inside of a document.
@@ -335,7 +334,7 @@ macro_rules! set_float {
         pub fn $name(&mut self, value: $ty) {
             let mut buffer = ryu::Buffer::new();
             let string = self.data.insert_str(buffer.format(value));
-            self.data.replace(self.id, Raw::Number(raw::Number::new(string, serde::$hint)));
+            self.data.replace(self.id, Raw::Number(raw::Number::new(string, crate::yaml::serde_hint::$hint)));
         }
     };
 }
@@ -359,7 +358,7 @@ macro_rules! set_number {
         pub fn $name(&mut self, value: $ty) {
             let mut buffer = itoa::Buffer::new();
             let string = self.data.insert_str(buffer.format(value));
-            self.data.replace(self.id, Raw::Number(raw::Number::new(string, serde::$hint)));
+            self.data.replace(self.id, Raw::Number(raw::Number::new(string, crate::yaml::serde_hint::$hint)));
         }
     };
 }

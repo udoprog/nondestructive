@@ -4,9 +4,11 @@ use std::iter;
 use std::mem;
 
 use bstr::ByteSlice;
+#[cfg(feature = "serde-edits")]
+use serde::{Deserialize, Serialize};
 
 use crate::yaml::data::{Data, Id, StringId};
-use crate::yaml::serde::RawNumberHint;
+use crate::yaml::serde_hint::RawNumberHint;
 use crate::yaml::{Block, Chomp, Null, StringKind};
 
 /// Newline character used in YAML.
@@ -142,10 +144,14 @@ where
 
     let original = data.insert_str(&original);
     let string = data.insert_str(out);
-    Raw::String(self::String::new(RawStringKind::Original(original), string))
+    Raw::String(self::String::new(
+        RawStringKind::Original { original },
+        string,
+    ))
 }
 
 #[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "serde-edits", derive(Serialize, Deserialize))]
 pub(crate) struct Layout {
     /// Reference to the indentation just preceeding the current value.
     pub(crate) prefix: StringId,
@@ -156,6 +162,8 @@ pub(crate) struct Layout {
 
 /// A raw value.
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde-edits", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde-edits", serde(tag = "kind"))]
 pub(crate) enum Raw {
     /// A null value.
     Null(Null),
@@ -268,6 +276,7 @@ from!(SequenceItem);
 
 /// A YAML number.
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde-edits", derive(Serialize, Deserialize))]
 pub(crate) struct Number {
     pub(crate) string: StringId,
     #[cfg_attr(not(feature = "serde"), allow(unused))]
@@ -296,6 +305,8 @@ impl Number {
 
 /// The kind of string value.
 #[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "serde-edits", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde-edits", serde(tag = "kind"))]
 #[non_exhaustive]
 pub(crate) enum RawStringKind {
     /// A bare string without quotes, such as `hello-world`.
@@ -305,9 +316,12 @@ pub(crate) enum RawStringKind {
     /// A double-quoted string.
     Double,
     /// An escaped string, where the string id points to the original string.
-    Original(StringId),
+    Original { original: StringId },
     /// A multiline string.
-    Multiline(StringId, StringId),
+    Multiline {
+        prefix: StringId,
+        original: StringId,
+    },
 }
 
 impl RawStringKind {
@@ -344,6 +358,8 @@ impl RawStringKind {
 
 /// A YAML string.
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde-edits", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde-edits", serde(tag = "kind"))]
 pub(crate) struct String {
     /// The kind of the string.
     pub(crate) kind: RawStringKind,
@@ -429,11 +445,11 @@ impl String {
                 let string = data.str(self.string);
                 escape_single_quoted(string, f)?;
             }
-            RawStringKind::Original(original) => {
+            RawStringKind::Original { original } => {
                 let string = data.str(*original);
                 write!(f, "{string}")?;
             }
-            RawStringKind::Multiline(prefix, original) => {
+            RawStringKind::Multiline { prefix, original } => {
                 let string = data.str(*original);
                 write!(f, "{}{string}", data.str(*prefix))?;
             }
@@ -523,10 +539,10 @@ impl String {
                 let string = data.str(self.string);
                 escape_single_quoted(string, o)?;
             }
-            RawStringKind::Original(original) => {
+            RawStringKind::Original { original } => {
                 o.write_all(data.str(*original))?;
             }
-            RawStringKind::Multiline(prefix, original) => {
+            RawStringKind::Multiline { prefix, original } => {
                 o.write_all(data.str(*prefix))?;
                 o.write_all(data.str(*original))?;
             }
@@ -538,6 +554,8 @@ impl String {
 
 /// The kind of a raw sequence.
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde-edits", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde-edits", serde(tag = "kind"))]
 pub(crate) enum SequenceKind {
     /// An expanded tabular YAML sequence.
     ///
@@ -562,6 +580,7 @@ pub(crate) enum SequenceKind {
 
 /// A YAML sequence.
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde-edits", derive(Serialize, Deserialize))]
 pub(crate) struct Sequence {
     /// Indentation used for this sequence.
     pub(crate) indent: usize,
@@ -648,6 +667,7 @@ impl Sequence {
 
 /// An element in a YAML sequence.
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde-edits", derive(Serialize, Deserialize))]
 pub(crate) struct SequenceItem {
     pub(crate) value: Id,
 }
@@ -671,6 +691,8 @@ impl SequenceItem {
 
 /// The kind of a raw mapping.
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde-edits", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde-edits", serde(tag = "kind"))]
 pub(crate) enum MappingKind {
     /// An expanded tabular YAML mapping.
     ///
@@ -694,6 +716,7 @@ pub(crate) enum MappingKind {
 
 /// A YAML mapping.
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde-edits", derive(Serialize, Deserialize))]
 pub(crate) struct Mapping {
     /// Number of unicode characters worth of indentation in this mapping.
     pub(crate) indent: usize,
@@ -772,6 +795,7 @@ impl Mapping {
 
 /// An element in a YAML mapping.
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde-edits", derive(Serialize, Deserialize))]
 pub(crate) struct MappingItem {
     pub(crate) key: String,
     pub(crate) value: Id,

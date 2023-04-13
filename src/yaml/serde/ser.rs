@@ -4,18 +4,8 @@ use serde::ser::{Error, SerializeMap, SerializeSeq};
 use serde::{Serialize, Serializer};
 
 use crate::yaml::raw;
-use crate::yaml::serde::RawNumberHint;
-use crate::yaml::{Document, Mapping, Sequence, Value};
-
-impl Serialize for Document {
-    #[inline]
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        self.as_ref().serialize(serializer)
-    }
-}
+use crate::yaml::serde_hint::RawNumberHint;
+use crate::yaml::{Mapping, Sequence, Value};
 
 impl Serialize for Value<'_> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>

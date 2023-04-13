@@ -2,7 +2,6 @@ use core::mem;
 
 use crate::yaml::data::{Data, Id, StringId};
 use crate::yaml::raw::{self, new_bool, new_string, Raw};
-use crate::yaml::serde;
 use crate::yaml::{Block, Mapping, Null, Separator, ValueMut};
 
 /// Mutator for a mapping.
@@ -85,7 +84,7 @@ macro_rules! insert_float {
         {
             let mut buffer = ryu::Buffer::new();
             let number = self.data.insert_str(buffer.format(value));
-            let value = Raw::Number(raw::Number::new(number, serde::$hint));
+            let value = Raw::Number(raw::Number::new(number, crate::yaml::serde_hint::$hint));
             self._insert(key.as_ref(), Separator::Auto, value);
         }
     };
@@ -126,7 +125,7 @@ macro_rules! insert_number {
         {
             let mut buffer = itoa::Buffer::new();
             let number = self.data.insert_str(buffer.format(value));
-            let value = Raw::Number(raw::Number::new(number, serde::$hint));
+            let value = Raw::Number(raw::Number::new(number, crate::yaml::serde_hint::$hint));
             self._insert(key.as_ref(), Separator::Auto, value);
         }
     };

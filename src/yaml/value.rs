@@ -2,6 +2,8 @@ use std::fmt;
 use std::io;
 
 use bstr::{BStr, ByteSlice};
+#[cfg(feature = "serde-edits")]
+use serde::{Deserialize, Serialize};
 
 use crate::yaml::data::Data;
 use crate::yaml::raw::Raw;
@@ -104,6 +106,7 @@ pub enum Separator<'a> {
 
 /// The kind of a null value.
 #[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "serde-edits", derive(Serialize, Deserialize))]
 #[non_exhaustive]
 pub enum Null {
     /// A keyword `null` value.

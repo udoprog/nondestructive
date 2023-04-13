@@ -3,7 +3,8 @@ use serde::de::{self, Error as _, IntoDeserializer, MapAccess, SeqAccess, Visito
 use serde::Deserializer;
 
 use crate::yaml::raw;
-use crate::yaml::serde::{Error, RawNumberHint};
+use crate::yaml::serde::Error;
+use crate::yaml::serde_hint::RawNumberHint;
 use crate::yaml::{mapping, sequence, Document, Mapping, Sequence, Value};
 
 impl<'de, 'a: 'de> IntoDeserializer<'de, Error> for &'a Document {

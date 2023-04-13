@@ -19,6 +19,7 @@ jobs:
       with:
         toolchain: ${{matrix.rust}}
     - run: cargo test --workspace --all-targets --no-default-features
+    - run: cargo test --workspace --all-targets --no-default-features --features serde-edits
     - run: cargo test --workspace --all-targets --all-features
     - run: cargo test --workspace --doc --all-features
       env:

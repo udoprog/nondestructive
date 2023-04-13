@@ -3,7 +3,7 @@ use bstr::ByteSlice;
 use crate::yaml::data::{Data, Id, StringId};
 use crate::yaml::error::{Error, ErrorKind};
 use crate::yaml::raw::{self, Raw};
-use crate::yaml::serde;
+use crate::yaml::serde_hint;
 use crate::yaml::{Document, Null};
 
 type Result<T, E = Error> = std::result::Result<T, E>;
@@ -149,10 +149,10 @@ impl<'a> Parser<'a> {
 
     /// Consume a single number.
     fn number(&mut self, start: usize) -> Option<Raw> {
-        let mut hint = serde::U64;
+        let mut hint = serde_hint::U64;
 
         if matches!(self.peek(), b'-') {
-            hint = serde::I64;
+            hint = serde_hint::I64;
             self.bump(1);
         }
 
@@ -163,11 +163,11 @@ impl<'a> Parser<'a> {
         loop {
             match self.peek() {
                 b'.' if !dot => {
-                    hint = serde::F64;
+                    hint = serde_hint::F64;
                     dot = true;
                 }
                 b'e' | b'E' if !e => {
-                    hint = serde::F64;
+                    hint = serde_hint::F64;
                     dot = true;
                     e = true;
                 }
@@ -246,7 +246,7 @@ impl<'a> Parser<'a> {
         let original = self.data.insert_str(self.string(original));
 
         Raw::String(raw::String::new(
-            raw::RawStringKind::Original(original),
+            raw::RawStringKind::Original { original },
             string,
         ))
     }
@@ -304,7 +304,7 @@ impl<'a> Parser<'a> {
         let original = self.data.insert_str(self.string(original));
 
         Ok(Raw::String(raw::String::new(
-            raw::RawStringKind::Original(original),
+            raw::RawStringKind::Original { original },
             string,
         )))
     }
@@ -693,7 +693,7 @@ impl<'a> Parser<'a> {
         let out = self.input.get(start..end).unwrap_or_default();
         let original = self.data.insert_str(out);
 
-        let kind = raw::RawStringKind::Multiline(prefix, original);
+        let kind = raw::RawStringKind::Multiline { prefix, original };
         (Raw::String(raw::String::new(kind, string)), Some(ws))
     }
 

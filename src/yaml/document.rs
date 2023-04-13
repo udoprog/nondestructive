@@ -1,11 +1,15 @@
 use std::fmt;
 use std::io;
 
+#[cfg(feature = "serde-edits")]
+use serde::{Deserialize, Serialize};
+
 use crate::yaml::data::{Data, Id, StringId};
 use crate::yaml::{Value, ValueMut};
 
 /// A whitespace preserving YAML document.
 #[derive(Clone)]
+#[cfg_attr(feature = "serde-edits", derive(Serialize, Deserialize))]
 pub struct Document {
     suffix: StringId,
     pub(crate) root: Id,

@@ -2,7 +2,6 @@ use core::mem;
 
 use crate::yaml::data::{Data, Id, StringId};
 use crate::yaml::raw::{self, Raw};
-use crate::yaml::serde;
 use crate::yaml::{Block, Null, Separator, Sequence, ValueMut};
 
 /// Mutator for a sequence.
@@ -42,7 +41,7 @@ macro_rules! push_float {
         pub fn $name(&mut self, value: $ty) {
             let mut buffer = ryu::Buffer::new();
             let number = self.data.insert_str(buffer.format(value));
-            let value = Raw::Number(raw::Number::new(number, serde::$hint));
+            let value = Raw::Number(raw::Number::new(number, crate::yaml::serde_hint::$hint));
             self._push(Separator::Auto, value);
         }
     };
@@ -80,7 +79,7 @@ macro_rules! push_number {
         pub fn $name(&mut self, value: $ty) {
             let mut buffer = itoa::Buffer::new();
             let number = self.data.insert_str(buffer.format(value));
-            let value = Raw::Number(raw::Number::new(number, serde::$hint));
+            let value = Raw::Number(raw::Number::new(number, crate::yaml::serde_hint::$hint));
             self._push(Separator::Auto, value);
         }
     };

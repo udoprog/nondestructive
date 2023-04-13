@@ -17,6 +17,7 @@ categories = ["encoding", "parser-implementations"]
 default = ["yaml"]
 yaml = []
 serde = ["dep:serde", "bstr/serde"]
+serde-edits = ["dep:serde", "bstr/serde", "serde?/derive", "slab/serde"]
 
 [dependencies]
 bstr = "1.4.0"

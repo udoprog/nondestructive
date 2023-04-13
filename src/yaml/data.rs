@@ -5,12 +5,16 @@ use std::mem;
 use std::num::NonZeroUsize;
 
 use bstr::BStr;
+#[cfg(feature = "serde-edits")]
+use serde::{Deserialize, Serialize};
 use twox_hash::xxh3::{Hash128, HasherExt};
 
 use crate::yaml::raw;
 
 /// The unique hash of a string.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serde-edits", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde-edits", serde(transparent))]
 #[repr(transparent)]
 pub(crate) struct StringId(u128);
 
@@ -35,6 +39,8 @@ impl fmt::Display for StringId {
 /// [`Document::value`]: crate::yaml::Document::value
 /// [`Document::value_mut`]: crate::yaml::Document::value_mut
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serde-edits", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde-edits", serde(transparent))]
 #[repr(transparent)]
 pub struct Id(NonZeroUsize);
 
@@ -52,6 +58,7 @@ impl fmt::Display for Id {
 }
 
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde-edits", derive(Serialize, Deserialize))]
 pub(crate) struct Entry {
     raw: raw::Raw,
     layout: raw::Layout,
@@ -59,6 +66,7 @@ pub(crate) struct Entry {
 
 /// Strings cache.
 #[derive(Clone, Default)]
+#[cfg_attr(feature = "serde-edits", derive(Serialize, Deserialize))]
 pub(crate) struct Data {
     strings: HashMap<StringId, Box<[u8]>>,
     slab: slab::Slab<Entry>,

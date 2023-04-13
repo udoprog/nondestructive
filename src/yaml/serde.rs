@@ -1,10 +1,17 @@
 //! Serde support for YAML.
 //!
-//! By enabling the `serde` feature [`Document`] implements [`Serialize`] and
-//! [`IntoDeserializer`], allowing it to be used to deserialize into types:
+//! There are two serde related features available in this crate:
+//! * `serde` which allows original serialization to happen.
+//! * `serde-edits` which allows a true representation of the current state of a
+//!   [`Document`] to happen, allowing for the saving of a snapshot of the
+//!   document to be later decoded.
+//!
+//! By enabling the `serde` feature [`Value`] implements [`Serialize`] and
+//! [`IntoDeserializer`], allowing it to be used to deserialize into types.
 //!
 //! [`Serialize`]: serde::Serialize
 //! [`IntoDeserializer`]: serde::de::IntoDeserializer
+//! [`Value`]: crate::yaml::Value
 //! [`Document`]: crate::yaml::Document
 //!
 //! ```
@@ -49,7 +56,7 @@
 //!
 //! let doc = yaml::from_slice(SOURCE)?;
 //!
-//! let string = serde_yaml::to_string(&doc)?;
+//! let string = serde_yaml::to_string(&doc.as_ref())?;
 //! assert_eq!(string.trim(), SOURCE.trim());
 //!
 //! #[derive(Deserialize)]
@@ -83,45 +90,3 @@ mod error;
 mod ser;
 
 pub use self::error::Error;
-
-/// A number hint associated with a deserialized number.
-#[derive(Debug, Clone, Copy)]
-pub(crate) enum RawNumberHint {
-    /// A 32-bit float.
-    Float32,
-    /// A 64-bit float.
-    Float64,
-    /// An unsigned 8-bit number.
-    Unsigned8,
-    /// An unsigned 16-bit number.
-    Unsigned16,
-    /// An unsigned 32-bit number.
-    Unsigned32,
-    /// An unsigned 64-bit number.
-    Unsigned64,
-    /// An unsigned 128-bit number.
-    Unsigned128,
-    /// A signed 8-bit number.
-    Signed8,
-    /// A signed 16-bit number.
-    Signed16,
-    /// A signed 32-bit number.
-    Signed32,
-    /// A signed 64-bit number.
-    Signed64,
-    /// A signed 128-bit number.
-    Signed128,
-}
-
-pub(crate) const F32: RawNumberHint = RawNumberHint::Float32;
-pub(crate) const F64: RawNumberHint = RawNumberHint::Float64;
-pub(crate) const U8: RawNumberHint = RawNumberHint::Unsigned8;
-pub(crate) const U16: RawNumberHint = RawNumberHint::Unsigned16;
-pub(crate) const U32: RawNumberHint = RawNumberHint::Unsigned32;
-pub(crate) const U64: RawNumberHint = RawNumberHint::Unsigned64;
-pub(crate) const U128: RawNumberHint = RawNumberHint::Unsigned128;
-pub(crate) const I8: RawNumberHint = RawNumberHint::Signed8;
-pub(crate) const I16: RawNumberHint = RawNumberHint::Signed16;
-pub(crate) const I32: RawNumberHint = RawNumberHint::Signed32;
-pub(crate) const I64: RawNumberHint = RawNumberHint::Signed64;
-pub(crate) const I128: RawNumberHint = RawNumberHint::Signed128;
