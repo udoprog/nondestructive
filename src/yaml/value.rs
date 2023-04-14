@@ -213,7 +213,8 @@ impl<'a> Value<'a> {
         Self { data, id }
     }
 
-    /// Coerce into [`Any`] to help discriminate the value type.
+    /// Coerce into [`Any`] to help discriminate the value type, ensuring the
+    /// returned value has the lifetime `'a`.
     ///
     /// # Examples
     ///
@@ -254,6 +255,51 @@ impl<'a> Value<'a> {
             Raw::Mapping(..) => Any::Mapping(Mapping::new(self.data, self.id)),
             Raw::Sequence(..) => Any::Sequence(Sequence::new(self.data, self.id)),
             _ => Any::Scalar(self),
+        }
+    }
+
+    /// Coerce into [`Any`] to help discriminate the value type borrowing from
+    /// self.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use anyhow::Context;
+    /// use nondestructive::yaml;
+    ///
+    /// let doc = yaml::from_slice(
+    ///     r#"
+    ///     Hello World
+    ///     "#
+    /// )?;
+    ///
+    /// assert!(matches!(doc.as_ref().as_any(), yaml::Any::Scalar(..)));
+    ///
+    /// let doc = yaml::from_slice(
+    ///     r#"
+    ///     number1: 10
+    ///     number2: 20
+    ///     "#
+    /// )?;
+    ///
+    /// assert!(matches!(doc.as_ref().as_any(), yaml::Any::Mapping(..)));
+    ///
+    /// let doc = yaml::from_slice(
+    ///     r#"
+    ///     - 10
+    ///     - 20
+    ///     "#
+    /// )?;
+    ///
+    /// assert!(matches!(doc.as_ref().as_any(), yaml::Any::Sequence(..)));
+    /// # Ok::<_, anyhow::Error>(())
+    /// ```
+    #[must_use]
+    pub fn as_any(&self) -> Any<'_> {
+        match self.data.raw(self.id) {
+            Raw::Mapping(..) => Any::Mapping(Mapping::new(self.data, self.id)),
+            Raw::Sequence(..) => Any::Sequence(Sequence::new(self.data, self.id)),
+            _ => Any::Scalar(Value::new(self.data, self.id)),
         }
     }
 
