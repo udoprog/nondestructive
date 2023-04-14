@@ -1,0 +1,6 @@
+# reported by denizoztreves
+#
+# Comment: https://github.com/udoprog/nondestructive/issues/1#issuecomment-1508337593
+
+version: '1.4.5'
+memory: 600m

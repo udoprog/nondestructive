@@ -8,6 +8,24 @@ use anyhow::{anyhow, bail, ensure, Context, Result};
 use bstr::BStr;
 use nondestructive::yaml;
 
+/// Compare the processing of some document with a known good source, in this
+/// instance `serde_yaml` which is based on `LibYAML`.
+#[test]
+fn compare_with_libyaml() -> Result<()> {
+    let manifest_path =
+        PathBuf::from(env::var_os("CARGO_MANIFEST_DIR").context("missing CARGO_MANIFEST_DIR")?)
+            .join("tests")
+            .join("yaml");
+
+    for e in fs::read_dir(&manifest_path)? {
+        let e = e?;
+        let path = e.path();
+        compare_path(&path).with_context(|| anyhow!("{}", path.display()))?;
+    }
+
+    Ok(())
+}
+
 enum Step {
     Key(String),
     Index(usize),
@@ -43,23 +61,6 @@ impl fmt::Display for Trace {
     }
 }
 
-/// Compare the processing of some document with a known good source.
-#[test]
-fn compare_with_libyaml() -> Result<()> {
-    let manifest_path =
-        PathBuf::from(env::var_os("CARGO_MANIFEST_DIR").context("missing CARGO_MANIFEST_DIR")?)
-            .join("tests")
-            .join("yaml");
-
-    for e in fs::read_dir(&manifest_path)? {
-        let e = e?;
-        let path = e.path();
-        compare_path(&path).with_context(|| anyhow!("{}", path.display()))?;
-    }
-
-    Ok(())
-}
-
 fn compare_path(path: &Path) -> Result<(), anyhow::Error> {
     let contents = fs::read(path)?;
     let a = yaml::from_slice(&contents).context("nondestructive failed to deserialize")?;
@@ -78,7 +79,7 @@ fn compare(trace: &mut Trace, a: &yaml::Value<'_>, b: &serde_yaml::Value) -> Res
             compare_sequences(trace, &a, b)?;
         }
         (yaml::Any::Mapping(a), serde_yaml::Value::Mapping(b)) => {
-            compare_mappings(trace, a, b)?;
+            compare_mappings(trace, &a, b)?;
         }
         (yaml::Any::Scalar(a), serde_yaml::Value::Bool(b)) => {
             let a = a
@@ -133,7 +134,7 @@ fn compare_sequences(
 /// Structurally compare two mappings.
 fn compare_mappings(
     trace: &mut Trace,
-    a: yaml::Mapping<'_>,
+    a: &yaml::Mapping<'_>,
     b: &serde_yaml::Mapping,
 ) -> Result<()> {
     let mut expected = a
@@ -156,7 +157,7 @@ fn compare_mappings(
     if !expected.is_empty() {
         let missing = expected
             .keys()
-            .map(|key| key.to_string())
+            .map(ToString::to_string)
             .collect::<Vec<_>>()
             .join(", ");
 
