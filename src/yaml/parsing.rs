@@ -47,7 +47,7 @@ impl<'a> Parser<'a> {
     /// Parses a single value, and returns its kind.
     pub(crate) fn parse(mut self) -> Result<Document> {
         let prefix = self.ws();
-        let (root, suffix) = self.value(prefix, None, false)?;
+        let (root, suffix) = self.value(prefix, None, false, true)?;
 
         let suffix = match suffix {
             Some(suffix) => suffix,
@@ -147,8 +147,25 @@ impl<'a> Parser<'a> {
         self.ws_nl().0
     }
 
+    /// Test if current position contains nothing but whitespace until we reach a line end.
+    fn is_eol(&self) -> bool {
+        let mut n = self.n;
+
+        while let Some(&b) = self.input.get(n) {
+            match b {
+                raw::NEWLINE => return true,
+                b if !b.is_ascii_whitespace() => return false,
+                _ => {}
+            }
+
+            n = n.wrapping_add(1);
+        }
+
+        true
+    }
+
     /// Consume a single number.
-    fn number(&mut self, start: usize) -> Option<Raw> {
+    fn number(&mut self, start: usize, tabular: bool) -> Option<Raw> {
         let mut hint = serde_hint::U64;
 
         if matches!(self.peek(), b'-') {
@@ -182,6 +199,10 @@ impl<'a> Parser<'a> {
         }
 
         if !any {
+            return None;
+        }
+
+        if tabular && !self.is_eol() {
             return None;
         }
 
@@ -385,7 +406,7 @@ impl<'a> Parser<'a> {
 
             let item_id = self.placeholder(item_prefix, Some(id));
             let value_prefix = self.ws();
-            let (value, next_prefix) = self.value(value_prefix, Some(item_id), true)?;
+            let (value, next_prefix) = self.value(value_prefix, Some(item_id), true, false)?;
 
             self.data.replace(item_id, raw::SequenceItem { value });
 
@@ -451,7 +472,7 @@ impl<'a> Parser<'a> {
             let item_id = self.placeholder(item_prefix, Some(id));
             self.bump(1);
             let value_prefix = self.ws();
-            let (value, next_prefix) = self.value(value_prefix, Some(item_id), true)?;
+            let (value, next_prefix) = self.value(value_prefix, Some(item_id), true, false)?;
 
             self.data.replace(item_id, raw::MappingItem { key, value });
             items.push(item_id);
@@ -510,7 +531,7 @@ impl<'a> Parser<'a> {
             self.bump(1);
 
             let value_prefix = self.ws();
-            let (value, ws) = self.value(value_prefix, Some(item_id), false)?;
+            let (value, ws) = self.value(value_prefix, Some(item_id), false, true)?;
 
             self.data.replace(item_id, raw::SequenceItem { value });
             items.push(item_id);
@@ -564,7 +585,7 @@ impl<'a> Parser<'a> {
             self.bump(1);
 
             let value_prefix = self.ws();
-            let (value, ws) = self.value(value_prefix, Some(item_id), false)?;
+            let (value, ws) = self.value(value_prefix, Some(item_id), false, true)?;
 
             self.data.replace(item_id, raw::MappingItem { key, value });
             items.push(item_id);
@@ -703,6 +724,7 @@ impl<'a> Parser<'a> {
         prefix: StringId,
         parent: Option<Id>,
         inline: bool,
+        tabular: bool,
     ) -> Result<(Id, Option<StringId>)> {
         let (raw, ws) = match self.peek2() {
             (b'-', ws!()) if !inline => {
@@ -724,7 +746,7 @@ impl<'a> Parser<'a> {
                 'default: {
                     let start = self.n;
 
-                    if let Some(number) = self.number(start) {
+                    if let Some(number) = self.number(start, tabular) {
                         break 'default (number, None);
                     }
 
