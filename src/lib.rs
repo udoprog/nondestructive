@@ -83,15 +83,15 @@
 //!    |
 //! ```
 //!
-//! We could following the recommendation and assign it to a local variable,
-//! however that wouldn't be possible if we were using helper methods such as
+//! We could follow the recommendation and assign it to a local variable,
+//! however that wouldn't be possible if we were using combinators such as
 //! [`Option::and_then`].
 //!
 //! <br>
 //!
 //! Another important aspect of working with documents is that we can address
 //! values *globally* through [identifiers][Id]. This makes it easier to store
-//! desired modifications in a collection before applying them.
+//! desired modifications before applying them.
 //!
 //! ```
 //! use anyhow::Context;
@@ -107,6 +107,7 @@
 //!
 //! let mut edits = Vec::new();
 //!
+//! // Build a collection of edits:
 //! for value in doc.as_ref().as_sequence().context("missing sequence")? {
 //!     let Some(n) = value.as_u32() else {
 //!         continue;
