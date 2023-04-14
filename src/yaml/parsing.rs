@@ -54,6 +54,10 @@ impl<'a> Parser<'a> {
             None => self.ws(),
         };
 
+        if !self.is_eof() {
+            return Err(Error::new(self.n..self.input.len(), ErrorKind::ExpectedEof));
+        }
+
         Ok(Document::new(suffix, root, self.data))
     }
 

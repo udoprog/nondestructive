@@ -48,12 +48,29 @@ impl std::error::Error for Error {}
 /// The kind of an [`Error`].
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ErrorKind {
-    /// Bad a sequence terminator.
+    /// Expect end of file.
     ///
     /// # Examples
     ///
     /// ```
     /// use anyhow::Context;
+    /// use nondestructive::yaml;
+    ///
+    /// const INPUT: &str = r#"
+    /// {hello: world}
+    /// 42
+    /// "#;
+    ///
+    /// let error = yaml::from_slice(INPUT).unwrap_err();
+    /// assert_eq!(*error.kind(), yaml::ErrorKind::ExpectedEof);
+    /// assert_eq!(&INPUT[error.span()], "42\n");
+    /// ```
+    ExpectedEof,
+    /// Bad a sequence terminator.
+    ///
+    /// # Examples
+    ///
+    /// ```
     /// use nondestructive::yaml;
     ///
     /// const INPUT: &str = r#"[Aristotle, # this is a comment"#;
@@ -68,7 +85,6 @@ pub enum ErrorKind {
     /// # Examples
     ///
     /// ```
-    /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
     /// const INPUT: &str = r#"{name: Aristotle, age # this is a comment"#;
@@ -81,7 +97,6 @@ pub enum ErrorKind {
     /// Missing terminator in a non-inline mapping:
     ///
     /// ```
-    /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
     /// const INPUT: &str = r#"
@@ -98,7 +113,6 @@ pub enum ErrorKind {
     /// # Examples
     ///
     /// ```
-    /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
     /// const INPUT: &str = r#"{name: Aristotle, # this is a comment"#;
@@ -113,7 +127,6 @@ pub enum ErrorKind {
     /// # Examples
     ///
     /// ```
-    /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
     /// const INPUT: &str = r#""hello \o1u world""#;
@@ -128,7 +141,6 @@ pub enum ErrorKind {
     /// # Examples
     ///
     /// ```
-    /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
     /// const INPUT: &str = r#""hello \x1u world""#;
@@ -143,7 +155,6 @@ pub enum ErrorKind {
     /// # Examples
     ///
     /// ```
-    /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
     /// const INPUT: &str = r#""hello \ud800 world""#;
@@ -158,6 +169,7 @@ pub enum ErrorKind {
 impl fmt::Display for ErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            ErrorKind::ExpectedEof => write!(f, "expected end-of-file"),
             ErrorKind::BadSequenceTerminator => write!(f, "bad sequence terminator"),
             ErrorKind::BadMappingSeparator => write!(f, "bad mapping separator"),
             ErrorKind::BadMappingTerminator => write!(f, "bad mapping terminator"),
