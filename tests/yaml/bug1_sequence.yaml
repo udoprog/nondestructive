@@ -1,0 +1,7 @@
+# https://github.com/udoprog/nondestructive/issues/1
+#
+# Extra test case where we ensure that the same processing also applies to
+# structural sequnces.
+
+- 1.6.3
+- "app"
