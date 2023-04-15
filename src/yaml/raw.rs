@@ -163,7 +163,7 @@ pub(crate) struct Layout {
 /// A raw value.
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde-edits", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde-edits", serde(tag = "kind"))]
+#[cfg_attr(feature = "serde-edits", serde(tag = "kind", content = "value"))]
 pub(crate) enum Raw {
     /// A null value.
     Null(Null),
@@ -359,7 +359,6 @@ impl RawStringKind {
 /// A YAML string.
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde-edits", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde-edits", serde(tag = "kind"))]
 pub(crate) struct String {
     /// The kind of the string.
     pub(crate) kind: RawStringKind,
