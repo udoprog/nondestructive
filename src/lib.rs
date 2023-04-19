@@ -187,4 +187,7 @@
 #![allow(clippy::module_name_repetitions)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
+pub mod toml;
 pub mod yaml;
+
+mod base;

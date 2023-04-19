@@ -209,6 +209,7 @@ macro_rules! as_number {
 }
 
 impl<'a> Value<'a> {
+    #[inline]
     pub(crate) fn new(data: &'a Data, id: Id) -> Self {
         Self { data, id }
     }

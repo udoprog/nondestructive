@@ -165,7 +165,7 @@ mod serde_hint {
     pub(crate) const I128: RawNumberHint = RawNumberHint;
 }
 
-/// Parse a YAML document.
+/// Parse a YAML [`Document`].
 ///
 /// # Errors
 ///
