@@ -7,8 +7,8 @@ use bstr::ByteSlice;
 #[cfg(feature = "serde-edits")]
 use serde::{Deserialize, Serialize};
 
+use crate::serde_hint::RawNumberHint;
 use crate::yaml::data::{Data, Id, StringId};
-use crate::yaml::serde_hint::RawNumberHint;
 use crate::yaml::{Block, Chomp, Null, StringKind};
 
 /// Newline character used in YAML.

@@ -5,7 +5,7 @@ use std::io;
 use serde::{Deserialize, Serialize};
 
 use crate::toml::data::{Data, Id, StringId};
-use crate::toml::{Table, Value, ValueMut};
+use crate::toml::{Table, TableMut, Value};
 
 /// A whitespace preserving TOML document.
 #[derive(Clone)]
@@ -22,7 +22,7 @@ impl Document {
         Self { suffix, root, data }
     }
 
-    /// Get the document as a [`Value`].
+    /// Get the document as its underlying [`Table`].
     ///
     /// # Examples
     ///
@@ -31,7 +31,7 @@ impl Document {
     /// use nondestructive::toml;
     ///
     /// let doc = toml::from_slice("key = 32")?;
-    /// assert_eq!(doc.as_ref().as_u32(), Some(32));
+    /// assert_eq!(doc.as_ref().get("key").and_then(|v| v.as_u32()), Some(32));
     ///
     /// # Ok::<_, anyhow::Error>(())
     /// ```
@@ -39,6 +39,24 @@ impl Document {
     #[inline]
     pub fn as_ref(&self) -> Table<'_> {
         Table::new(&self.data, self.root)
+    }
+
+    /// Get the document as its underlying [`TableMut`].
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use anyhow::Context;
+    /// use nondestructive::toml;
+    ///
+    /// let mut doc = toml::from_slice("  key = 32")?;
+    /// doc.as_mut().get_mut("key").context("missing key")?.set_u32(42);
+    /// assert_eq!(doc.to_string(), "  key = 42");
+    ///
+    /// # Ok::<_, anyhow::Error>(())
+    /// ```
+    pub fn as_mut(&mut self) -> TableMut<'_> {
+        TableMut::new(&mut self.data, self.root)
     }
 
     /// Write the bytes of the document to the given `output`.

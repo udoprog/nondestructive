@@ -83,6 +83,8 @@ pub enum ErrorKind {
     /// assert_eq!(&INPUT[error.span()], "    ");
     /// ```
     ExpectedSeparator,
+    /// Expected a number.
+    ExpectedNumber,
 }
 
 impl fmt::Display for ErrorKind {
@@ -90,6 +92,7 @@ impl fmt::Display for ErrorKind {
         match self {
             ErrorKind::ExpectedEof => write!(f, "expected end-of-file"),
             ErrorKind::ExpectedSeparator => write!(f, "expected table separator"),
+            ErrorKind::ExpectedNumber => write!(f, "expected number"),
         }
     }
 }

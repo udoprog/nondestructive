@@ -76,6 +76,7 @@ pub struct Mapping<'a> {
 }
 
 impl<'a> Mapping<'a> {
+    #[inline]
     pub(crate) fn new(data: &'a Data, id: Id) -> Self {
         Self { data, id }
     }

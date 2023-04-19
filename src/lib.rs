@@ -191,3 +191,74 @@ pub mod toml;
 pub mod yaml;
 
 mod base;
+
+#[cfg(any(feature = "serde", feature = "serde-edits"))]
+mod serde_hint {
+    #[cfg(feature = "serde-edits")]
+    use serde::{Deserialize, Serialize};
+
+    /// A number hint associated with a deserialized number.
+    #[derive(Debug, Clone, Copy)]
+    #[cfg_attr(feature = "serde-edits", derive(Serialize, Deserialize))]
+    #[cfg_attr(feature = "serde-edits", serde(tag = "kind"))]
+    pub(crate) enum RawNumberHint {
+        /// A 32-bit float.
+        Float32,
+        /// A 64-bit float.
+        Float64,
+        /// An unsigned 8-bit number.
+        Unsigned8,
+        /// An unsigned 16-bit number.
+        Unsigned16,
+        /// An unsigned 32-bit number.
+        Unsigned32,
+        /// An unsigned 64-bit number.
+        Unsigned64,
+        /// An unsigned 128-bit number.
+        Unsigned128,
+        /// A signed 8-bit number.
+        Signed8,
+        /// A signed 16-bit number.
+        Signed16,
+        /// A signed 32-bit number.
+        Signed32,
+        /// A signed 64-bit number.
+        Signed64,
+        /// A signed 128-bit number.
+        Signed128,
+    }
+
+    pub(crate) const F32: RawNumberHint = RawNumberHint::Float32;
+    pub(crate) const F64: RawNumberHint = RawNumberHint::Float64;
+    pub(crate) const U8: RawNumberHint = RawNumberHint::Unsigned8;
+    pub(crate) const U16: RawNumberHint = RawNumberHint::Unsigned16;
+    pub(crate) const U32: RawNumberHint = RawNumberHint::Unsigned32;
+    pub(crate) const U64: RawNumberHint = RawNumberHint::Unsigned64;
+    pub(crate) const U128: RawNumberHint = RawNumberHint::Unsigned128;
+    pub(crate) const I8: RawNumberHint = RawNumberHint::Signed8;
+    pub(crate) const I16: RawNumberHint = RawNumberHint::Signed16;
+    pub(crate) const I32: RawNumberHint = RawNumberHint::Signed32;
+    pub(crate) const I64: RawNumberHint = RawNumberHint::Signed64;
+    pub(crate) const I128: RawNumberHint = RawNumberHint::Signed128;
+}
+
+#[cfg(not(any(feature = "serde", feature = "serde-edits")))]
+mod serde_hint {
+    #[derive(Debug, Clone, Copy)]
+    #[repr(transparent)]
+    #[non_exhaustive]
+    pub(crate) struct RawNumberHint;
+
+    pub(crate) const F32: RawNumberHint = RawNumberHint;
+    pub(crate) const F64: RawNumberHint = RawNumberHint;
+    pub(crate) const U8: RawNumberHint = RawNumberHint;
+    pub(crate) const U16: RawNumberHint = RawNumberHint;
+    pub(crate) const U32: RawNumberHint = RawNumberHint;
+    pub(crate) const U64: RawNumberHint = RawNumberHint;
+    pub(crate) const U128: RawNumberHint = RawNumberHint;
+    pub(crate) const I8: RawNumberHint = RawNumberHint;
+    pub(crate) const I16: RawNumberHint = RawNumberHint;
+    pub(crate) const I32: RawNumberHint = RawNumberHint;
+    pub(crate) const I64: RawNumberHint = RawNumberHint;
+    pub(crate) const I128: RawNumberHint = RawNumberHint;
+}

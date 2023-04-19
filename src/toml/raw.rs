@@ -1,6 +1,7 @@
 use std::fmt;
 use std::io;
 
+use crate::serde_hint::RawNumberHint;
 use crate::toml::data::{Data, Id, StringId};
 
 /// Newline character used in TOML.
@@ -12,6 +13,8 @@ pub(crate) const SPACE: u8 = b' ';
 pub(crate) enum Raw {
     /// An empty value.
     Empty,
+    /// A single number.
+    Number(Number),
     /// A string.
     String(String),
     /// A raw table.
@@ -49,6 +52,35 @@ pub(crate) struct Layout {
     /// Reference to the parent of a value.
     #[allow(unused)]
     pub(crate) parent: Option<Id>,
+}
+
+/// A TOML number.
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde-edits", derive(Serialize, Deserialize))]
+pub(crate) struct Number {
+    pub(crate) string: StringId,
+    #[cfg_attr(not(feature = "serde"), allow(unused))]
+    pub(crate) hint: RawNumberHint,
+}
+
+impl Number {
+    /// A simple number.
+    pub(crate) fn new(string: StringId, hint: RawNumberHint) -> Self {
+        Self { string, hint }
+    }
+
+    #[inline]
+    fn display(&self, data: &Data, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", data.str(self.string))
+    }
+
+    #[inline]
+    pub(crate) fn write_to<O>(&self, data: &Data, o: &mut O) -> io::Result<()>
+    where
+        O: ?Sized + io::Write,
+    {
+        o.write_all(data.str(self.string))
+    }
 }
 
 /// A TOML string.

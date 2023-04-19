@@ -3,8 +3,8 @@ use bstr::ByteSlice;
 use serde::ser::{Error, SerializeMap, SerializeSeq};
 use serde::{Serialize, Serializer};
 
+use crate::serde_hint::RawNumberHint;
 use crate::yaml::raw;
-use crate::yaml::serde_hint::RawNumberHint;
 use crate::yaml::{Mapping, Sequence, Value};
 
 impl Serialize for Value<'_> {

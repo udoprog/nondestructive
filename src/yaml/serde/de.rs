@@ -2,9 +2,9 @@ use bstr::{BStr, ByteSlice};
 use serde::de::{self, Error as _, IntoDeserializer, MapAccess, SeqAccess, Visitor};
 use serde::Deserializer;
 
+use crate::serde_hint::RawNumberHint;
 use crate::yaml::raw;
 use crate::yaml::serde::Error;
-use crate::yaml::serde_hint::RawNumberHint;
 use crate::yaml::{mapping, sequence, Document, Mapping, Sequence, Value};
 
 impl<'de, 'a: 'de> IntoDeserializer<'de, Error> for &'a Document {

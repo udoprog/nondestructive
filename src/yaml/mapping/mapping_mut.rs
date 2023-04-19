@@ -84,7 +84,7 @@ macro_rules! insert_float {
         {
             let mut buffer = ryu::Buffer::new();
             let number = self.data.insert_str(buffer.format(value));
-            let value = Raw::Number(raw::Number::new(number, crate::yaml::serde_hint::$hint));
+            let value = Raw::Number(raw::Number::new(number, crate::serde_hint::$hint));
             self._insert(key.as_ref(), Separator::Auto, value);
         }
     };
@@ -125,13 +125,14 @@ macro_rules! insert_number {
         {
             let mut buffer = itoa::Buffer::new();
             let number = self.data.insert_str(buffer.format(value));
-            let value = Raw::Number(raw::Number::new(number, crate::yaml::serde_hint::$hint));
+            let value = Raw::Number(raw::Number::new(number, crate::serde_hint::$hint));
             self._insert(key.as_ref(), Separator::Auto, value);
         }
     };
 }
 
 impl<'a> MappingMut<'a> {
+    #[inline]
     pub(crate) fn new(data: &'a mut Data, id: Id) -> Self {
         Self { data, id }
     }

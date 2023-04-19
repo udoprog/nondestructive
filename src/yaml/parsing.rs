@@ -1,10 +1,10 @@
 use bstr::ByteSlice;
 
 use crate::base;
+use crate::serde_hint;
 use crate::yaml::data::{Data, Id, StringId};
 use crate::yaml::error::{Error, ErrorKind};
 use crate::yaml::raw::{self, Raw};
-use crate::yaml::serde_hint;
 use crate::yaml::{Document, Null};
 
 type Result<T, E = Error> = std::result::Result<T, E>;

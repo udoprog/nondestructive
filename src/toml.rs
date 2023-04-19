@@ -16,7 +16,7 @@ mod value_mut;
 pub use self::value_mut::ValueMut;
 
 mod table;
-pub use self::table::Table;
+pub use self::table::{Table, TableMut};
 
 mod raw;
 

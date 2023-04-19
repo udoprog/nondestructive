@@ -1,6 +1,7 @@
 use bstr::ByteSlice;
 
 use crate::base;
+use crate::serde_hint;
 use crate::toml::data::{Data, Id, StringId};
 use crate::toml::error::{Error, ErrorKind};
 use crate::toml::raw::{self, Raw};
@@ -98,7 +99,17 @@ impl<'a> Parser<'a> {
 
         let mut no_sep = true;
 
-        while matches!(self.parser.peek(), ws!() | b'=' if std::mem::take(&mut no_sep)) {
+        loop {
+            match self.parser.peek() {
+                ws!() => {}
+                b'=' if no_sep => {
+                    no_sep = false;
+                }
+                _ => {
+                    break;
+                }
+            }
+
             self.parser.bump(1);
         }
 
@@ -113,9 +124,67 @@ impl<'a> Parser<'a> {
         Ok(self.data.insert_str(sep))
     }
 
+    /// Parse a number.
+    fn number(&mut self) -> Result<Id> {
+        let start = self.parser.pos();
+        let mut hint = serde_hint::U64;
+
+        if matches!(self.parser.peek(), b'-') {
+            hint = serde_hint::I64;
+            self.parser.bump(1);
+        }
+
+        let mut dot = false;
+        let mut e = false;
+        let mut any = false;
+
+        loop {
+            match self.parser.peek() {
+                b'.' if !dot => {
+                    hint = serde_hint::F64;
+                    dot = true;
+                }
+                b'e' | b'E' if !e => {
+                    hint = serde_hint::F64;
+                    dot = true;
+                    e = true;
+                }
+                b'0'..=b'9' => {}
+                _ => {
+                    break;
+                }
+            }
+
+            any = true;
+            self.parser.bump(1);
+        }
+
+        if !any {
+            return Err(Error::new(
+                start..self.parser.pos(),
+                ErrorKind::ExpectedNumber,
+            ));
+        }
+
+        let string = self.data.insert_str(self.parser.string(start));
+        let prefix = self.data.insert_str("");
+        let id = self
+            .data
+            .insert(Raw::Number(raw::Number::new(string, hint)), prefix, None);
+        Ok(id)
+    }
+
+    /// Parse a string.
+    fn string(&mut self) -> Result<Id> {
+        todo!()
+    }
+
     /// Parse a TOML value.
     fn value(&mut self) -> Result<Id> {
-        todo!()
+        match self.parser.peek() {
+            b'0'..=b'9' => self.number(),
+            _ => self.string(),
+        }
     }
 
     /// Parse a TOML table.
