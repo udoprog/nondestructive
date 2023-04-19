@@ -187,7 +187,6 @@ macro_rules! as_number {
         /// # Examples
         ///
         /// ```
-        /// use anyhow::Context;
         /// use nondestructive::yaml;
         ///
         #[doc = concat!("let doc = yaml::from_slice(\"", stringify!($lit), "\")?;")]
@@ -209,6 +208,7 @@ macro_rules! as_number {
 }
 
 impl<'a> Value<'a> {
+    #[inline]
     pub(crate) fn new(data: &'a Data, id: Id) -> Self {
         Self { data, id }
     }

@@ -9,7 +9,7 @@ use bstr::BStr;
 use serde::{Deserialize, Serialize};
 use twox_hash::xxh3::{Hash128, HasherExt};
 
-use crate::yaml::raw;
+use crate::toml::raw;
 
 /// The unique hash of a string.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -31,13 +31,13 @@ impl fmt::Display for StringId {
 /// be converted into a [`Value`] again through [`Document::value`] or
 /// [`Document::value_mut`].
 ///
-/// [`Value::id`]: crate::yaml::Value::id
-/// [`Mapping::id`]: crate::yaml::Mapping::id
-/// [`Sequence::id`]: crate::yaml::Sequence::id
-/// [`Value`]: crate::yaml::Value
-/// [`Document`]: crate::yaml::Document
-/// [`Document::value`]: crate::yaml::Document::value
-/// [`Document::value_mut`]: crate::yaml::Document::value_mut
+/// [`Value::id`]: crate::toml::Value::id
+/// [`Mapping::id`]: crate::toml::Mapping::id
+/// [`Sequence::id`]: crate::toml::Sequence::id
+/// [`Value`]: crate::toml::Value
+/// [`Document`]: crate::toml::Document
+/// [`Document::value`]: crate::toml::Document::value
+/// [`Document::value_mut`]: crate::toml::Document::value_mut
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde-edits", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde-edits", serde(transparent))]
@@ -140,84 +140,6 @@ impl Data {
         panic!("expected raw at {id}")
     }
 
-    #[inline]
-    pub(crate) fn sequence(&self, id: Id) -> &raw::Sequence {
-        if let Some(Entry {
-            raw: raw::Raw::Sequence(raw),
-            ..
-        }) = self.slab.get(id.get())
-        {
-            return raw;
-        }
-
-        panic!("expected sequence at {id}")
-    }
-
-    #[inline]
-    pub(crate) fn sequence_mut(&mut self, id: Id) -> &mut raw::Sequence {
-        if let Some(Entry {
-            raw: raw::Raw::Sequence(raw),
-            ..
-        }) = self.slab.get_mut(id.get())
-        {
-            return raw;
-        }
-
-        panic!("expected sequence at {id}")
-    }
-
-    #[inline]
-    pub(crate) fn sequence_item(&self, id: Id) -> &raw::SequenceItem {
-        if let Some(Entry {
-            raw: raw::Raw::SequenceItem(raw),
-            ..
-        }) = self.slab.get(id.get())
-        {
-            return raw;
-        }
-
-        panic!("expected sequence item at {id}")
-    }
-
-    #[inline]
-    pub(crate) fn mapping(&self, id: Id) -> &raw::Mapping {
-        if let Some(Entry {
-            raw: raw::Raw::Mapping(raw),
-            ..
-        }) = self.slab.get(id.get())
-        {
-            return raw;
-        }
-
-        panic!("expected mapping at {id}")
-    }
-
-    #[inline]
-    pub(crate) fn mapping_mut(&mut self, id: Id) -> &mut raw::Mapping {
-        if let Some(Entry {
-            raw: raw::Raw::Mapping(raw),
-            ..
-        }) = self.slab.get_mut(id.get())
-        {
-            return raw;
-        }
-
-        panic!("expected mapping at {id}")
-    }
-
-    #[inline]
-    pub(crate) fn mapping_item(&self, id: Id) -> &raw::MappingItem {
-        if let Some(Entry {
-            raw: raw::Raw::MappingItem(raw),
-            ..
-        }) = self.slab.get(id.get())
-        {
-            return raw;
-        }
-
-        panic!("expected mapping item at {id}")
-    }
-
     /// Insert a raw value and return its identifier.
     #[inline]
     pub(crate) fn insert(&mut self, raw: raw::Raw, prefix: StringId, parent: Option<Id>) -> Id {
@@ -243,23 +165,10 @@ impl Data {
     #[inline]
     pub(crate) fn drop_kind(&mut self, raw: raw::Raw) {
         match raw {
-            raw::Raw::Mapping(raw) => {
-                for item in raw.items {
-                    self.drop(item);
+            raw::Raw::Table(table) => {
+                for id in table.items {
+                    self.drop(id);
                 }
-            }
-            raw::Raw::MappingItem(raw) => {
-                let item = self.slab.remove(raw.value.get());
-                self.drop_kind(item.raw);
-            }
-            raw::Raw::Sequence(raw) => {
-                for item in raw.items {
-                    self.drop(item);
-                }
-            }
-            raw::Raw::SequenceItem(raw) => {
-                let item = self.slab.remove(raw.value.get());
-                self.drop_kind(item.raw);
             }
             _ => {}
         }
@@ -287,5 +196,31 @@ impl Data {
         value.layout.prefix = prefix;
         let removed = mem::replace(&mut value.raw, raw);
         self.drop_kind(removed);
+    }
+
+    #[inline]
+    pub(crate) fn table(&self, id: Id) -> &raw::Table {
+        if let Some(Entry {
+            raw: raw::Raw::Table(raw),
+            ..
+        }) = self.slab.get(id.get())
+        {
+            return raw;
+        }
+
+        panic!("expected table at {id}")
+    }
+
+    #[inline]
+    pub(crate) fn table_item(&self, id: Id) -> &raw::TableItem {
+        if let Some(Entry {
+            raw: raw::Raw::TableItem(raw),
+            ..
+        }) = self.slab.get(id.get())
+        {
+            return raw;
+        }
+
+        panic!("expected table item at {id}")
     }
 }

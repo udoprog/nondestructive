@@ -10,6 +10,7 @@ pub struct ValueMut<'a> {
 
 impl<'a> ValueMut<'a> {
     /// Construct a new mutable value.
+    #[inline]
     pub(crate) fn new(data: &'a mut Data, id: Id) -> Self {
         Self { data, id }
     }
@@ -334,7 +335,7 @@ macro_rules! set_float {
         pub fn $name(&mut self, value: $ty) {
             let mut buffer = ryu::Buffer::new();
             let string = self.data.insert_str(buffer.format(value));
-            self.data.replace(self.id, Raw::Number(raw::Number::new(string, crate::yaml::serde_hint::$hint)));
+            self.data.replace(self.id, Raw::Number(raw::Number::new(string, crate::serde_hint::$hint)));
         }
     };
 }
@@ -358,7 +359,7 @@ macro_rules! set_number {
         pub fn $name(&mut self, value: $ty) {
             let mut buffer = itoa::Buffer::new();
             let string = self.data.insert_str(buffer.format(value));
-            self.data.replace(self.id, Raw::Number(raw::Number::new(string, crate::yaml::serde_hint::$hint)));
+            self.data.replace(self.id, Raw::Number(raw::Number::new(string, crate::serde_hint::$hint)));
         }
     };
 }

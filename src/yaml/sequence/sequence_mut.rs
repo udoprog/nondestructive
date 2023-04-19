@@ -41,7 +41,7 @@ macro_rules! push_float {
         pub fn $name(&mut self, value: $ty) {
             let mut buffer = ryu::Buffer::new();
             let number = self.data.insert_str(buffer.format(value));
-            let value = Raw::Number(raw::Number::new(number, crate::yaml::serde_hint::$hint));
+            let value = Raw::Number(raw::Number::new(number, crate::serde_hint::$hint));
             self._push(Separator::Auto, value);
         }
     };
@@ -79,7 +79,7 @@ macro_rules! push_number {
         pub fn $name(&mut self, value: $ty) {
             let mut buffer = itoa::Buffer::new();
             let number = self.data.insert_str(buffer.format(value));
-            let value = Raw::Number(raw::Number::new(number, crate::yaml::serde_hint::$hint));
+            let value = Raw::Number(raw::Number::new(number, crate::serde_hint::$hint));
             self._push(Separator::Auto, value);
         }
     };
