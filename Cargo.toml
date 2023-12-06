@@ -9,7 +9,7 @@ documentation = "https://docs.rs/nondestructive"
 readme = "README.md"
 homepage = "https://github.com/udoprog/nondestructive"
 repository = "https://github.com/udoprog/nondestructive"
-license = "MIT/Apache-2.0"
+license = "MIT OR Apache-2.0"
 keywords = ["yaml"]
 categories = ["encoding", "parser-implementations"]
 
