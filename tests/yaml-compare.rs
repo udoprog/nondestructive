@@ -17,7 +17,7 @@ fn compare_with_libyaml() -> Result<()> {
             .join("tests")
             .join("yaml");
 
-    for e in fs::read_dir(&manifest_path)? {
+    for e in fs::read_dir(manifest_path)? {
         let e = e?;
         let path = e.path();
         compare_path(&path).with_context(|| anyhow!("{}", path.display()))?;

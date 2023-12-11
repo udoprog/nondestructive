@@ -335,8 +335,10 @@ impl RawStringKind {
         let mut first = true;
 
         for c in string.chars() {
+            let first = mem::take(&mut first);
+
             match c {
-                '0'..='9' if mem::take(&mut first) => {
+                '0'..='9' if first => {
                     kind = RawStringKind::Single;
                 }
                 '\'' => {

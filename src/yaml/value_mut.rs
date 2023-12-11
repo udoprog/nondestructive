@@ -427,6 +427,9 @@ impl<'a> ValueMut<'a> {
     ///
     /// doc.as_mut().set_string("1.65");
     /// assert_eq!(doc.to_string(), "  '1.65'");
+    ///
+    /// doc.as_mut().set_string("rust@1.65");
+    /// assert_eq!(doc.to_string(), "  rust@1.65");
     /// # Ok::<_, anyhow::Error>(())
     /// ```
     #[inline]
