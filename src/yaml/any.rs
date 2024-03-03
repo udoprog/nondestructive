@@ -5,6 +5,7 @@ use crate::yaml::{Id, Mapping, Sequence, Value};
 ///
 /// See [`Value::into_any`][crate::yaml::Value::into_any].
 #[non_exhaustive]
+#[derive(Debug)]
 pub enum Any<'a> {
     /// The type is a scalar type.
     Scalar(Value<'a>),

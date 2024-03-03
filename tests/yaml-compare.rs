@@ -61,14 +61,33 @@ impl fmt::Display for Trace {
     }
 }
 
-fn compare_path(path: &Path) -> Result<(), anyhow::Error> {
-    let contents = fs::read(path)?;
-    let a = yaml::from_slice(&contents).context("nondestructive failed to deserialize")?;
-    let a = a.as_ref();
-    let b: serde_yaml::Value =
-        serde_yaml::from_slice(&contents).context("serde_yaml failed to deserialize")?;
+fn compare_path(path: &Path) -> Result<()> {
+    let input = fs::read(path)?;
+
+    let reference: serde_yaml::Value =
+        serde_yaml::from_slice(&input).context("serde_yaml failed to deserialize")?;
+
+    let document = yaml::from_slice(&input).context("nondestructive failed to deserialize")?;
+    let a = document.as_ref();
     let mut trace = Trace::default();
-    compare(&mut trace, &a, &b)?;
+    compare(&mut trace, &a, &reference)?;
+
+    let mut output = Vec::new();
+
+    document
+        .write_to(&mut output)
+        .context("nondestructive failed to serialize")?;
+
+    if output != input {
+        bail!("nondestructive failed to serialize to the same value");
+    }
+
+    let c = yaml::from_slice(&output)
+        .context("nondestructive failed to deserialize serialized value")?;
+    let c = c.as_ref();
+
+    let mut trace = Trace::default();
+    compare(&mut trace, &c, &reference)?;
     Ok(())
 }
 
@@ -89,11 +108,45 @@ fn compare(trace: &mut Trace, a: &yaml::Value<'_>, b: &serde_yaml::Value) -> Res
             ensure!(a == *b, "{trace}: {a} != {b}");
         }
         (yaml::Any::Scalar(a), serde_yaml::Value::String(b)) => {
-            let a = a
-                .as_str()
-                .with_context(|| anyhow!("{trace}: nondestructive is not a string"))?;
+            let Some(a) = a.as_str() else {
+                let a = a.as_any();
+                bail!("{trace}: nondestructive is not a string, but is a {a:?}");
+            };
 
             ensure!(a == *b, "{trace}: {a} != {b}");
+        }
+        (yaml::Any::Scalar(a), serde_yaml::Value::Number(n)) => 'ok: {
+            if let Some(b) = n.as_u64() {
+                let Some(a) = a.as_u64() else {
+                    let a = a.as_any();
+                    bail!("{trace}: nondestructive is not a string, but is a {a:?}");
+                };
+
+                ensure!(a == b, "{trace}: {a} != {b}");
+                break 'ok;
+            }
+
+            if let Some(b) = n.as_i64() {
+                let Some(a) = a.as_i64() else {
+                    let a = a.as_any();
+                    bail!("{trace}: nondestructive is not a string, but is a {a:?}");
+                };
+
+                ensure!(a == b, "{trace}: {a} != {b}");
+                break 'ok;
+            }
+
+            if let Some(b) = n.as_f64() {
+                let Some(a) = a.as_f64() else {
+                    let a = a.as_any();
+                    bail!("{trace}: nondestructive is not a string, but is a {a:?}");
+                };
+
+                ensure!(a == b, "{trace}: {a} != {b}");
+                break 'ok;
+            }
+
+            bail!("{trace}: not comparable: {a:?} == {b:?}");
         }
         _ => {
             bail!("{trace}: not comparable: {a:?} == {b:?}");

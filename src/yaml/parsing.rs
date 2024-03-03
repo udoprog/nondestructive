@@ -177,22 +177,25 @@ impl<'a> Parser<'a> {
             self.bump(1);
         }
 
-        let mut dot = false;
-        let mut e = false;
+        let mut wants_dot = true;
+        let mut wants_e = true;
+        let mut has_number = false;
         let mut any = false;
 
         loop {
             match self.peek() {
-                b'.' if !dot => {
+                b'.' if wants_dot => {
                     hint = serde_hint::F64;
-                    dot = true;
+                    wants_dot = false;
                 }
-                b'e' | b'E' if !e => {
+                b'e' | b'E' if has_number && wants_e => {
                     hint = serde_hint::F64;
-                    dot = true;
-                    e = true;
+                    wants_dot = false;
+                    wants_e = false;
                 }
-                b'0'..=b'9' => {}
+                b'0'..=b'9' => {
+                    has_number = true;
+                }
                 _ => {
                     break;
                 }
