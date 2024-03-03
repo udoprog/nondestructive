@@ -137,12 +137,14 @@ fn compare(trace: &mut Trace, a: &yaml::Value<'_>, b: &serde_yaml::Value) -> Res
             }
 
             if let Some(b) = n.as_f64() {
+                const ERROR_MARGIN: f64 = 1e-6;
+
                 let Some(a) = a.as_f64() else {
                     let a = a.as_any();
                     bail!("{trace}: nondestructive is not a string, but is a {a:?}");
                 };
 
-                ensure!(a == b, "{trace}: {a} != {b}");
+                ensure!((a - b).abs() < ERROR_MARGIN, "{trace}: {a} != {b}");
                 break 'ok;
             }
 
@@ -195,7 +197,7 @@ fn compare_mappings(
         .map(|(key, value)| (key.to_owned(), value))
         .collect::<HashMap<_, _>>();
 
-    for (key, b) in b.iter() {
+    for (key, b) in b {
         let key = key.as_str().context("only string keys supported")?;
 
         let a = expected

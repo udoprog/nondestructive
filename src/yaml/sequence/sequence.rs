@@ -306,7 +306,7 @@ impl<'a> Sequence<'a> {
     /// ```
     #[must_use]
     #[inline]
-    pub fn iter(&self) -> Iter<'_> {
+    pub fn iter(&self) -> Iter<'a> {
         Iter::new(self.data, &self.data.sequence(self.id).items)
     }
 }
@@ -351,6 +351,36 @@ impl<'a> IntoIterator for Sequence<'a> {
 
     #[inline]
     fn into_iter(self) -> Self::IntoIter {
-        Iter::new(self.data, &self.data.sequence(self.id).items)
+        self.iter()
+    }
+}
+
+/// Returns an iterator over the [Sequence].
+///
+/// # Examples
+///
+/// ```
+/// use anyhow::Context;
+/// use nondestructive::yaml;
+///
+/// let doc = yaml::from_slice(
+///     r#"
+///     - one
+///     - two
+///     - three
+///     "#,
+/// )?;
+///
+/// let root = doc.as_ref().as_sequence().context("missing root sequence")?;
+/// (&root).into_iter().flat_map(|v| v.as_str()).eq(["one", "two", "three"]);
+/// # Ok::<_, anyhow::Error>(())
+/// ```
+impl<'a> IntoIterator for &Sequence<'a> {
+    type Item = Value<'a>;
+    type IntoIter = Iter<'a>;
+
+    #[inline]
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
     }
 }

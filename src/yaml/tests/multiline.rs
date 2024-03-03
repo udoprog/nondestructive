@@ -5,14 +5,14 @@ use crate::yaml;
 #[test]
 fn string_newlines() -> Result<()> {
     let doc = yaml::from_slice(
-        r#"
+        r"
         first: |
           foo
 
           bar
           baz
         second: 2
-        "#,
+        ",
     )?;
 
     let root = doc.as_ref().as_mapping().context("missing root mapping")?;
@@ -25,24 +25,24 @@ fn string_newlines() -> Result<()> {
 
     assert_eq!(
         doc.to_string(),
-        r#"
+        r"
         first: |
           foo
 
           bar
           baz
         second: 2
-        "#
+        "
     );
 
     let doc = yaml::from_slice(
-        r#"
+        r"
         first: | foo
 
           bar
           baz
         second: 2
-        "#,
+        ",
     )?;
 
     let root = doc.as_ref().as_mapping().context("missing root mapping")?;
@@ -55,13 +55,13 @@ fn string_newlines() -> Result<()> {
 
     assert_eq!(
         doc.to_string(),
-        r#"
+        r"
         first: | foo
 
           bar
           baz
         second: 2
-        "#,
+        ",
     );
 
     Ok(())
@@ -70,14 +70,14 @@ fn string_newlines() -> Result<()> {
 #[test]
 fn string_newlines_chomped() -> Result<()> {
     let doc = yaml::from_slice(
-        r#"
+        r"
         first: |-
           foo
 
           bar
           baz
         second: 2
-        "#,
+        ",
     )?;
 
     let root = doc.as_ref().as_mapping().context("missing root mapping")?;
@@ -93,7 +93,7 @@ fn string_newlines_chomped() -> Result<()> {
 #[test]
 fn string_newlines_keep() -> Result<()> {
     let doc = yaml::from_slice(
-        r#"
+        r"
         first: |+
           foo
 
@@ -101,7 +101,7 @@ fn string_newlines_keep() -> Result<()> {
           baz
 
         second: 2
-        "#,
+        ",
     )?;
 
     let root = doc.as_ref().as_mapping().context("missing root mapping")?;
@@ -117,13 +117,13 @@ fn string_newlines_keep() -> Result<()> {
 #[test]
 fn string_spaces() -> Result<()> {
     let mut doc = yaml::from_slice(
-        r#"
+        r"
         first: > foo
 
           bar
           baz
         second: 2
-        "#,
+        ",
     )?;
 
     assert_eq!(
@@ -141,13 +141,13 @@ fn string_spaces() -> Result<()> {
 
     assert_eq!(
         doc.to_string(),
-        r#"
+        r"
         first: > foo
 
           bar
           baz
         second: 2
-        "#
+        "
     );
 
     if let Some(mut v) = doc
@@ -160,21 +160,21 @@ fn string_spaces() -> Result<()> {
 
     assert_eq!(
         doc.to_string(),
-        r#"
+        r"
         first: removed
         second: 2
-        "#
+        "
     );
 
     let doc = yaml::from_slice(
-        r#"
+        r"
         first: >
           foo
 
           bar
           baz
         second: 2
-    "#,
+        ",
     )?;
 
     assert_eq!(
@@ -186,14 +186,14 @@ fn string_spaces() -> Result<()> {
 
     assert_eq!(
         doc.to_string(),
-        r#"
+        r"
         first: >
           foo
 
           bar
           baz
         second: 2
-    "#
+        "
     );
 
     Ok(())

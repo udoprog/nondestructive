@@ -5,22 +5,22 @@ use crate::yaml;
 #[test]
 fn sequence() -> Result<()> {
     let doc = yaml::from_slice(
-        r#"
+        r"
         - 1
         - 2
         - - 4
           - 5
-        "#,
+        ",
     )?;
 
     assert_eq!(
         doc.to_string(),
-        r#"
+        r"
         - 1
         - 2
         - - 4
           - 5
-        "#,
+        ",
     );
 
     Ok(())
@@ -29,22 +29,22 @@ fn sequence() -> Result<()> {
 #[test]
 fn inline_sequence() -> Result<()> {
     let doc = yaml::from_slice(
-        r#"
+        r"
         - 1
         - 2
         - - [one, two, three]
           - 5
-        "#,
+        ",
     )?;
 
     assert_eq!(
         doc.to_string(),
-        r#"
+        r"
         - 1
         - 2
         - - [one, two, three]
           - 5
-        "#,
+        ",
     );
 
     Ok(())
@@ -53,9 +53,9 @@ fn inline_sequence() -> Result<()> {
 #[test]
 fn mutable_nested_sequence() -> Result<()> {
     let mut doc = yaml::from_slice(
-        r#"
+        r"
         - - 10
-        "#,
+        ",
     )?;
 
     let mut value = doc.as_mut().into_sequence_mut().context("not a sequence")?;
@@ -67,10 +67,10 @@ fn mutable_nested_sequence() -> Result<()> {
 
     assert_eq!(
         doc.to_string(),
-        r#"
+        r"
         - - 10
           - nice string
-        "#
+        "
     );
 
     Ok(())

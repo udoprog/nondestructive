@@ -5,24 +5,24 @@ use crate::yaml;
 #[test]
 fn mapping() -> Result<()> {
     let doc = yaml::from_slice(
-        r#"
+        r"
         one: 1
         two: 2
         three:
           four: 4
           five: 5
-        "#,
+        ",
     )?;
 
     assert_eq!(
         doc.to_string(),
-        r#"
+        r"
         one: 1
         two: 2
         three:
           four: 4
           five: 5
-        "#,
+        ",
     );
 
     Ok(())
@@ -31,24 +31,24 @@ fn mapping() -> Result<()> {
 #[test]
 fn inline_mapping() -> Result<()> {
     let doc = yaml::from_slice(
-        r#"
+        r"
         one: 1
         two: 2
         three:
           four: {inner: 10, inner2: 20}
           five: 5
-        "#,
+        ",
     )?;
 
     assert_eq!(
         doc.to_string(),
-        r#"
+        r"
         one: 1
         two: 2
         three:
           four: {inner: 10, inner2: 20}
           five: 5
-        "#,
+        ",
     );
 
     Ok(())
@@ -57,9 +57,9 @@ fn inline_mapping() -> Result<()> {
 #[test]
 fn inline_mapping_only() -> Result<()> {
     let doc = yaml::from_slice(
-        r#"
+        r"
         {one: one, two: two, three: 3,}
-        "#,
+        ",
     )?;
 
     let root = doc.as_ref().as_mapping().context("missing root mapping")?;
@@ -69,9 +69,9 @@ fn inline_mapping_only() -> Result<()> {
 
     assert_eq!(
         doc.to_string(),
-        r#"
+        r"
         {one: one, two: two, three: 3,}
-        "#,
+        ",
     );
 
     Ok(())
@@ -80,9 +80,9 @@ fn inline_mapping_only() -> Result<()> {
 #[test]
 fn make_preserve_whitespace() -> Result<()> {
     let mut doc = yaml::from_slice(
-        r#"
+        r"
         string
-        "#,
+        ",
     )?;
 
     let mut mapping = doc.as_mut().make_mapping();
@@ -91,10 +91,10 @@ fn make_preserve_whitespace() -> Result<()> {
 
     assert_eq!(
         doc.to_string(),
-        r#"
+        r"
         first: 1
         second: 2
-        "#
+        "
     );
 
     Ok(())

@@ -10,7 +10,7 @@ fn main() -> Result<()> {
     let path = args.next().context("Missing path argument")?;
 
     let bytes = fs::read(&path).with_context(|| path.clone())?;
-    let doc = yaml::from_slice(&bytes).with_context(|| path.clone())?;
+    let doc = yaml::from_slice(bytes).with_context(|| path.clone())?;
 
     print!("{doc}");
     Ok(())

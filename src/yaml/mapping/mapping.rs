@@ -226,7 +226,7 @@ impl<'a> Mapping<'a> {
     /// ```
     #[must_use]
     #[inline]
-    pub fn iter(&self) -> Iter<'_> {
+    pub fn iter(&self) -> Iter<'a> {
         Iter::new(self.data, &self.data.mapping(self.id).items)
     }
 }
@@ -271,6 +271,36 @@ impl<'a> IntoIterator for Mapping<'a> {
 
     #[inline]
     fn into_iter(self) -> Self::IntoIter {
-        Iter::new(self.data, &self.data.mapping(self.id).items)
+        self.iter()
+    }
+}
+
+/// Returns an iterator over the [Mapping].
+///
+/// # Examples
+///
+/// ```
+/// use anyhow::Context;
+/// use nondestructive::yaml;
+///
+/// let doc = yaml::from_slice(
+///     r#"
+///     one: 1
+///     two: 2
+///     three: 3
+///     "#,
+/// )?;
+///
+/// let root = doc.as_ref().as_mapping().context("missing root mapping")?;
+/// (&root).into_iter().flat_map(|(key, value)| value.as_u32()).eq([1, 2, 3]);
+/// # Ok::<_, anyhow::Error>(())
+/// ```
+impl<'a> IntoIterator for &Mapping<'a> {
+    type Item = (&'a BStr, Value<'a>);
+    type IntoIter = Iter<'a>;
+
+    #[inline]
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
     }
 }

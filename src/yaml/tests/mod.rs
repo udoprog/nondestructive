@@ -11,9 +11,9 @@ use crate::yaml;
 #[test]
 fn make_mapping() -> Result<()> {
     let mut doc = yaml::from_slice(
-        r#"
+        r"
         first: second
-        "#,
+        ",
     )?;
     let mut mapping = doc
         .as_mut()
@@ -25,11 +25,11 @@ fn make_mapping() -> Result<()> {
 
     assert_eq!(
         doc.to_string(),
-        r#"
+        r"
         first:
           second: 2
           third: 3
-        "#
+        "
     );
     Ok(())
 }
@@ -62,14 +62,14 @@ fn test_property_eol() -> Result<()> {
 #[test]
 fn test_sequences() -> Result<()> {
     let doc = yaml::from_slice(
-        r#"
+        r"
         - one
         - two
         - - three
           - four: 2
             five: 1
         - six
-        "#,
+        ",
     )?;
 
     let root = doc
