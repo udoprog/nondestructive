@@ -184,12 +184,21 @@ pub(crate) enum Raw {
 }
 
 impl Raw {
-    pub(crate) fn display(&self, data: &Data, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    pub(crate) fn display(
+        &self,
+        data: &Data,
+        f: &mut fmt::Formatter<'_>,
+        prefix: Option<Id>,
+    ) -> fmt::Result {
         match self {
             Raw::Null(raw) => {
-                raw.display(f)?;
+                raw.display(data, f, prefix)?;
             }
             Raw::Boolean(raw) => {
+                if let Some(id) = prefix {
+                    write!(f, "{}", data.prefix(id))?;
+                }
+
                 if *raw {
                     write!(f, "true")?;
                 } else {
@@ -197,21 +206,37 @@ impl Raw {
                 }
             }
             Raw::Number(raw) => {
+                if let Some(id) = prefix {
+                    write!(f, "{}", data.prefix(id))?;
+                }
+
                 raw.display(data, f)?;
             }
             Raw::String(raw) => {
+                if let Some(id) = prefix {
+                    write!(f, "{}", data.prefix(id))?;
+                }
+
                 raw.display(data, f)?;
             }
             Raw::Mapping(raw) => {
-                raw.display(data, f)?;
+                raw.display(data, f, prefix)?;
             }
             Raw::MappingItem(raw) => {
+                if let Some(id) = prefix {
+                    write!(f, "{}", data.prefix(id))?;
+                }
+
                 raw.display(data, f)?;
             }
             Raw::Sequence(raw) => {
-                raw.display(data, f)?;
+                raw.display(data, f, prefix)?;
             }
             Raw::SequenceItem(raw) => {
+                if let Some(id) = prefix {
+                    write!(f, "{}", data.prefix(id))?;
+                }
+
                 raw.display(data, f)?;
             }
         }
@@ -593,7 +618,18 @@ pub(crate) struct Sequence {
 
 impl Sequence {
     /// Display the sequence.
-    pub(crate) fn display(&self, data: &Data, f: &mut fmt::Formatter) -> fmt::Result {
+    pub(crate) fn display(
+        &self,
+        data: &Data,
+        f: &mut fmt::Formatter,
+        prefix: Option<Id>,
+    ) -> fmt::Result {
+        if matches!(self.kind, SequenceKind::Inline { .. }) || !self.items.is_empty() {
+            if let Some(id) = prefix {
+                write!(f, "{}", data.prefix(id))?;
+            }
+        }
+
         if let SequenceKind::Inline { .. } = &self.kind {
             write!(f, "[")?;
         }
@@ -675,8 +711,7 @@ pub(crate) struct SequenceItem {
 
 impl SequenceItem {
     fn display(&self, data: &Data, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", data.prefix(self.value))?;
-        data.raw(self.value).display(data, f)?;
+        data.raw(self.value).display(data, f, Some(self.value))?;
         Ok(())
     }
 
@@ -729,7 +764,18 @@ pub(crate) struct Mapping {
 
 impl Mapping {
     /// Display the mapping.
-    pub(crate) fn display(&self, data: &Data, f: &mut fmt::Formatter) -> fmt::Result {
+    pub(crate) fn display(
+        &self,
+        data: &Data,
+        f: &mut fmt::Formatter,
+        prefix: Option<Id>,
+    ) -> fmt::Result {
+        if matches!(self.kind, MappingKind::Inline { .. }) || !self.items.is_empty() {
+            if let Some(id) = prefix {
+                write!(f, "{}", data.prefix(id))?;
+            }
+        }
+
         if let MappingKind::Inline { .. } = &self.kind {
             write!(f, "{{")?;
         }
@@ -806,8 +852,7 @@ impl MappingItem {
     fn display(&self, data: &Data, f: &mut fmt::Formatter) -> fmt::Result {
         let key = data.str(self.key.string);
         write!(f, "{key}:")?;
-        write!(f, "{}", data.prefix(self.value))?;
-        data.raw(self.value).display(data, f)?;
+        data.raw(self.value).display(data, f, Some(self.value))?;
         Ok(())
     }
 

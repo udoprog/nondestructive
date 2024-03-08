@@ -99,3 +99,34 @@ fn make_preserve_whitespace() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn edit_element() -> Result<()> {
+    let mut doc = yaml::from_slice("a:\nb:\nc:")?;
+
+    let mapping = doc.as_ref().as_mapping().context("Missing root mapping")?;
+
+    assert_eq!(mapping.len(), 3);
+
+    let a = mapping.get("a").context("Missing a")?;
+
+    let id = a.id();
+
+    let _ = doc.value_mut(id).make_mapping();
+
+    assert_eq!(doc.to_string(), "a:\nb:\nc:");
+
+    let mut mapping = doc
+        .value_mut(id)
+        .into_mapping_mut()
+        .context("Missing mapping")?;
+
+    let mut sequence = mapping
+        .insert("inner", yaml::Separator::Auto)
+        .make_sequence();
+
+    sequence.push_string("value");
+
+    assert_eq!(doc.to_string(), "a:\n  inner:\n    - value\nb:\nc:");
+    Ok(())
+}

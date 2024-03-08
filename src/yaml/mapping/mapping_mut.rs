@@ -188,6 +188,7 @@ impl<'a> MappingMut<'a> {
 
         self.data
             .replace(item_id, Raw::MappingItem(raw::MappingItem { key, value }));
+
         self.data.mapping_mut(self.id).items.push(item_id);
         value
     }

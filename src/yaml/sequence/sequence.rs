@@ -314,7 +314,7 @@ impl<'a> Sequence<'a> {
 impl fmt::Display for Sequence<'_> {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.data.sequence(self.id).display(self.data, f)
+        self.data.sequence(self.id).display(self.data, f, None)
     }
 }
 

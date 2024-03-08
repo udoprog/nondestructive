@@ -47,7 +47,7 @@ impl<'a> Parser<'a> {
     /// Parses a single value, and returns its kind.
     pub(crate) fn parse(mut self) -> Result<Document> {
         let prefix = self.ws();
-        let (root, suffix) = self.value(prefix, None, false, true)?;
+        let (root, suffix) = self.value(prefix, None, false, true, None)?;
 
         let suffix = match suffix {
             Some(suffix) => suffix,
@@ -413,7 +413,8 @@ impl<'a> Parser<'a> {
 
             let item_id = self.placeholder(item_prefix, Some(id));
             let value_prefix = self.ws();
-            let (value, next_prefix) = self.value(value_prefix, Some(item_id), true, false)?;
+            let (value, next_prefix) =
+                self.value(value_prefix, Some(item_id), true, false, None)?;
 
             self.data.replace(item_id, raw::SequenceItem { value });
 
@@ -479,7 +480,8 @@ impl<'a> Parser<'a> {
             let item_id = self.placeholder(item_prefix, Some(id));
             self.bump(1);
             let value_prefix = self.ws();
-            let (value, next_prefix) = self.value(value_prefix, Some(item_id), true, false)?;
+            let (value, next_prefix) =
+                self.value(value_prefix, Some(item_id), true, false, None)?;
 
             self.data.replace(item_id, raw::MappingItem { key, value });
             items.push(item_id);
@@ -538,7 +540,7 @@ impl<'a> Parser<'a> {
             self.bump(1);
 
             let value_prefix = self.ws();
-            let (value, ws) = self.value(value_prefix, Some(item_id), false, true)?;
+            let (value, ws) = self.value(value_prefix, Some(item_id), false, true, None)?;
 
             self.data.replace(item_id, raw::SequenceItem { value });
             items.push(item_id);
@@ -564,12 +566,15 @@ impl<'a> Parser<'a> {
     }
 
     /// Parse a raw mapping.
-    fn mapping(
+    ///
+    /// If the indentation level is same as the parent, process this as a nul.
+    fn mapping_or_nul(
         &mut self,
         mut start: usize,
         prefix: StringId,
         parent: Option<Id>,
         key: raw::String,
+        parent_indent: Option<usize>,
     ) -> Result<(Id, Option<StringId>)> {
         let empty = self.data.insert_str("");
         let mapping_id = self.placeholder(prefix, parent);
@@ -579,6 +584,15 @@ impl<'a> Parser<'a> {
         let mut current_key = Some(key);
 
         let indent = self.indent_from(start);
+
+        // Finding a mapping on a smaller indentation level than the parent
+        // indentation means that we've encountered a nul value and need to rewind parsing.
+        if matches!(parent_indent, Some(i) if i >= indent) {
+            self.n = start;
+            self.data
+                .replace_with(mapping_id, empty, Raw::Null(Null::Empty));
+            return Ok((mapping_id, Some(prefix)));
+        }
 
         while let Some(key) = current_key.take() {
             if !matches!(self.peek(), b':') {
@@ -592,7 +606,7 @@ impl<'a> Parser<'a> {
             self.bump(1);
 
             let value_prefix = self.ws();
-            let (value, ws) = self.value(value_prefix, Some(item_id), false, true)?;
+            let (value, ws) = self.value(value_prefix, Some(item_id), false, true, Some(indent))?;
 
             self.data.replace(item_id, raw::MappingItem { key, value });
             items.push(item_id);
@@ -732,6 +746,7 @@ impl<'a> Parser<'a> {
         parent: Option<Id>,
         inline: bool,
         tabular: bool,
+        parent_indent: Option<usize>,
     ) -> Result<(Id, Option<StringId>)> {
         let (raw, ws) = match self.peek2() {
             (b'-', ws!()) if !inline => {
@@ -764,7 +779,7 @@ impl<'a> Parser<'a> {
                             self.bump(1);
                         }
                     } else if let Some(key) = self.key_or_eol(start) {
-                        return self.mapping(start, prefix, parent, key);
+                        return self.mapping_or_nul(start, prefix, parent, key, parent_indent);
                     }
 
                     // NB: calling `key_or_eol` will have consumed up until end
