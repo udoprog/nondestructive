@@ -259,9 +259,8 @@ impl Document {
         use std::fmt::Display;
 
         self.data.prefix(self.root).fmt(f)?;
-        self.data.raw(self.root).display(&self.data, f)?;
+        self.data.raw(self.root).display(&self.data, f, None)?;
         self.data.str(self.suffix).fmt(f)?;
-
         Ok(())
     }
 }

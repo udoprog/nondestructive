@@ -234,7 +234,7 @@ impl<'a> Mapping<'a> {
 impl fmt::Display for Mapping<'_> {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.data.mapping(self.id).display(self.data, f)
+        self.data.mapping(self.id).display(self.data, f, None)
     }
 }
 

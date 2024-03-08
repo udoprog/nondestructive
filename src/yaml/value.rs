@@ -118,12 +118,25 @@ pub enum Null {
 }
 
 impl Null {
-    pub(crate) fn display(self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    pub(crate) fn display(
+        self,
+        data: &Data,
+        f: &mut fmt::Formatter<'_>,
+        prefix: Option<Id>,
+    ) -> fmt::Result {
         match self {
             Null::Keyword => {
+                if let Some(id) = prefix {
+                    write!(f, "{}", data.prefix(id))?;
+                }
+
                 write!(f, "null")?;
             }
             Null::Tilde => {
+                if let Some(id) = prefix {
+                    write!(f, "{}", data.prefix(id))?;
+                }
+
                 write!(f, "~")?;
             }
             Null::Empty => {
@@ -569,7 +582,7 @@ impl<'a> Value<'a> {
 impl fmt::Display for Value<'_> {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.data.raw(self.id).display(self.data, f)
+        self.data.raw(self.id).display(self.data, f, None)
     }
 }
 
@@ -580,7 +593,10 @@ impl fmt::Debug for Value<'_> {
         impl fmt::Debug for Display<'_, '_> {
             #[inline]
             fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                self.0.data.raw(self.0.id).display(self.0.data, f)
+                self.0
+                    .data
+                    .raw(self.0.id)
+                    .display(self.0.data, f, Some(self.0.id))
             }
         }
 

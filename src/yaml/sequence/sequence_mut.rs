@@ -347,10 +347,7 @@ impl<'a> SequenceMut<'a> {
     ///
     /// root.clear();
     ///
-    /// assert_eq!(
-    ///     doc.to_string(),
-    ///     "\n    \n    "
-    /// );
+    /// assert_eq!(doc.to_string(), "\n    \n    ");
     /// # Ok::<_, anyhow::Error>(())
     /// ```
     pub fn clear(&mut self) {

@@ -657,13 +657,15 @@ impl<'a> ValueMut<'a> {
         if !matches!(self.data.raw(self.id), Raw::Mapping(..)) {
             let (indent, prefix) = raw::make_indent(self.data, self.id, 0);
 
-            let value = Raw::Mapping(raw::Mapping {
-                indent,
-                kind: raw::MappingKind::Mapping,
-                items: Vec::new(),
-            });
-
-            self.data.replace_with(self.id, value, prefix);
+            self.data.replace_with(
+                self.id,
+                prefix,
+                Raw::Mapping(raw::Mapping {
+                    indent,
+                    kind: raw::MappingKind::Mapping,
+                    items: Vec::new(),
+                }),
+            );
         }
 
         MappingMut::new(self.data, self.id)
@@ -721,13 +723,15 @@ impl<'a> ValueMut<'a> {
         if !matches!(self.data.raw(self.id), Raw::Sequence(..)) {
             let (indent, prefix) = raw::make_indent(self.data, self.id, 0);
 
-            let raw = Raw::Sequence(raw::Sequence {
-                indent,
-                kind: raw::SequenceKind::Mapping,
-                items: Vec::new(),
-            });
-
-            self.data.replace_with(self.id, raw, prefix);
+            self.data.replace_with(
+                self.id,
+                prefix,
+                Raw::Sequence(raw::Sequence {
+                    indent,
+                    kind: raw::SequenceKind::Mapping,
+                    items: Vec::new(),
+                }),
+            );
         }
 
         SequenceMut::new(self.data, self.id)

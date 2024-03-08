@@ -279,7 +279,7 @@ impl Data {
     }
 
     /// Replace with indentation.
-    pub(crate) fn replace_with(&mut self, id: Id, raw: raw::Raw, prefix: StringId) {
+    pub(crate) fn replace_with(&mut self, id: Id, prefix: StringId, raw: raw::Raw) {
         let Some(value) = self.slab.get_mut(id.get()) else {
             return;
         };
