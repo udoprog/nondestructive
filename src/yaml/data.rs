@@ -16,12 +16,24 @@ use crate::yaml::raw;
 #[cfg_attr(feature = "serde-edits", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde-edits", serde(transparent))]
 #[repr(transparent)]
-pub(crate) struct StringId(u128);
+pub(crate) struct StringId([u8; 16]);
 
 impl fmt::Display for StringId {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{:016x}", self.0)
+        write!(f, "{}", Hex(&self.0))
+    }
+}
+
+struct Hex<'a>(&'a [u8]);
+
+impl fmt::Display for Hex<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for byte in self.0 {
+            write!(f, "{:02x}", byte)?;
+        }
+
+        Ok(())
     }
 }
 
@@ -90,7 +102,9 @@ impl Data {
     {
         let mut hasher = Hash128::default();
         string.as_ref().hash(&mut hasher);
-        let id = StringId(hasher.finish_ext());
+        let hash = hasher.finish_ext();
+        let hash = hash.to_le_bytes();
+        let id = StringId(hash);
 
         if let hash_map::Entry::Vacant(e) = self.strings.entry(id) {
             e.insert(string.as_ref().into());
