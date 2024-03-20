@@ -89,7 +89,7 @@ impl Serialize for Sequence<'_> {
     {
         let mut seq = serializer.serialize_seq(Some(self.len()))?;
 
-        for item in self.iter() {
+        for item in self {
             seq.serialize_element(&item)?;
         }
 
@@ -105,7 +105,7 @@ impl Serialize for Mapping<'_> {
     {
         let mut map = serializer.serialize_map(Some(self.len()))?;
 
-        for (key, value) in self.iter() {
+        for (key, value) in self {
             if let Ok(key) = key.to_str() {
                 map.serialize_entry(key, &value)?;
             } else {
