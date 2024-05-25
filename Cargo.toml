@@ -19,6 +19,9 @@ yaml = []
 serde = ["dep:serde", "bstr/serde"]
 serde-edits = ["dep:serde", "bstr/serde", "serde?/derive", "slab/serde"]
 
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(nondestructive_write_to_eq)'] }
+
 [dependencies]
 bstr = "1.4.0"
 itoa = "1.0.6"
