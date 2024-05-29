@@ -36,9 +36,9 @@ use anyhow::Context;
 use nondestructive::yaml;
 
 let mut doc = yaml::from_slice(
-    r#"
+    r"
     greeting: Hello World!
-    "#
+    "
 )?;
 
 // Access through the document:
@@ -53,10 +53,10 @@ mapping.insert_str("greeting2", "Hello Rust!");
 
 assert_eq!(
     doc.to_string(),
-    r#"
+    r"
     greeting: Hello World!
     greeting2: Hello Rust!
-    "#
+    "
 );
 ```
 
@@ -100,11 +100,11 @@ use anyhow::Context;
 use nondestructive::yaml;
 
 let mut doc = yaml::from_slice(
-    r#"
+    r"
     - 10
     - 24
     - 30
-    "#
+    "
 )?;
 
 let mut edits = Vec::new();
@@ -127,11 +127,11 @@ for (id, new_number) in edits {
 
 assert_eq!(
     doc.to_string(),
-    r#"
+    r"
     - 1
     - 24
     - 3
-    "#
+    "
 );
 ```
 
@@ -149,10 +149,10 @@ use anyhow::Context;
 use nondestructive::yaml;
 
 let mut doc = yaml::from_slice(
-    r#"
+    r"
     name: Descartes
     country: Grece
-    "#
+    "
 )?;
 
 let mapping = doc.as_ref().as_mapping().context("missing mapping")?;
@@ -168,10 +168,10 @@ country.set_string("Greece");
 
 assert_eq!(
     doc.to_string(),
-    r#"
+    r"
     name: Plato
     country: Greece
-    "#
+    "
 );
 ```
 
