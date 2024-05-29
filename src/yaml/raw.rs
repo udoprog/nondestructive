@@ -49,15 +49,19 @@ where
 
 /// Construct an indentation prefix.
 pub(crate) fn make_indent(data: &mut Data, id: Id, extra: usize) -> (usize, StringId) {
-    let container = data
-        .layout(id)
-        .parent
+    let parent = data.layout(id).parent;
+
+    let container = parent
         .and_then(|id| data.layout(id).parent)
         .map(|id| data.pair(id));
 
-    let (indent, layout) = match container {
-        Some((Raw::Mapping(raw), layout)) => (raw.indent, layout),
-        Some((Raw::Sequence(raw), layout)) => (raw.indent, layout),
+    let (indent, is_sequence_mapping, layout) = match container {
+        Some((Raw::Mapping(raw), layout)) => (raw.indent, false, layout),
+        Some((Raw::Sequence(raw), layout)) => (
+            raw.indent,
+            matches!(raw.kind, SequenceKind::Mapping),
+            layout,
+        ),
         _ => {
             let prefix = data.layout(id).prefix;
             let indent = self::count_indent(data.str(prefix)).saturating_add(extra);
@@ -72,6 +76,25 @@ pub(crate) fn make_indent(data: &mut Data, id: Id, extra: usize) -> (usize, Stri
             return (indent, prefix);
         }
     };
+
+    if is_sequence_mapping {
+        // If we are an immediate child of a sequence item, then we want to be
+        // nested at the same level as the item.
+        //
+        // This allows for a more natural representation of sequences, like these:
+        //
+        // ```yaml
+        // - one
+        // - two: 2
+        //   three: 3
+        // ```
+        if let Some((Raw::SequenceItem(..), layout)) = parent.map(|id| data.pair(id)) {
+            let indent = self::count_indent(data.str(layout.prefix))
+                .saturating_add(2)
+                .saturating_add(extra);
+            return (indent, data.insert_str(" "));
+        }
+    }
 
     let indent = indent.saturating_add(2);
     // Take some pains to preserve the existing suffix, synthesize extra spaces characters where needed.

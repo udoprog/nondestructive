@@ -119,7 +119,7 @@ impl Data {
             return &raw.layout;
         }
 
-        panic!("expected raw at {id}")
+        panic!("expected layout at {id}")
     }
 
     #[inline]
@@ -203,7 +203,7 @@ impl Data {
             return raw;
         }
 
-        panic!("expected mapping at {id}")
+        panic!("expected sequence item at {id}")
     }
 
     #[inline]
@@ -216,7 +216,7 @@ impl Data {
             return raw;
         }
 
-        panic!("expected mapping at {id}")
+        panic!("expected mapping item at {id}")
     }
 
     #[inline]

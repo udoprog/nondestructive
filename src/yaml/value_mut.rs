@@ -651,6 +651,37 @@ impl<'a> ValueMut<'a> {
     /// );
     /// # Ok::<_, anyhow::Error>(())
     /// ```
+    ///
+    /// Making a new mapping inside of a sequence item:
+    ///
+    /// ```
+    /// use anyhow::Context;
+    /// use nondestructive::yaml;
+    ///
+    /// let mut doc = yaml::from_slice(
+    ///     r#"
+    ///     - one
+    ///     - two
+    ///     "#,
+    /// )?;
+    ///
+    /// let mut seq = doc.as_mut().into_sequence_mut().context("not a sequence")?;
+    /// let mut mapping = seq.push(yaml::Separator::Auto).make_mapping();
+    ///
+    /// mapping.insert_u32("three", 3);
+    /// mapping.insert_u32("four", 4);
+    ///
+    /// assert_eq!(
+    ///     doc.to_string(),
+    ///     r#"
+    ///     - one
+    ///     - two
+    ///     - three: 3
+    ///       four: 4
+    ///     "#
+    /// );
+    /// # Ok::<_, anyhow::Error>(())
+    /// ```
     #[inline]
     #[must_use]
     pub fn make_mapping(self) -> MappingMut<'a> {
