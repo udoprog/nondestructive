@@ -56,10 +56,10 @@ pub enum ErrorKind {
     /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
-    /// const INPUT: &str = r#"
+    /// const INPUT: &str = r"
     /// {hello: world}
     /// 42
-    /// "#;
+    /// ";
     ///
     /// let error = yaml::from_slice(INPUT).unwrap_err();
     /// assert_eq!(*error.kind(), yaml::ErrorKind::ExpectedEof);
@@ -73,7 +73,7 @@ pub enum ErrorKind {
     /// ```
     /// use nondestructive::yaml;
     ///
-    /// const INPUT: &str = r#"[Aristotle, # this is a comment"#;
+    /// const INPUT: &str = r"[Aristotle, # this is a comment";
     ///
     /// let error = yaml::from_slice(INPUT).unwrap_err();
     /// assert_eq!(*error.kind(), yaml::ErrorKind::BadSequenceTerminator);
@@ -87,7 +87,7 @@ pub enum ErrorKind {
     /// ```
     /// use nondestructive::yaml;
     ///
-    /// const INPUT: &str = r#"{name: Aristotle, age # this is a comment"#;
+    /// const INPUT: &str = r"{name: Aristotle, age # this is a comment";
     ///
     /// let error = yaml::from_slice(INPUT).unwrap_err();
     /// assert_eq!(*error.kind(), yaml::ErrorKind::BadMappingSeparator);
@@ -99,9 +99,9 @@ pub enum ErrorKind {
     /// ```
     /// use nondestructive::yaml;
     ///
-    /// const INPUT: &str = r#"
+    /// const INPUT: &str = r"
     /// name: Aristotle
-    /// age # end"#;
+    /// age # end";
     ///
     /// let error = yaml::from_slice(INPUT).unwrap_err();
     /// assert_eq!(*error.kind(), yaml::ErrorKind::BadMappingSeparator);
@@ -115,7 +115,7 @@ pub enum ErrorKind {
     /// ```
     /// use nondestructive::yaml;
     ///
-    /// const INPUT: &str = r#"{name: Aristotle, # this is a comment"#;
+    /// const INPUT: &str = r"{name: Aristotle, # this is a comment";
     ///
     /// let error = yaml::from_slice(INPUT).unwrap_err();
     /// assert_eq!(*error.kind(), yaml::ErrorKind::BadMappingTerminator);

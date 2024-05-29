@@ -24,10 +24,10 @@ impl AnyMut<'_> {
     /// use nondestructive::yaml;
     ///
     /// let mut doc = yaml::from_slice(
-    ///     r#"
+    ///     r"
     ///     - 10
     ///     - 20
-    ///     "#
+    ///     "
     /// )?;
     ///
     /// let id = doc.as_mut().into_any_mut().id();

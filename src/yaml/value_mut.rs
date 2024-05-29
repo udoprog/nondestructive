@@ -23,27 +23,27 @@ impl<'a> ValueMut<'a> {
     /// use nondestructive::yaml;
     ///
     /// let mut doc = yaml::from_slice(
-    ///     r#"
+    ///     r"
     ///     Hello World
-    ///     "#
+    ///     "
     /// )?;
     ///
     /// assert!(matches!(doc.as_mut().into_any_mut(), yaml::AnyMut::Scalar(..)));
     ///
     /// let mut doc = yaml::from_slice(
-    ///     r#"
+    ///     r"
     ///     number1: 10
     ///     number2: 20
-    ///     "#
+    ///     "
     /// )?;
     ///
     /// assert!(matches!(doc.as_mut().into_any_mut(), yaml::AnyMut::Mapping(..)));
     ///
     /// let mut doc = yaml::from_slice(
-    ///     r#"
+    ///     r"
     ///     - 10
     ///     - 20
-    ///     "#
+    ///     "
     /// )?;
     ///
     /// assert!(matches!(doc.as_mut().into_any_mut(), yaml::AnyMut::Sequence(..)));
@@ -201,13 +201,13 @@ impl<'a> ValueMut<'a> {
     ///
     /// assert_eq!(
     ///     doc.to_string(),
-    ///     r#"
+    ///     r"
     ///     number1: 10
     ///     number2: 30
     ///     mapping:
     ///         inner: 400
     ///     string3: i-am-a-bare-string
-    ///     "#
+    ///     "
     /// );
     ///
     /// let mut root = doc.as_mut().into_mapping_mut().context("missing root mapping")?;
@@ -480,9 +480,9 @@ impl<'a> ValueMut<'a> {
     /// use nondestructive::yaml;
     ///
     /// let mut doc = yaml::from_slice(
-    ///     r#"
+    ///     r"
     ///     string
-    ///     "#
+    ///     "
     /// )?;
     ///
     /// doc.as_mut().set_block(["foo", "bar", "baz"], yaml::Block::Literal(yaml::Chomp::Clip));
@@ -490,12 +490,12 @@ impl<'a> ValueMut<'a> {
     ///
     /// assert_eq!(
     ///     doc.to_string(),
-    ///     r#"
+    ///     r"
     ///     |
     ///       foo
     ///       bar
     ///       baz
-    ///     "#
+    ///     "
     /// );
     ///
     /// doc.as_mut().set_block(["foo", "bar", "baz"], yaml::Block::Literal(yaml::Chomp::Keep));
@@ -503,12 +503,12 @@ impl<'a> ValueMut<'a> {
     ///
     /// assert_eq!(
     ///     doc.to_string(),
-    ///     r#"
+    ///     r"
     ///     |+
     ///       foo
     ///       bar
     ///       baz
-    ///     "#
+    ///     "
     /// );
     ///
     /// doc.as_mut().set_block(["foo", "bar", "baz"], yaml::Block::Literal(yaml::Chomp::Strip));
@@ -516,12 +516,12 @@ impl<'a> ValueMut<'a> {
     ///
     /// assert_eq!(
     ///     doc.to_string(),
-    ///     r#"
+    ///     r"
     ///     |-
     ///       foo
     ///       bar
     ///       baz
-    ///     "#
+    ///     "
     /// );
     ///
     /// doc.as_mut().set_block(["foo", "bar", "baz"], yaml::Block::Folded(yaml::Chomp::Clip));
@@ -529,12 +529,12 @@ impl<'a> ValueMut<'a> {
     ///
     /// assert_eq!(
     ///     doc.to_string(),
-    ///     r#"
+    ///     r"
     ///     >
     ///       foo
     ///       bar
     ///       baz
-    ///     "#
+    ///     "
     /// );
     ///
     /// doc.as_mut().set_block(["foo", "bar", "baz"], yaml::Block::Folded(yaml::Chomp::Keep));
@@ -542,12 +542,12 @@ impl<'a> ValueMut<'a> {
     ///
     /// assert_eq!(
     ///     doc.to_string(),
-    ///     r#"
+    ///     r"
     ///     >+
     ///       foo
     ///       bar
     ///       baz
-    ///     "#
+    ///     "
     /// );
     ///
     /// doc.as_mut().set_block(["foo", "bar", "baz"], yaml::Block::Folded(yaml::Chomp::Strip));
@@ -555,12 +555,12 @@ impl<'a> ValueMut<'a> {
     ///
     /// assert_eq!(
     ///     doc.to_string(),
-    ///     r#"
+    ///     r"
     ///     >-
     ///       foo
     ///       bar
     ///       baz
-    ///     "#
+    ///     "
     /// );
     /// # Ok::<_, anyhow::Error>(())
     /// ```
@@ -614,9 +614,9 @@ impl<'a> ValueMut<'a> {
     /// use nondestructive::yaml;
     ///
     /// let mut doc = yaml::from_slice(
-    ///     r#"
+    ///     r"
     ///     string
-    ///     "#
+    ///     "
     /// )?;
     ///
     /// let mut mapping = doc.as_mut().make_mapping();
@@ -625,16 +625,16 @@ impl<'a> ValueMut<'a> {
     ///
     /// assert_eq!(
     ///     doc.to_string(),
-    ///     r#"
+    ///     r"
     ///     first: 1
     ///     second: 2
-    ///     "#
+    ///     "
     /// );
     ///
     /// let mut doc = yaml::from_slice(
-    ///     r#"
+    ///     r"
     ///     first: second
-    ///     "#
+    ///     "
     /// )?;
     ///
     /// let mut mapping = doc.as_mut().into_mapping_mut().and_then(|m| Some(m.get_into_mut("first")?.make_mapping())).context("missing first")?;
@@ -643,11 +643,11 @@ impl<'a> ValueMut<'a> {
     ///
     /// assert_eq!(
     ///     doc.to_string(),
-    ///     r#"
+    ///     r"
     ///     first:
     ///       second: 2
     ///       third: 3
-    ///     "#
+    ///     "
     /// );
     /// # Ok::<_, anyhow::Error>(())
     /// ```
@@ -659,10 +659,10 @@ impl<'a> ValueMut<'a> {
     /// use nondestructive::yaml;
     ///
     /// let mut doc = yaml::from_slice(
-    ///     r#"
+    ///     r"
     ///     - one
     ///     - two
-    ///     "#,
+    ///     ",
     /// )?;
     ///
     /// let mut seq = doc.as_mut().into_sequence_mut().context("not a sequence")?;
@@ -673,12 +673,12 @@ impl<'a> ValueMut<'a> {
     ///
     /// assert_eq!(
     ///     doc.to_string(),
-    ///     r#"
+    ///     r"
     ///     - one
     ///     - two
     ///     - three: 3
     ///       four: 4
-    ///     "#
+    ///     "
     /// );
     /// # Ok::<_, anyhow::Error>(())
     /// ```
@@ -711,9 +711,9 @@ impl<'a> ValueMut<'a> {
     /// use nondestructive::yaml;
     ///
     /// let mut doc = yaml::from_slice(
-    ///     r#"
+    ///     r"
     ///     string
-    ///     "#
+    ///     "
     /// )?;
     ///
     /// let mut sequence = doc.as_mut().make_sequence();
@@ -722,16 +722,16 @@ impl<'a> ValueMut<'a> {
     ///
     /// assert_eq!(
     ///     doc.to_string(),
-    ///     r#"
+    ///     r"
     ///     - 1
     ///     - 2
-    ///     "#
+    ///     "
     /// );
     ///
     /// let mut doc = yaml::from_slice(
-    ///     r#"
+    ///     r"
     ///     first: second
-    ///     "#
+    ///     "
     /// )?;
     ///
     /// let mut sequence = doc.as_mut().into_mapping_mut().and_then(|m| Some(m.get_into_mut("first")?.make_sequence())).context("missing first")?;
@@ -740,11 +740,11 @@ impl<'a> ValueMut<'a> {
     ///
     /// assert_eq!(
     ///     doc.to_string(),
-    ///     r#"
+    ///     r"
     ///     first:
     ///       - 2
     ///       - 3
-    ///     "#
+    ///     "
     /// );
     /// # Ok::<_, anyhow::Error>(())
     /// ```

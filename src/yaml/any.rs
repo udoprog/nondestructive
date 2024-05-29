@@ -25,10 +25,10 @@ impl Any<'_> {
     /// use nondestructive::yaml;
     ///
     /// let doc = yaml::from_slice(
-    ///     r#"
+    ///     r"
     ///     - 10
     ///     - 20
-    ///     "#
+    ///     "
     /// )?;
     ///
     /// let id = doc.as_ref().into_any().id();

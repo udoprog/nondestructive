@@ -236,27 +236,27 @@ impl<'a> Value<'a> {
     /// use nondestructive::yaml;
     ///
     /// let doc = yaml::from_slice(
-    ///     r#"
+    ///     r"
     ///     Hello World
-    ///     "#
+    ///     "
     /// )?;
     ///
     /// assert!(matches!(doc.as_ref().into_any(), yaml::Any::Scalar(..)));
     ///
     /// let doc = yaml::from_slice(
-    ///     r#"
+    ///     r"
     ///     number1: 10
     ///     number2: 20
-    ///     "#
+    ///     "
     /// )?;
     ///
     /// assert!(matches!(doc.as_ref().into_any(), yaml::Any::Mapping(..)));
     ///
     /// let doc = yaml::from_slice(
-    ///     r#"
+    ///     r"
     ///     - 10
     ///     - 20
-    ///     "#
+    ///     "
     /// )?;
     ///
     /// assert!(matches!(doc.as_ref().into_any(), yaml::Any::Sequence(..)));
@@ -281,27 +281,27 @@ impl<'a> Value<'a> {
     /// use nondestructive::yaml;
     ///
     /// let doc = yaml::from_slice(
-    ///     r#"
+    ///     r"
     ///     Hello World
-    ///     "#
+    ///     "
     /// )?;
     ///
     /// assert!(matches!(doc.as_ref().as_any(), yaml::Any::Scalar(..)));
     ///
     /// let doc = yaml::from_slice(
-    ///     r#"
+    ///     r"
     ///     number1: 10
     ///     number2: 20
-    ///     "#
+    ///     "
     /// )?;
     ///
     /// assert!(matches!(doc.as_ref().as_any(), yaml::Any::Mapping(..)));
     ///
     /// let doc = yaml::from_slice(
-    ///     r#"
+    ///     r"
     ///     - 10
     ///     - 20
-    ///     "#
+    ///     "
     /// )?;
     ///
     /// assert!(matches!(doc.as_ref().as_any(), yaml::Any::Sequence(..)));
@@ -333,10 +333,10 @@ impl<'a> Value<'a> {
     /// use nondestructive::yaml;
     ///
     /// let mut doc = yaml::from_slice(
-    ///     r#"
+    ///     r"
     ///     first: 32
     ///     second: [1, 2, 3]
-    ///     "#
+    ///     "
     /// )?;
     ///
     /// let root = doc.as_ref().as_mapping().context("missing mapping")?;
@@ -358,10 +358,10 @@ impl<'a> Value<'a> {
     /// use nondestructive::yaml;
     ///
     /// let doc = yaml::from_slice(
-    ///     r#"
+    ///     r"
     ///     first: 32
     ///     second: [1, 2, 3]
-    ///     "#
+    ///     "
     /// )?;
     ///
     /// let root = doc.as_ref().as_mapping().context("missing mapping")?;
@@ -543,11 +543,11 @@ impl<'a> Value<'a> {
     /// use nondestructive::yaml;
     ///
     /// let doc = yaml::from_slice(
-    ///     r#"
+    ///     r"
     ///     - one
     ///     - two
     ///     - three
-    ///     "#,
+    ///     ",
     /// )?;
     ///
     /// let root = doc.as_ref().as_sequence().context("missing root sequence")?;

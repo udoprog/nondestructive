@@ -61,9 +61,9 @@ macro_rules! insert_float {
         /// use nondestructive::yaml;
         ///
         /// let mut doc = yaml::from_slice(
-        ///     r#"
+        ///     r"
         ///     number1: 10
-        ///     "#
+        ///     "
         /// )?;
         ///
         /// let mut value = doc.as_mut().into_mapping_mut().context("not a mapping")?;
@@ -71,10 +71,10 @@ macro_rules! insert_float {
         ///
         /// assert_eq!(
         ///     doc.to_string(),
-        ///     r#"
+        ///     r"
         ///     number1: 10
         #[doc = concat!("    number2: ", stringify!($lit))]
-        ///     "#
+        ///     "
         /// );
         /// # Ok::<_, anyhow::Error>(())
         /// ```
@@ -101,9 +101,9 @@ macro_rules! insert_number {
         /// use nondestructive::yaml;
         ///
         /// let mut doc = yaml::from_slice(
-        ///     r#"
+        ///     r"
         ///     number1: 10
-        ///     "#
+        ///     "
         /// )?;
         ///
         /// let mut value = doc.as_mut().into_mapping_mut().context("not a mapping")?;
@@ -112,10 +112,10 @@ macro_rules! insert_number {
         ///
         /// assert_eq!(
         ///     doc.to_string(),
-        ///     r#"
+        ///     r"
         ///     number1: 10
         #[doc = concat!("    number2: ", stringify!($lit))]
-        ///     "#
+        ///     "
         /// );
         /// # Ok::<_, anyhow::Error>(())
         /// ```
@@ -466,10 +466,10 @@ impl<'a> MappingMut<'a> {
     /// use nondestructive::yaml;
     ///
     /// let mut doc = yaml::from_slice(
-    ///     r#"
+    ///     r"
     ///     one: 1
     ///     two: 2
-    ///     "#,
+    ///     ",
     /// )?;
     ///
     /// let mut root = doc.as_mut().into_mapping_mut().context("missing root mapping")?;
@@ -477,11 +477,11 @@ impl<'a> MappingMut<'a> {
     ///
     /// assert_eq!(
     ///     doc.to_string(),
-    ///     r#"
+    ///     r"
     ///     one: 1
     ///     two: 2
     ///     three:   3
-    ///     "#
+    ///     "
     /// );
     /// # Ok::<_, anyhow::Error>(())
     /// ```
@@ -502,9 +502,9 @@ impl<'a> MappingMut<'a> {
     /// use nondestructive::yaml;
     ///
     /// let mut doc = yaml::from_slice(
-    ///     r#"
+    ///     r"
     ///     number1: 10
-    ///     "#
+    ///     "
     /// )?;
     ///
     /// let mut value = doc.as_mut().into_mapping_mut().context("not a mapping")?;
@@ -512,10 +512,10 @@ impl<'a> MappingMut<'a> {
     ///
     /// assert_eq! (
     ///     doc.to_string(),
-    ///     r#"
+    ///     r"
     ///     number1: 10
     ///     string2: hello
-    ///     "#
+    ///     "
     /// );
     /// # Ok::<_, anyhow::Error>(())
     /// ```
@@ -541,9 +541,9 @@ impl<'a> MappingMut<'a> {
     /// use nondestructive::yaml;
     ///
     /// let mut doc = yaml::from_slice(
-    ///     r#"
+    ///     r"
     ///     string
-    ///     "#
+    ///     "
     /// )?;
     ///
     /// let mut sequence = doc.as_mut().make_mapping();
@@ -553,12 +553,12 @@ impl<'a> MappingMut<'a> {
     ///
     /// assert_eq!(
     ///     doc.to_string(),
-    ///     r#"
+    ///     r"
     ///     key: |
     ///       foo
     ///       bar
     ///       baz
-    ///     "#
+    ///     "
     /// );
     ///
     /// let mut sequence = doc.as_mut().make_mapping();
@@ -568,12 +568,12 @@ impl<'a> MappingMut<'a> {
     ///
     /// assert_eq!(
     ///     doc.to_string(),
-    ///     r#"
+    ///     r"
     ///     key: |+
     ///       foo
     ///       bar
     ///       baz
-    ///     "#
+    ///     "
     /// );
     ///
     /// let mut sequence = doc.as_mut().make_mapping();
@@ -583,12 +583,12 @@ impl<'a> MappingMut<'a> {
     ///
     /// assert_eq!(
     ///     doc.to_string(),
-    ///     r#"
+    ///     r"
     ///     key: |-
     ///       foo
     ///       bar
     ///       baz
-    ///     "#
+    ///     "
     /// );
     ///
     /// let mut sequence = doc.as_mut().make_mapping();
@@ -598,12 +598,12 @@ impl<'a> MappingMut<'a> {
     ///
     /// assert_eq!(
     ///     doc.to_string(),
-    ///     r#"
+    ///     r"
     ///     key: >
     ///       foo
     ///       bar
     ///       baz
-    ///     "#
+    ///     "
     /// );
     ///
     /// let mut sequence = doc.as_mut().make_mapping();
@@ -613,12 +613,12 @@ impl<'a> MappingMut<'a> {
     ///
     /// assert_eq!(
     ///     doc.to_string(),
-    ///     r#"
+    ///     r"
     ///     key: >+
     ///       foo
     ///       bar
     ///       baz
-    ///     "#
+    ///     "
     /// );
     ///
     /// let mut sequence = doc.as_mut().make_mapping();
@@ -628,12 +628,12 @@ impl<'a> MappingMut<'a> {
     ///
     /// assert_eq!(
     ///     doc.to_string(),
-    ///     r#"
+    ///     r"
     ///     key: >-
     ///       foo
     ///       bar
     ///       baz
-    ///     "#
+    ///     "
     /// );
     /// # Ok::<_, anyhow::Error>(())
     /// ```
@@ -656,9 +656,9 @@ impl<'a> MappingMut<'a> {
     /// use nondestructive::yaml;
     ///
     /// let mut doc = yaml::from_slice(
-    ///     r#"
+    ///     r"
     ///     number1: 10
-    ///     "#
+    ///     "
     /// )?;
     ///
     /// let mut value = doc.as_mut().into_mapping_mut().context("not a mapping")?;
@@ -666,10 +666,10 @@ impl<'a> MappingMut<'a> {
     ///
     /// assert_eq!(
     ///     doc.to_string(),
-    ///     r#"
+    ///     r"
     ///     number1: 10
     ///     bool2: true
-    ///     "#
+    ///     "
     /// );
     /// # Ok::<_, anyhow::Error>(())
     /// ```

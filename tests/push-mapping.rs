@@ -4,10 +4,10 @@ use nondestructive::yaml;
 #[test]
 fn push_mapping() -> Result<()> {
     let mut doc = yaml::from_slice(
-        r#"
+        r"
         - one
         - two
-        "#,
+        ",
     )?;
 
     let mut seq = doc.as_mut().into_sequence_mut().context("not a sequence")?;
@@ -22,7 +22,7 @@ fn push_mapping() -> Result<()> {
 
     assert_eq!(
         doc.to_string(),
-        r#"
+        r"
         - one
         - two
         - three: 3
@@ -30,7 +30,7 @@ fn push_mapping() -> Result<()> {
           five:
             six: six
             seven: seven
-        "#
+        "
     );
 
     Ok(())

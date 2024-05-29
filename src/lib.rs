@@ -33,9 +33,9 @@
 //! use nondestructive::yaml;
 //!
 //! let mut doc = yaml::from_slice(
-//!     r#"
+//!     r"
 //!     greeting: Hello World!
-//!     "#
+//!     "
 //! )?;
 //!
 //! // Access through the document:
@@ -50,10 +50,10 @@
 //!
 //! assert_eq!(
 //!     doc.to_string(),
-//!     r#"
+//!     r"
 //!     greeting: Hello World!
 //!     greeting2: Hello Rust!
-//!     "#
+//!     "
 //! );
 //! # Ok::<_, anyhow::Error>(())
 //! ```
@@ -98,11 +98,11 @@
 //! use nondestructive::yaml;
 //!
 //! let mut doc = yaml::from_slice(
-//!     r#"
+//!     r"
 //!     - 10
 //!     - 24
 //!     - 30
-//!     "#
+//!     "
 //! )?;
 //!
 //! let mut edits = Vec::new();
@@ -125,11 +125,11 @@
 //!
 //! assert_eq!(
 //!     doc.to_string(),
-//!     r#"
+//!     r"
 //!     - 1
 //!     - 24
 //!     - 3
-//!     "#
+//!     "
 //! );
 //! # Ok::<_, anyhow::Error>(())
 //! ```
@@ -148,10 +148,10 @@
 //! use nondestructive::yaml;
 //!
 //! let mut doc = yaml::from_slice(
-//!     r#"
+//!     r"
 //!     name: Descartes
 //!     country: Grece
-//!     "#
+//!     "
 //! )?;
 //!
 //! let mapping = doc.as_ref().as_mapping().context("missing mapping")?;
@@ -167,10 +167,10 @@
 //!
 //! assert_eq!(
 //!     doc.to_string(),
-//!     r#"
+//!     r"
 //!     name: Plato
 //!     country: Greece
-//!     "#
+//!     "
 //! );
 //! # Ok::<_, anyhow::Error>(())
 //! ```

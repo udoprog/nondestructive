@@ -21,9 +21,9 @@ macro_rules! push_float {
         /// use nondestructive::yaml;
         ///
         /// let mut doc = yaml::from_slice(
-        ///     r#"
+        ///     r"
         ///     - 10
-        ///     "#
+        ///     "
         /// )?;
         ///
         /// let mut value = doc.as_mut().into_sequence_mut().context("not a sequence")?;
@@ -31,10 +31,10 @@ macro_rules! push_float {
         #[doc = concat!("value.", stringify!($name), "(", stringify!($lit), ");")]
         /// assert_eq!(
         ///     doc.to_string(),
-        ///     r#"
+        ///     r"
         ///     - 10
         #[doc = concat!("    - ", $lit)]
-        ///     "#
+        ///     "
         /// );
         /// # Ok::<_, anyhow::Error>(())
         /// ```
@@ -58,9 +58,9 @@ macro_rules! push_number {
         /// use nondestructive::yaml;
         ///
         /// let mut doc = yaml::from_slice(
-        ///     r#"
+        ///     r"
         ///     - 10
-        ///     "#
+        ///     "
         /// )?;
         ///
         /// let mut value = doc.as_mut().into_sequence_mut().context("not a sequence")?;
@@ -69,10 +69,10 @@ macro_rules! push_number {
         ///
         /// assert_eq!(
         ///     doc.to_string(),
-        ///     r#"
+        ///     r"
         ///     - 10
         #[doc = concat!("    - ", stringify!($lit))]
-        ///     "#
+        ///     "
         /// );
         /// # Ok::<_, anyhow::Error>(())
         /// ```
@@ -145,11 +145,11 @@ impl<'a> SequenceMut<'a> {
     /// use nondestructive::yaml;
     ///
     /// let mut doc = yaml::from_slice(
-    ///     r#"
+    ///     r"
     ///     - one
     ///     - two
     ///     - three
-    ///     "#,
+    ///     ",
     /// )?;
     ///
     /// let root = doc.as_mut().into_sequence_mut().context("missing root sequence")?;
@@ -176,11 +176,11 @@ impl<'a> SequenceMut<'a> {
     /// use nondestructive::yaml;
     ///
     /// let mut doc = yaml::from_slice(
-    ///     r#"
+    ///     r"
     ///     - one
     ///     - two
     ///     - three
-    ///     "#,
+    ///     ",
     /// )?;
     ///
     /// let root = doc.as_mut().into_sequence_mut().context("missing root sequence")?.into_ref();
@@ -371,10 +371,10 @@ impl<'a> SequenceMut<'a> {
     /// use nondestructive::yaml;
     ///
     /// let mut doc = yaml::from_slice(
-    ///     r#"
+    ///     r"
     ///     - one
     ///     - two
-    ///     "#,
+    ///     ",
     /// )?;
     ///
     /// let mut root = doc.as_mut().into_sequence_mut().context("missing root sequence")?;
@@ -382,11 +382,11 @@ impl<'a> SequenceMut<'a> {
     ///
     /// assert_eq! {
     ///     doc.to_string(),
-    ///     r#"
+    ///     r"
     ///     - one
     ///     - two
     ///     -   true
-    ///     "#
+    ///     "
     /// };
     /// # Ok::<_, anyhow::Error>(())
     /// ```
@@ -404,9 +404,9 @@ impl<'a> SequenceMut<'a> {
     /// use nondestructive::yaml;
     ///
     /// let mut doc = yaml::from_slice(
-    ///     r#"
+    ///     r"
     ///     - - 10
-    ///     "#
+    ///     "
     /// )?;
     ///
     /// let mut value = doc.as_mut().into_sequence_mut().context("not a sequence")?;
@@ -415,10 +415,10 @@ impl<'a> SequenceMut<'a> {
     ///
     /// assert_eq!(
     ///     doc.to_string(),
-    ///     r#"
+    ///     r"
     ///     - - 10
     ///       - nice string
-    ///     "#
+    ///     "
     /// );
     /// # Ok::<_, anyhow::Error>(())
     /// ```
@@ -443,9 +443,9 @@ impl<'a> SequenceMut<'a> {
     /// use nondestructive::yaml;
     ///
     /// let mut doc = yaml::from_slice(
-    ///     r#"
+    ///     r"
     ///     string
-    ///     "#
+    ///     "
     /// )?;
     ///
     /// let mut sequence = doc.as_mut().make_sequence();
@@ -455,12 +455,12 @@ impl<'a> SequenceMut<'a> {
     ///
     /// assert_eq!(
     ///     doc.to_string(),
-    ///     r#"
+    ///     r"
     ///     - |
     ///       foo
     ///       bar
     ///       baz
-    ///     "#
+    ///     "
     /// );
     ///
     /// let mut sequence = doc.as_mut().make_sequence();
@@ -470,12 +470,12 @@ impl<'a> SequenceMut<'a> {
     ///
     /// assert_eq!(
     ///     doc.to_string(),
-    ///     r#"
+    ///     r"
     ///     - |+
     ///       foo
     ///       bar
     ///       baz
-    ///     "#
+    ///     "
     /// );
     ///
     /// let mut sequence = doc.as_mut().make_sequence();
@@ -485,12 +485,12 @@ impl<'a> SequenceMut<'a> {
     ///
     /// assert_eq!(
     ///     doc.to_string(),
-    ///     r#"
+    ///     r"
     ///     - |-
     ///       foo
     ///       bar
     ///       baz
-    ///     "#
+    ///     "
     /// );
     ///
     /// let mut sequence = doc.as_mut().make_sequence();
@@ -500,12 +500,12 @@ impl<'a> SequenceMut<'a> {
     ///
     /// assert_eq!(
     ///     doc.to_string(),
-    ///     r#"
+    ///     r"
     ///     - >
     ///       foo
     ///       bar
     ///       baz
-    ///     "#
+    ///     "
     /// );
     ///
     /// let mut sequence = doc.as_mut().make_sequence();
@@ -515,12 +515,12 @@ impl<'a> SequenceMut<'a> {
     ///
     /// assert_eq!(
     ///     doc.to_string(),
-    ///     r#"
+    ///     r"
     ///     - >+
     ///       foo
     ///       bar
     ///       baz
-    ///     "#
+    ///     "
     /// );
     ///
     /// let mut sequence = doc.as_mut().make_sequence();
@@ -530,12 +530,12 @@ impl<'a> SequenceMut<'a> {
     ///
     /// assert_eq!(
     ///     doc.to_string(),
-    ///     r#"
+    ///     r"
     ///     - >-
     ///       foo
     ///       bar
     ///       baz
-    ///     "#
+    ///     "
     /// );
     /// # Ok::<_, anyhow::Error>(())
     /// ```
@@ -557,9 +557,9 @@ impl<'a> SequenceMut<'a> {
     /// use nondestructive::yaml;
     ///
     /// let mut doc = yaml::from_slice(
-    ///     r#"
+    ///     r"
     ///     - - 10
-    ///     "#
+    ///     "
     /// )?;
     ///
     /// let mut value = doc.as_mut().into_sequence_mut().context("not a sequence")?;
@@ -568,10 +568,10 @@ impl<'a> SequenceMut<'a> {
     ///
     /// assert_eq!(
     ///     doc.to_string(),
-    ///     r#"
+    ///     r"
     ///     - - 10
     ///       - false
-    ///     "#
+    ///     "
     /// );
     /// # Ok::<_, anyhow::Error>(())
     /// ```

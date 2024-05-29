@@ -13,11 +13,11 @@ use crate::yaml::Value;
 /// use nondestructive::yaml;
 ///
 /// let doc = yaml::from_slice(
-///     r#"
+///     r"
 ///     - one
 ///     - two
 ///     - three
-///     "#,
+///     ",
 /// )?;
 ///
 /// let root = doc.as_ref().as_sequence().context("missing root sequence")?;
@@ -35,14 +35,14 @@ use crate::yaml::Value;
 /// use nondestructive::yaml;
 ///
 /// let doc = yaml::from_slice(
-///     r#"
+///     r"
 ///     - one
 ///     - two
 ///     - - three
 ///       - four: 2
 ///         five: 1
 ///     - six
-///     "#,
+///     ",
 /// )?;
 ///
 /// let root = doc.as_ref().as_sequence().context("missing root sequence")?;
@@ -85,9 +85,9 @@ use crate::yaml::Value;
 /// assert_eq!(doc.to_string(), "[,]");
 ///
 /// let doc = yaml::from_slice(
-///     r#"
+///     r"
 ///     [one, two, 3,]
-///     "#,
+///     ",
 /// )?;
 ///
 /// let root = doc.as_ref().as_sequence().context("missing root sequence")?;
@@ -97,9 +97,9 @@ use crate::yaml::Value;
 ///
 /// assert_eq!(
 ///     doc.to_string(),
-///     r#"
+///     r"
 ///     [one, two, 3,]
-///     "#
+///     "
 /// );
 /// # Ok::<_, anyhow::Error>(())
 /// ```
@@ -122,10 +122,10 @@ impl<'a> Sequence<'a> {
     /// use nondestructive::yaml;
     ///
     /// let doc = yaml::from_slice(
-    ///     r#"
+    ///     r"
     ///     - 32
     ///     - [1, 2, 3]
-    ///     "#
+    ///     "
     /// )?;
     ///
     /// let root = doc.as_ref().as_sequence().context("missing sequence")?;
@@ -152,11 +152,11 @@ impl<'a> Sequence<'a> {
     /// use nondestructive::yaml;
     ///
     /// let doc = yaml::from_slice(
-    ///     r#"
+    ///     r"
     ///     - one
     ///     - two
     ///     - three
-    ///     "#,
+    ///     ",
     /// )?;
     ///
     /// let root = doc.as_ref().as_sequence().context("missing root sequence")?;
@@ -178,11 +178,11 @@ impl<'a> Sequence<'a> {
     /// use nondestructive::yaml;
     ///
     /// let doc = yaml::from_slice(
-    ///     r#"
+    ///     r"
     ///     - one
     ///     - two
     ///     - three
-    ///     "#,
+    ///     ",
     /// )?;
     ///
     /// let root = doc.as_ref().as_sequence().context("missing root sequence")?;
@@ -204,11 +204,11 @@ impl<'a> Sequence<'a> {
     /// use nondestructive::yaml;
     ///
     /// let doc = yaml::from_slice(
-    ///     r#"
+    ///     r"
     ///     - one
     ///     - two
     ///     - three
-    ///     "#,
+    ///     ",
     /// )?;
     ///
     /// let root = doc.as_ref().as_sequence().context("missing root sequence")?;
@@ -235,11 +235,11 @@ impl<'a> Sequence<'a> {
     /// use nondestructive::yaml;
     ///
     /// let doc = yaml::from_slice(
-    ///     r#"
+    ///     r"
     ///     - one
     ///     - two
     ///     - three
-    ///     "#,
+    ///     ",
     /// )?;
     ///
     /// let root = doc.as_ref().as_sequence().context("missing root sequence")?;
@@ -264,11 +264,11 @@ impl<'a> Sequence<'a> {
     /// use nondestructive::yaml;
     ///
     /// let doc = yaml::from_slice(
-    ///     r#"
+    ///     r"
     ///     - one
     ///     - two
     ///     - three
-    ///     "#,
+    ///     ",
     /// )?;
     ///
     /// let root = doc.as_ref().as_sequence().context("missing root sequence")?;
@@ -293,11 +293,11 @@ impl<'a> Sequence<'a> {
     /// use nondestructive::yaml;
     ///
     /// let doc = yaml::from_slice(
-    ///     r#"
+    ///     r"
     ///     - one
     ///     - two
     ///     - three
-    ///     "#,
+    ///     ",
     /// )?;
     ///
     /// let root = doc.as_ref().as_sequence().context("missing root sequence")?;
@@ -334,11 +334,11 @@ impl fmt::Debug for Sequence<'_> {
 /// use nondestructive::yaml;
 ///
 /// let doc = yaml::from_slice(
-///     r#"
+///     r"
 ///     - one
 ///     - two
 ///     - three
-///     "#,
+///     ",
 /// )?;
 ///
 /// let root = doc.as_ref().as_sequence().context("missing root sequence")?;
@@ -364,11 +364,11 @@ impl<'a> IntoIterator for Sequence<'a> {
 /// use nondestructive::yaml;
 ///
 /// let doc = yaml::from_slice(
-///     r#"
+///     r"
 ///     - one
 ///     - two
 ///     - three
-///     "#,
+///     ",
 /// )?;
 ///
 /// let root = doc.as_ref().as_sequence().context("missing root sequence")?;

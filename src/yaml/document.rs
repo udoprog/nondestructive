@@ -75,10 +75,10 @@ impl Document {
     /// use nondestructive::yaml;
     ///
     /// let mut doc = yaml::from_slice(
-    ///     r#"
+    ///     r"
     ///     first: 32
     ///     second: [1, 2, 3]
-    ///     "#
+    ///     "
     /// )?;
     ///
     /// let root = doc.as_ref().as_mapping().context("missing mapping")?;
@@ -100,10 +100,10 @@ impl Document {
     /// use nondestructive::yaml;
     ///
     /// let doc = yaml::from_slice(
-    ///     r#"
+    ///     r"
     ///     first: 32
     ///     second: [1, 2, 3]
-    ///     "#
+    ///     "
     /// )?;
     ///
     /// let root = doc.as_ref().as_mapping().context("missing mapping")?;
@@ -136,10 +136,10 @@ impl Document {
     /// use nondestructive::yaml;
     ///
     /// let mut doc = yaml::from_slice(
-    ///     r#"
+    ///     r"
     ///     first: 32
     ///     second: [1, 2, 3]
-    ///     "#
+    ///     "
     /// )?;
     ///
     /// let root = doc.as_ref().as_mapping().context("missing mapping")?;
@@ -161,10 +161,10 @@ impl Document {
     /// use nondestructive::yaml;
     ///
     /// let mut doc = yaml::from_slice(
-    ///     r#"
+    ///     r"
     ///     first: 32
     ///     second: [1, 2, 3]
-    ///     "#
+    ///     "
     /// )?;
     ///
     /// let root = doc.as_ref().as_mapping().context("missing mapping")?;
@@ -176,10 +176,10 @@ impl Document {
     ///
     /// assert_eq!(
     ///     doc.to_string(),
-    ///     r#"
+    ///     r"
     ///     first: 32
     ///     second: Hello World
-    ///     "#
+    ///     "
     /// );
     /// # Ok::<_, anyhow::Error>(())
     /// ```
@@ -201,9 +201,9 @@ impl Document {
     /// use nondestructive::yaml;
     ///
     /// let mut doc = yaml::from_slice(
-    ///     r#"
+    ///     r"
     ///     string
-    ///     "#
+    ///     "
     /// )?;
     ///
     /// let mut mapping = doc.as_mut().make_mapping();
@@ -215,16 +215,16 @@ impl Document {
     ///
     /// assert_eq!(
     ///     &out[..],
-    ///     br#"
+    ///     br"
     ///     first: 1
     ///     second: 2
-    ///     "#
+    ///     "
     /// );
     ///
     /// let mut doc = yaml::from_slice(
-    ///     r#"
+    ///     r"
     ///     first: second
-    ///     "#
+    ///     "
     /// )?;
     ///
     /// let mut mapping = doc.as_mut().into_mapping_mut().and_then(|m| Some(m.get_into_mut("first")?.make_mapping())).context("missing first")?;
@@ -236,11 +236,11 @@ impl Document {
     ///
     /// assert_eq!(
     ///     &out[..],
-    ///     br#"
+    ///     br"
     ///     first:
     ///       second: 2
     ///       third: 3
-    ///     "#
+    ///     "
     /// );
     /// # Ok::<_, anyhow::Error>(())
     /// ```
