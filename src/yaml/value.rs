@@ -466,6 +466,22 @@ impl<'a> Value<'a> {
     /// }
     /// # Ok::<_, anyhow::Error>(())
     /// ```
+    ///
+    /// Some simple primitive strings:
+    ///
+    /// ```
+    /// use anyhow::Context;
+    /// use nondestructive::yaml;
+    ///
+    /// let doc = yaml::from_slice("string")?;
+    /// assert_eq!(doc.as_ref().as_str(), Some("string"));
+    ///
+    /// let doc = yaml::from_slice("key::value");
+    ///
+    /// let string = doc.as_ref().as_str().context("expected sequence")?;
+    /// assert_eq!(string, "key::value");
+    /// # Ok::<_, anyhow::Error>(())
+    /// ```
     #[must_use]
     pub fn as_str(&self) -> Option<&'a str> {
         match self.data.raw(self.id) {
