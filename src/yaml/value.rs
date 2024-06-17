@@ -444,12 +444,25 @@ impl<'a> Value<'a> {
     ///
     /// # Examples
     ///
+    /// Some simple primitive strings:
+    ///
     /// ```
     /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
     /// let doc = yaml::from_slice("string")?;
     /// assert_eq!(doc.as_ref().as_str(), Some("string"));
+    ///
+    /// let doc = yaml::from_slice("key::value")?;
+    /// assert_eq!(doc.as_ref().as_str(), Some("key::value"));
+    /// # Ok::<_, anyhow::Error>(())
+    /// ```
+    ///
+    /// An array exemplifying different string escapes:
+    ///
+    /// ```
+    /// use anyhow::Context;
+    /// use nondestructive::yaml;
     ///
     /// let doc = yaml::from_slice(
     ///     r#"
@@ -464,22 +477,6 @@ impl<'a> Value<'a> {
     /// for item in array {
     ///     assert_eq!(item.as_str(), Some("It's the same string!"));
     /// }
-    /// # Ok::<_, anyhow::Error>(())
-    /// ```
-    ///
-    /// Some simple primitive strings:
-    ///
-    /// ```
-    /// use anyhow::Context;
-    /// use nondestructive::yaml;
-    ///
-    /// let doc = yaml::from_slice("string")?;
-    /// assert_eq!(doc.as_ref().as_str(), Some("string"));
-    ///
-    /// let doc = yaml::from_slice("key::value");
-    ///
-    /// let string = doc.as_ref().as_str().context("expected sequence")?;
-    /// assert_eq!(string, "key::value");
     /// # Ok::<_, anyhow::Error>(())
     /// ```
     #[must_use]

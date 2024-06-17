@@ -69,7 +69,7 @@ impl<'a> Parser<'a> {
     /// Peek the next value.
     fn peek(&self) -> u8 {
         let Some(&b) = self.input.get(self.n) else {
-            return 0;
+            return EOF;
         };
 
         b
@@ -80,7 +80,7 @@ impl<'a> Parser<'a> {
         let b0 = self.peek();
 
         let Some(&b) = self.input.get(self.n.wrapping_add(1)) else {
-            return (b0, 0);
+            return (b0, EOF);
         };
 
         (b0, b)
@@ -648,14 +648,23 @@ impl<'a> Parser<'a> {
 
     /// Process a key up until `:` or end of the current line.
     fn key_or_eol(&mut self, start: usize) -> Option<raw::String> {
-        self.find2(b':', raw::NEWLINE);
+        loop {
+            self.find2(b':', raw::NEWLINE);
+            let (a, b) = self.peek2();
 
-        if self.peek() == b':' {
-            let key = self.data.insert_str(self.string(start));
-            return Some(raw::String::new(raw::RawStringKind::Bare, key));
+            if matches!(a, EOF | raw::NEWLINE) {
+                return None;
+            }
+
+            // Only treat something as a key if it's a colon immediately
+            // followed by spacing.
+            if a == b':' && is_spacing(b) {
+                let key = self.data.insert_str(self.string(start));
+                return Some(raw::String::new(raw::RawStringKind::Bare, key));
+            }
+
+            self.bump(1);
         }
-
-        None
     }
 
     /// Process a key up until `:`.
@@ -827,4 +836,8 @@ impl<'a> Parser<'a> {
         let string = self.data.insert_str(string);
         Some(raw::String::new(raw::RawStringKind::Bare, string))
     }
+}
+
+fn is_spacing(b: u8) -> bool {
+    b.is_ascii_whitespace() || b == EOF
 }
