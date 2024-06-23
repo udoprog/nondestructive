@@ -8,6 +8,25 @@ use crate::yaml::data::{Data, Id, StringId};
 use crate::yaml::{Value, ValueMut};
 
 /// A whitespace preserving YAML document.
+///
+/// # Examples
+///
+/// ```
+/// use anyhow::Context;
+/// use nondestructive::yaml;
+///
+/// let doc = yaml::from_slice(r#"
+/// %YAML 1.2
+/// ---
+/// first: 32
+/// second: 64
+/// "#)?;
+///
+/// let root = doc.as_ref().as_mapping().context("missing root")?;
+/// assert_eq!(root.get("first").and_then(|v| v.as_u32()), Some(32));
+/// assert_eq!(root.get("second").and_then(|v| v.as_u32()), Some(64));
+/// # Ok::<_, anyhow::Error>(())
+/// ```
 #[derive(Clone)]
 #[cfg_attr(feature = "serde-edits", derive(Serialize, Deserialize))]
 pub struct Document {

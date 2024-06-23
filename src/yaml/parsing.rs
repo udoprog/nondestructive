@@ -1,3 +1,5 @@
+use std::array;
+
 use bstr::ByteSlice;
 
 use crate::yaml::data::{Data, Id, StringId};
@@ -46,7 +48,8 @@ impl<'a> Parser<'a> {
 
     /// Parses a single value, and returns its kind.
     pub(crate) fn parse(mut self) -> Result<Document> {
-        let prefix = self.ws();
+        let prefix = self.start_of_document();
+
         let (root, suffix) = self.value(prefix, None, false, true, None)?;
 
         let suffix = match suffix {
@@ -61,29 +64,59 @@ impl<'a> Parser<'a> {
         Ok(Document::new(suffix, root, self.data))
     }
 
+    /// Process document delimiter.
+    ///
+    /// This is a `---` that is allowed to exist at the beginning of the document.
+    fn start_of_document(&mut self) -> StringId {
+        let mut prefix = self.ws();
+
+        loop {
+            match self.peek() {
+                // Process headers.
+                [b'%', _, _] => {
+                    self.find(raw::NEWLINE);
+                    prefix = self.ws();
+                }
+                // Process start-of-document.
+                [b'-', b'-', b'-'] => {
+                    self.bump(3);
+                    prefix = self.ws();
+                    break;
+                }
+                _ => {
+                    break;
+                }
+            }
+        }
+
+        prefix
+    }
+
     /// Test if eof.
     fn is_eof(&self) -> bool {
         self.n == self.input.len()
     }
 
     /// Peek the next value.
-    fn peek(&self) -> u8 {
-        let Some(&b) = self.input.get(self.n) else {
-            return EOF;
-        };
-
-        b
+    fn peek1(&self) -> u8 {
+        let [a] = self.peek();
+        a
     }
 
     /// Peek the next next value.
     fn peek2(&self) -> (u8, u8) {
-        let b0 = self.peek();
+        let [a, b] = self.peek();
+        (a, b)
+    }
 
-        let Some(&b) = self.input.get(self.n.wrapping_add(1)) else {
-            return (b0, EOF);
-        };
-
-        (b0, b)
+    /// Peek the next three values.
+    fn peek<const N: usize>(&self) -> [u8; N] {
+        array::from_fn(|n| {
+            self.input
+                .get(self.n.wrapping_add(n))
+                .copied()
+                .unwrap_or(EOF)
+        })
     }
 
     /// Bump a single byte of input.
@@ -131,7 +164,7 @@ impl<'a> Parser<'a> {
         let mut nl = 0u32;
 
         loop {
-            match self.peek() {
+            match self.peek1() {
                 b'#' => {
                     self.find(raw::NEWLINE);
                 }
@@ -139,7 +172,7 @@ impl<'a> Parser<'a> {
                 _ => break,
             }
 
-            nl = nl.wrapping_add(u32::from(matches!(self.peek(), raw::NEWLINE)));
+            nl = nl.wrapping_add(u32::from(matches!(self.peek1(), raw::NEWLINE)));
             self.bump(1);
         }
 
@@ -172,7 +205,7 @@ impl<'a> Parser<'a> {
     fn number(&mut self, start: usize, tabular: bool) -> Option<Raw> {
         let mut hint = serde_hint::U64;
 
-        if matches!(self.peek(), b'-') {
+        if matches!(self.peek1(), b'-') {
             hint = serde_hint::I64;
             self.bump(1);
         }
@@ -183,7 +216,7 @@ impl<'a> Parser<'a> {
         let mut any = false;
 
         loop {
-            match self.peek() {
+            match self.peek1() {
                 b'.' if wants_dot => {
                     hint = serde_hint::F64;
                     wants_dot = false;
@@ -286,7 +319,7 @@ impl<'a> Parser<'a> {
         let start = self.n;
 
         loop {
-            match self.peek() {
+            match self.peek1() {
                 b'"' | EOF => break,
                 b'\\' => {
                     return self.double_quoted_escaped(start, original);
@@ -311,7 +344,7 @@ impl<'a> Parser<'a> {
         self.scratch.extend(self.string(start));
 
         loop {
-            match self.peek() {
+            match self.peek1() {
                 b'"' | EOF => break,
                 b'\\' => {
                     let start = self.n;
@@ -339,7 +372,7 @@ impl<'a> Parser<'a> {
 
     /// Unescape into the scratch buffer.
     fn unescape(&mut self, start: usize) -> Result<()> {
-        let b = match self.peek() {
+        let b = match self.peek1() {
             b'n' => raw::NEWLINE,
             b'0' => b'\x00',
             b'a' => b'\x07',
@@ -376,7 +409,7 @@ impl<'a> Parser<'a> {
         for _ in 0..count {
             c <<= 4;
 
-            c |= match self.peek() {
+            c |= match self.peek1() {
                 b @ b'0'..=b'9' => u32::from(b - b'0'),
                 b @ b'a'..=b'f' => u32::from(b - b'a') + 0xa,
                 b @ b'A'..=b'F' => u32::from(b - b'A') + 0xa,
@@ -408,7 +441,7 @@ impl<'a> Parser<'a> {
         let mut trailing = false;
         let mut item_prefix = self.ws();
 
-        while !matches!(self.peek(), b']' | EOF) {
+        while !matches!(self.peek1(), b']' | EOF) {
             trailing = false;
 
             let item_id = self.placeholder(item_prefix, Some(id));
@@ -425,7 +458,7 @@ impl<'a> Parser<'a> {
                 break;
             }
 
-            if matches!(self.peek(), b',') {
+            if matches!(self.peek1(), b',') {
                 self.bump(1);
                 trailing = true;
             } else {
@@ -435,7 +468,7 @@ impl<'a> Parser<'a> {
             item_prefix = next_prefix.unwrap_or_else(|| self.ws());
         }
 
-        if !matches!(self.peek(), b']') {
+        if !matches!(self.peek1(), b']') {
             return Err(Error::new(
                 self.span_back(item_prefix)..self.n,
                 ErrorKind::BadSequenceTerminator,
@@ -470,7 +503,7 @@ impl<'a> Parser<'a> {
         let mut start = self.n;
         let mut item_prefix = self.ws();
 
-        while !matches!(self.peek(), b'}' | EOF) {
+        while !matches!(self.peek1(), b'}' | EOF) {
             trailing = false;
 
             let Some(key) = self.until_colon(self.n) else {
@@ -492,7 +525,7 @@ impl<'a> Parser<'a> {
                 break;
             }
 
-            if matches!(self.peek(), b',') {
+            if matches!(self.peek1(), b',') {
                 self.bump(1);
                 trailing = true;
             } else {
@@ -503,7 +536,7 @@ impl<'a> Parser<'a> {
             item_prefix = self.ws();
         }
 
-        if !matches!(self.peek(), b'}') {
+        if !matches!(self.peek1(), b'}') {
             return Err(Error::new(start..self.n, ErrorKind::BadMappingTerminator));
         }
 
@@ -548,7 +581,7 @@ impl<'a> Parser<'a> {
             let ws = ws.unwrap_or_else(|| self.ws());
             previous_ws = Some(ws);
 
-            if self.indent() != indent || !matches!(self.peek(), b'-') {
+            if self.indent() != indent || !matches!(self.peek1(), b'-') {
                 break;
             }
         }
@@ -595,7 +628,7 @@ impl<'a> Parser<'a> {
         }
 
         while let Some(key) = current_key.take() {
-            if !matches!(self.peek(), b':') {
+            if !matches!(self.peek1(), b':') {
                 self.bump(1);
                 return Err(Error::new(start..self.n, ErrorKind::BadMappingSeparator));
             }
@@ -669,7 +702,7 @@ impl<'a> Parser<'a> {
 
     /// Process a key up until `:`.
     fn until_colon(&mut self, start: usize) -> Option<raw::String> {
-        while !matches!(self.peek(), b':' | EOF) {
+        while !matches!(self.peek1(), b':' | EOF) {
             self.bump(1);
         }
 
@@ -784,7 +817,7 @@ impl<'a> Parser<'a> {
                     if inline {
                         // Seek until we find a control character, since we're
                         // simply treating the current segment as a string.
-                        while !matches!(self.peek(), ctl!()) {
+                        while !matches!(self.peek1(), ctl!()) {
                             self.bump(1);
                         }
                     } else if let Some(key) = self.key_or_eol(start) {
@@ -817,7 +850,7 @@ impl<'a> Parser<'a> {
         let start = self.n;
 
         let string = loop {
-            match self.peek() {
+            match self.peek1() {
                 b':' | EOF => {
                     let string = self.string(start);
 
