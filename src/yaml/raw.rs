@@ -44,7 +44,7 @@ where
 {
     let kind = RawStringKind::detect(string.as_ref());
     let string = data.insert_str(string.as_ref());
-    Raw::String(String::new(kind, string))
+    Raw::String(String::new(kind, string, string))
 }
 
 /// Construct an indentation prefix.
@@ -127,7 +127,7 @@ where
     };
 
     let string = data.insert_str(string.as_ref());
-    Raw::String(String::new(kind, string))
+    Raw::String(String::new(kind, string, string))
 }
 
 /// Construct a block with the given configuration.
@@ -167,10 +167,8 @@ where
 
     let original = data.insert_str(&original);
     let string = data.insert_str(out);
-    Raw::String(self::String::new(
-        RawStringKind::Original { original },
-        string,
-    ))
+
+    Raw::String(self::String::new(RawStringKind::Original, string, original))
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -364,12 +362,9 @@ pub(crate) enum RawStringKind {
     /// A double-quoted string.
     Double,
     /// An escaped string, where the string id points to the original string.
-    Original { original: StringId },
+    Original,
     /// A multiline string.
-    Multiline {
-        prefix: StringId,
-        original: StringId,
-    },
+    Multiline { prefix: StringId },
 }
 
 impl RawStringKind {
@@ -414,12 +409,18 @@ pub(crate) struct String {
     pub(crate) kind: RawStringKind,
     /// The content of the string.
     pub(crate) string: StringId,
+    /// The original contents of the string.
+    pub(crate) original: StringId,
 }
 
 impl String {
     /// A simple number.
-    pub(crate) fn new(kind: RawStringKind, string: StringId) -> Self {
-        Self { kind, string }
+    pub(crate) fn new(kind: RawStringKind, string: StringId, original: StringId) -> Self {
+        Self {
+            kind,
+            string,
+            original,
+        }
     }
 
     fn display(&self, data: &Data, f: &mut fmt::Formatter) -> fmt::Result {
@@ -494,12 +495,12 @@ impl String {
                 let string = data.str(self.string);
                 escape_single_quoted(string, f)?;
             }
-            RawStringKind::Original { original } => {
-                let string = data.str(*original);
+            RawStringKind::Original => {
+                let string = data.str(self.original);
                 write!(f, "{string}")?;
             }
-            RawStringKind::Multiline { prefix, original } => {
-                let string = data.str(*original);
+            RawStringKind::Multiline { prefix } => {
+                let string = data.str(self.original);
                 write!(f, "{}{string}", data.str(*prefix))?;
             }
         }
@@ -588,12 +589,12 @@ impl String {
                 let string = data.str(self.string);
                 escape_single_quoted(string, o)?;
             }
-            RawStringKind::Original { original } => {
-                o.write_all(data.str(*original))?;
+            RawStringKind::Original => {
+                o.write_all(data.str(self.original))?;
             }
-            RawStringKind::Multiline { prefix, original } => {
+            RawStringKind::Multiline { prefix } => {
                 o.write_all(data.str(*prefix))?;
-                o.write_all(data.str(*original))?;
+                o.write_all(data.str(self.original))?;
             }
         }
 

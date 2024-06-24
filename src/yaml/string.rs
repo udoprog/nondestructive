@@ -39,12 +39,8 @@ impl<'a> String<'a> {
         Self { data, raw }
     }
 
-    /// Get the raw contents of the string, as it's being referenced.
-    ///
-    /// For strings which contains an escape sequence, the whole string content
-    /// will be referenced including any parenthesis.
-    ///
-    /// For other strings, only the contents of the string is referenced.
+    /// Get the raw contents of the string, as it's being referenced during
+    /// parsing or insertion.
     ///
     /// # Examples
     ///
@@ -53,27 +49,24 @@ impl<'a> String<'a> {
     /// use nondestructive::yaml;
     ///
     /// let a = yaml::from_slice(r#""Hello\n World""#)?;
-    /// let a = a.as_ref();
-    ///
-    /// let a = a.as_any().into_string().context("expected string")?;
+    /// let a = a.as_ref().into_any().into_string().context("expected string")?;
     /// let a = a.as_raw();
     /// assert_eq!(a, "\"Hello\\n World\"");
     ///
     /// let b = yaml::from_slice(r#""Hello World""#)?;
-    /// let b = b.as_ref();
-    ///
-    /// let b = b.as_any().into_string().context("expected string")?;
+    /// let b = b.as_ref().into_any().into_string().context("expected string")?;
     /// let b = b.as_raw();
-    /// assert_eq!(b, "Hello World");
+    /// assert_eq!(b, "\"Hello World\"");
+    ///
+    /// let c = yaml::from_slice("'Hello World'")?;
+    /// let c = c.as_ref().into_any().into_string().context("expected string")?;
+    /// let c = c.as_raw();
+    /// assert_eq!(c, "'Hello World'");
     /// # Ok::<_, anyhow::Error>(())
     /// ```
     #[inline]
     pub fn as_raw(&self) -> &BStr {
-        match self.raw.kind {
-            raw::RawStringKind::Original { original }
-            | raw::RawStringKind::Multiline { original, .. } => self.data.str(original),
-            _ => self.data.str(self.raw.string),
-        }
+        self.data.str(self.raw.original)
     }
 }
 
