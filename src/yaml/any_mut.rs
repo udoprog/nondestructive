@@ -15,7 +15,7 @@ pub enum AnyMut<'a> {
 }
 
 impl AnyMut<'_> {
-    /// Coerce into [`AnyMut`] to help discriminate the value type.
+    /// Get [`AnyMut`] identifier.
     ///
     /// # Examples
     ///

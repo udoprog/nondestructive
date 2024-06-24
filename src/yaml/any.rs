@@ -1,4 +1,4 @@
-use crate::yaml::{Mapping, Number, Sequence, String};
+use crate::yaml::{Mapping, Number, Sequence, String, Value};
 
 /// An enum which helps to externally discriminate the interior type of a
 /// [`Value`].
@@ -22,6 +22,8 @@ pub enum Any<'a> {
     Mapping(Mapping<'a>),
     /// A [`Sequence`] value.
     Sequence(Sequence<'a>),
+    /// A raw unrecognized value.
+    Raw(Value<'a>),
 }
 
 impl<'a> Any<'a> {
@@ -40,11 +42,12 @@ impl<'a> Any<'a> {
     /// assert!(doc.as_any().is_null());
     /// # Ok::<_, anyhow::Error>(())
     /// ```
+    #[must_use]
     pub fn is_null(self) -> bool {
         matches!(self, Self::Null)
     }
 
-    /// Coerce into [`Any`] into a bool.
+    /// Coerce [`Any`] into a bool.
     ///
     /// # Examples
     ///
@@ -60,6 +63,7 @@ impl<'a> Any<'a> {
     /// assert_eq!(value, true);
     /// # Ok::<_, anyhow::Error>(())
     /// ```
+    #[must_use]
     pub fn into_bool(self) -> Option<bool> {
         match self {
             Self::Bool(value) => Some(value),
@@ -67,7 +71,7 @@ impl<'a> Any<'a> {
         }
     }
 
-    /// Coerce into [`Any`] into a string.
+    /// Coerce [`Any`] into a string.
     ///
     /// # Examples
     ///
@@ -83,6 +87,7 @@ impl<'a> Any<'a> {
     /// assert_eq!(value.to_str(), Ok("Hello World"));
     /// # Ok::<_, anyhow::Error>(())
     /// ```
+    #[must_use]
     pub fn into_string(self) -> Option<String<'a>> {
         match self {
             Self::String(value) => Some(value),
@@ -90,7 +95,7 @@ impl<'a> Any<'a> {
         }
     }
 
-    /// Coerce into [`Any`] into a string.
+    /// Coerce [`Any`] into a string.
     ///
     /// # Examples
     ///
@@ -106,6 +111,7 @@ impl<'a> Any<'a> {
     /// assert_eq!(value.as_u32(), Some(42));
     /// # Ok::<_, anyhow::Error>(())
     /// ```
+    #[must_use]
     pub fn into_number(self) -> Option<Number<'a>> {
         match self {
             Self::Number(value) => Some(value),

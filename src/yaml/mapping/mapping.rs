@@ -196,7 +196,7 @@ impl<'a> Mapping<'a> {
         for item in &self.data.mapping(self.id).items {
             let item = self.data.mapping_item(*item);
 
-            if self.data.str(item.key.string) == key {
+            if self.data.str(item.key.id) == key {
                 return Some(Value::new(self.data, item.value));
             }
         }

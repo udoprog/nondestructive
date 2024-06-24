@@ -265,7 +265,7 @@ impl<'a> Value<'a> {
             Raw::String(string) => Any::String(String::new(self.data, string)),
             Raw::Mapping(..) => Any::Mapping(Mapping::new(self.data, self.id)),
             Raw::Sequence(..) => Any::Sequence(Sequence::new(self.data, self.id)),
-            _ => panic!("Not a valid value"),
+            _ => Any::Raw(self),
         }
     }
 
@@ -310,7 +310,7 @@ impl<'a> Value<'a> {
             Raw::String(string) => Any::String(String::new(self.data, string)),
             Raw::Mapping(..) => Any::Mapping(Mapping::new(self.data, self.id)),
             Raw::Sequence(..) => Any::Sequence(Sequence::new(self.data, self.id)),
-            _ => panic!("Not a valid value"),
+            _ => Any::Raw(Value::new(self.data, self.id)),
         }
     }
 
@@ -406,7 +406,7 @@ impl<'a> Value<'a> {
     #[must_use]
     pub fn as_bstr(&self) -> Option<&'a BStr> {
         match self.data.raw(self.id) {
-            Raw::String(raw) => Some(self.data.str(raw.string)),
+            Raw::String(raw) => Some(self.data.str(raw.id)),
             _ => None,
         }
     }
@@ -480,7 +480,7 @@ impl<'a> Value<'a> {
     #[must_use]
     pub fn as_str(&self) -> Option<&'a str> {
         match self.data.raw(self.id) {
-            Raw::String(raw) => self.data.str(raw.string).to_str().ok(),
+            Raw::String(raw) => self.data.str(raw.id).to_str().ok(),
             _ => None,
         }
     }

@@ -408,19 +408,15 @@ pub(crate) struct String {
     /// The kind of the string.
     pub(crate) kind: RawStringKind,
     /// The content of the string.
-    pub(crate) string: StringId,
+    pub(crate) id: StringId,
     /// The original contents of the string.
     pub(crate) original: StringId,
 }
 
 impl String {
     /// A simple number.
-    pub(crate) fn new(kind: RawStringKind, string: StringId, original: StringId) -> Self {
-        Self {
-            kind,
-            string,
-            original,
-        }
+    pub(crate) fn new(kind: RawStringKind, id: StringId, original: StringId) -> Self {
+        Self { kind, id, original }
     }
 
     fn display(&self, data: &Data, f: &mut fmt::Formatter) -> fmt::Result {
@@ -484,15 +480,15 @@ impl String {
 
         match &self.kind {
             RawStringKind::Bare => {
-                let string = data.str(self.string);
+                let string = data.str(self.id);
                 write!(f, "{string}")?;
             }
             RawStringKind::Double => {
-                let string = data.str(self.string);
+                let string = data.str(self.id);
                 escape_double_quoted(string, f)?;
             }
             RawStringKind::Single => {
-                let string = data.str(self.string);
+                let string = data.str(self.id);
                 escape_single_quoted(string, f)?;
             }
             RawStringKind::Original => {
@@ -579,14 +575,14 @@ impl String {
 
         match &self.kind {
             RawStringKind::Bare => {
-                o.write_all(data.str(self.string))?;
+                o.write_all(data.str(self.id))?;
             }
             RawStringKind::Double => {
-                let string = data.str(self.string);
+                let string = data.str(self.id);
                 escape_double_quoted(string, o)?;
             }
             RawStringKind::Single => {
-                let string = data.str(self.string);
+                let string = data.str(self.id);
                 escape_single_quoted(string, o)?;
             }
             RawStringKind::Original => {
@@ -874,7 +870,7 @@ pub(crate) struct MappingItem {
 
 impl MappingItem {
     fn display(&self, data: &Data, f: &mut fmt::Formatter) -> fmt::Result {
-        let key = data.str(self.key.string);
+        let key = data.str(self.key.id);
         write!(f, "{key}:")?;
         data.raw(self.value).display(data, f, Some(self.value))?;
         Ok(())
@@ -884,7 +880,7 @@ impl MappingItem {
     where
         O: ?Sized + io::Write,
     {
-        o.write_all(data.str(self.key.string))?;
+        o.write_all(data.str(self.key.id))?;
         write!(o, ":")?;
         o.write_all(data.prefix(self.value))?;
         data.raw(self.value).write_to(data, o)?;

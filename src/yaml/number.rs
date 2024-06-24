@@ -71,6 +71,8 @@ impl<'a> Number<'a> {
     /// assert_eq!(value, "3.1415");
     /// # Ok::<_, anyhow::Error>(())
     /// ```
+    #[inline]
+    #[must_use]
     pub fn as_raw(&self) -> &BStr {
         self.data.str(self.raw.string)
     }

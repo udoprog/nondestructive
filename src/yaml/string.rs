@@ -65,6 +65,7 @@ impl<'a> String<'a> {
     /// # Ok::<_, anyhow::Error>(())
     /// ```
     #[inline]
+    #[must_use]
     pub fn as_raw(&self) -> &BStr {
         self.data.str(self.raw.original)
     }
@@ -75,13 +76,13 @@ impl Deref for String<'_> {
 
     #[inline]
     fn deref(&self) -> &Self::Target {
-        self.data.str(self.raw.string)
+        self.data.str(self.raw.id)
     }
 }
 
 impl fmt::Debug for String<'_> {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.data.str(self.raw.string).fmt(f)
+        self.data.str(self.raw.id).fmt(f)
     }
 }

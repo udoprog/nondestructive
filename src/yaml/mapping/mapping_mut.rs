@@ -157,7 +157,7 @@ impl<'a> MappingMut<'a> {
             .items
             .iter()
             .map(|id| self.data.mapping_item(*id))
-            .find(|item| item.key.string == key)
+            .find(|item| item.key.id == key)
             .map(|item| item.value)
         {
             self.data.replace(id, value);
@@ -305,7 +305,7 @@ impl<'a> MappingMut<'a> {
         for item in &self.data.mapping(self.id).items {
             let item = self.data.mapping_item(*item);
 
-            if self.data.str(item.key.string) == key {
+            if self.data.str(item.key.id) == key {
                 return Some(ValueMut::new(self.data, item.value));
             }
         }
@@ -353,7 +353,7 @@ impl<'a> MappingMut<'a> {
         for item in &self.data.mapping(self.id).items {
             let item = self.data.mapping_item(*item);
 
-            if self.data.str(item.key.string) == key {
+            if self.data.str(item.key.id) == key {
                 return Some(ValueMut::new(self.data, item.value));
             }
         }
@@ -403,7 +403,7 @@ impl<'a> MappingMut<'a> {
         for (i, item) in self.data.mapping(self.id).items.iter().enumerate() {
             let item = self.data.mapping_item(*item);
 
-            if self.data.str(item.key.string) == key {
+            if self.data.str(item.key.id) == key {
                 index = Some(i);
                 break;
             }
