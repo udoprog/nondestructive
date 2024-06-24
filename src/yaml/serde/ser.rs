@@ -66,7 +66,7 @@ impl Serialize for Value<'_> {
                 },
             },
             raw::Raw::String(raw) => {
-                let string = self.data.str(raw.string);
+                let string = self.data.str(raw.id);
 
                 if let Ok(string) = string.to_str() {
                     serializer.serialize_str(string)

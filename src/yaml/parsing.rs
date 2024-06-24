@@ -277,7 +277,13 @@ impl<'a> Parser<'a> {
 
         let string = self.data.insert_str(self.string(start));
         self.bump(usize::from(!self.is_eof()));
-        Raw::String(raw::String::new(raw::RawStringKind::Single, string))
+        let original = self.data.insert_str(self.string(original));
+
+        Raw::String(raw::String::new(
+            raw::RawStringKind::Original,
+            string,
+            original,
+        ))
     }
 
     /// Read a single-quoted escaped string.
@@ -307,8 +313,9 @@ impl<'a> Parser<'a> {
         let original = self.data.insert_str(self.string(original));
 
         Raw::String(raw::String::new(
-            raw::RawStringKind::Original { original },
+            raw::RawStringKind::Original,
             string,
+            original,
         ))
     }
 
@@ -332,10 +339,12 @@ impl<'a> Parser<'a> {
 
         let string = self.data.insert_str(self.string(start));
         self.bump(usize::from(!self.is_eof()));
+        let original = self.data.insert_str(self.string(original));
 
         Ok(Raw::String(raw::String::new(
-            raw::RawStringKind::Double,
+            raw::RawStringKind::Original,
             string,
+            original,
         )))
     }
 
@@ -365,8 +374,9 @@ impl<'a> Parser<'a> {
         let original = self.data.insert_str(self.string(original));
 
         Ok(Raw::String(raw::String::new(
-            raw::RawStringKind::Original { original },
+            raw::RawStringKind::Original,
             string,
+            original,
         )))
     }
 
@@ -693,7 +703,7 @@ impl<'a> Parser<'a> {
             // followed by spacing.
             if a == b':' && is_spacing(b) {
                 let key = self.data.insert_str(self.string(start));
-                return Some(raw::String::new(raw::RawStringKind::Bare, key));
+                return Some(raw::String::new(raw::RawStringKind::Bare, key, key));
             }
 
             self.bump(1);
@@ -711,7 +721,7 @@ impl<'a> Parser<'a> {
         }
 
         let key = self.data.insert_str(self.string(start));
-        Some(raw::String::new(raw::RawStringKind::Bare, key))
+        Some(raw::String::new(raw::RawStringKind::Bare, key, key))
     }
 
     /// Process a block as a string.
@@ -777,8 +787,11 @@ impl<'a> Parser<'a> {
         let out = self.input.get(start..end).unwrap_or_default();
         let original = self.data.insert_str(out);
 
-        let kind = raw::RawStringKind::Multiline { prefix, original };
-        (Raw::String(raw::String::new(kind, string)), Some(ws))
+        let kind = raw::RawStringKind::Multiline { prefix };
+        (
+            Raw::String(raw::String::new(kind, string, original)),
+            Some(ws),
+        )
     }
 
     /// Consume a single value.
@@ -833,7 +846,7 @@ impl<'a> Parser<'a> {
                         b"false" => (Raw::Boolean(false), None),
                         string => {
                             let string = self.data.insert_str(string);
-                            let string = raw::String::new(raw::RawStringKind::Bare, string);
+                            let string = raw::String::new(raw::RawStringKind::Bare, string, string);
                             (Raw::String(string), None)
                         }
                     }
@@ -867,7 +880,7 @@ impl<'a> Parser<'a> {
         };
 
         let string = self.data.insert_str(string);
-        Some(raw::String::new(raw::RawStringKind::Bare, string))
+        Some(raw::String::new(raw::RawStringKind::Bare, string, string))
     }
 }
 

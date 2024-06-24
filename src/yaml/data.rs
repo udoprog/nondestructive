@@ -87,6 +87,7 @@ pub(crate) struct Data {
 impl Data {
     /// Get a string.
     #[inline]
+    #[must_use]
     pub(crate) fn str(&self, id: StringId) -> &BStr {
         let Some(string) = self.strings.get(&id) else {
             panic!("missing string with id {id}");

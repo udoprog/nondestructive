@@ -82,6 +82,12 @@ pub use self::value::{Block, Chomp, Null, Separator, StringKind, Value};
 mod value_mut;
 pub use self::value_mut::ValueMut;
 
+mod number;
+pub use self::number::Number;
+
+mod string;
+pub use self::string::String;
+
 pub mod sequence;
 #[doc(inline)]
 pub use self::sequence::{Sequence, SequenceMut};
