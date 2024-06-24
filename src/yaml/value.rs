@@ -5,11 +5,9 @@ use bstr::{BStr, ByteSlice};
 #[cfg(feature = "serde-edits")]
 use serde::{Deserialize, Serialize};
 
-use crate::yaml::data::Data;
+use crate::yaml::data::{Data, Id};
 use crate::yaml::raw::Raw;
-use crate::yaml::{Any, Mapping, Sequence};
-
-use super::data::Id;
+use crate::yaml::{Any, Mapping, Number, Sequence, String};
 
 /// The kind of a multiline string.
 #[derive(Default, Debug, Clone, Copy)]
@@ -235,13 +233,9 @@ impl<'a> Value<'a> {
     /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
-    /// let doc = yaml::from_slice(
-    ///     r"
-    ///     Hello World
-    ///     "
-    /// )?;
+    /// let doc = yaml::from_slice("Hello World")?;
     ///
-    /// assert!(matches!(doc.as_ref().into_any(), yaml::Any::Scalar(..)));
+    /// assert!(matches!(doc.as_ref().into_any(), yaml::Any::String(..)));
     ///
     /// let doc = yaml::from_slice(
     ///     r"
@@ -265,9 +259,13 @@ impl<'a> Value<'a> {
     #[must_use]
     pub fn into_any(self) -> Any<'a> {
         match self.data.raw(self.id) {
+            Raw::Null(..) => Any::Null,
+            Raw::Boolean(bool) => Any::Bool(*bool),
+            Raw::Number(number) => Any::Number(Number::new(self.data, number)),
+            Raw::String(string) => Any::String(String::new(self.data, string)),
             Raw::Mapping(..) => Any::Mapping(Mapping::new(self.data, self.id)),
             Raw::Sequence(..) => Any::Sequence(Sequence::new(self.data, self.id)),
-            _ => Any::Scalar(self),
+            _ => panic!("Not a valid value"),
         }
     }
 
@@ -280,13 +278,9 @@ impl<'a> Value<'a> {
     /// use anyhow::Context;
     /// use nondestructive::yaml;
     ///
-    /// let doc = yaml::from_slice(
-    ///     r"
-    ///     Hello World
-    ///     "
-    /// )?;
+    /// let doc = yaml::from_slice("Hello World")?;
     ///
-    /// assert!(matches!(doc.as_ref().as_any(), yaml::Any::Scalar(..)));
+    /// assert!(matches!(doc.as_ref().as_any(), yaml::Any::String(..)));
     ///
     /// let doc = yaml::from_slice(
     ///     r"
@@ -310,9 +304,13 @@ impl<'a> Value<'a> {
     #[must_use]
     pub fn as_any(&self) -> Any<'_> {
         match self.data.raw(self.id) {
+            Raw::Null(..) => Any::Null,
+            Raw::Boolean(bool) => Any::Bool(*bool),
+            Raw::Number(number) => Any::Number(Number::new(self.data, number)),
+            Raw::String(string) => Any::String(String::new(self.data, string)),
             Raw::Mapping(..) => Any::Mapping(Mapping::new(self.data, self.id)),
             Raw::Sequence(..) => Any::Sequence(Sequence::new(self.data, self.id)),
-            _ => Any::Scalar(Value::new(self.data, self.id)),
+            _ => panic!("Not a valid value"),
         }
     }
 
@@ -574,6 +572,49 @@ impl<'a> Value<'a> {
     pub fn as_sequence(&self) -> Option<Sequence<'a>> {
         match self.data.raw(self.id) {
             Raw::Sequence(..) => Some(Sequence::new(self.data, self.id)),
+            _ => None,
+        }
+    }
+
+    /// Coerce a number to help discriminate the value type borrowing from self.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use anyhow::Context;
+    /// use nondestructive::yaml;
+    ///
+    /// let doc = yaml::from_slice("42")?;
+    /// let doc = doc.as_ref();
+    ///
+    /// assert!(matches!(doc.as_number(), Some(..)));
+    /// # Ok::<_, anyhow::Error>(())
+    /// ```
+    #[must_use]
+    pub fn as_number(&self) -> Option<Number<'_>> {
+        match self.data.raw(self.id) {
+            Raw::Number(raw) => Some(Number::new(self.data, raw)),
+            _ => None,
+        }
+    }
+
+    /// Coerce a number to help discriminate the value type borrowing from self.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use anyhow::Context;
+    /// use nondestructive::yaml;
+    ///
+    /// let doc = yaml::from_slice("42")?;
+    ///
+    /// assert!(matches!(doc.as_ref().into_number(), Some(..)));
+    /// # Ok::<_, anyhow::Error>(())
+    /// ```
+    #[must_use]
+    pub fn into_number(self) -> Option<Number<'a>> {
+        match self.data.raw(self.id) {
+            Raw::Number(raw) => Some(Number::new(self.data, raw)),
             _ => None,
         }
     }

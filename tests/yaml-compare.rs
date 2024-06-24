@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use std::{env, mem};
 
 use anyhow::{anyhow, bail, ensure, Context, Result};
-use bstr::BStr;
+use bstr::{BStr, ByteSlice};
 use nondestructive::yaml;
 
 /// Compare the processing of some document with a known good source, in this
@@ -100,26 +100,20 @@ fn compare(trace: &mut Trace, a: &yaml::Value<'_>, b: &serde_yaml::Value) -> Res
         (yaml::Any::Mapping(a), serde_yaml::Value::Mapping(b)) => {
             compare_mappings(trace, &a, b)?;
         }
-        (yaml::Any::Scalar(a), serde_yaml::Value::Bool(b)) => {
-            let a = a
-                .as_bool()
-                .with_context(|| anyhow!("{trace}: nondestructive is not a bool"))?;
-
+        (yaml::Any::Bool(a), serde_yaml::Value::Bool(b)) => {
             ensure!(a == *b, "{trace}: {a} != {b}");
         }
-        (yaml::Any::Scalar(a), serde_yaml::Value::String(b)) => {
-            let Some(a) = a.as_str() else {
-                let a = a.as_any();
-                bail!("{trace}: nondestructive is not a string, but is a {a:?}");
+        (yaml::Any::String(a), serde_yaml::Value::String(b)) => {
+            let Ok(a) = a.to_str() else {
+                bail!("{trace}: nondestructive is not a utf-8 string, but is a {a:?}");
             };
 
             ensure!(a == *b, "{trace}: {a} != {b}");
         }
-        (yaml::Any::Scalar(a), serde_yaml::Value::Number(n)) => 'ok: {
+        (yaml::Any::Number(a), serde_yaml::Value::Number(n)) => 'ok: {
             if let Some(b) = n.as_u64() {
                 let Some(a) = a.as_u64() else {
-                    let a = a.as_any();
-                    bail!("{trace}: nondestructive is not a string, but is a {a:?}");
+                    bail!("{trace}: nondestructive is not a u64, but is a {a:?}");
                 };
 
                 ensure!(a == b, "{trace}: {a} != {b}");
@@ -128,8 +122,7 @@ fn compare(trace: &mut Trace, a: &yaml::Value<'_>, b: &serde_yaml::Value) -> Res
 
             if let Some(b) = n.as_i64() {
                 let Some(a) = a.as_i64() else {
-                    let a = a.as_any();
-                    bail!("{trace}: nondestructive is not a string, but is a {a:?}");
+                    bail!("{trace}: nondestructive is not a i64, but is a {a:?}");
                 };
 
                 ensure!(a == b, "{trace}: {a} != {b}");
@@ -140,8 +133,7 @@ fn compare(trace: &mut Trace, a: &yaml::Value<'_>, b: &serde_yaml::Value) -> Res
                 const ERROR_MARGIN: f64 = 1e-6;
 
                 let Some(a) = a.as_f64() else {
-                    let a = a.as_any();
-                    bail!("{trace}: nondestructive is not a string, but is a {a:?}");
+                    bail!("{trace}: nondestructive is not a f64, but is a {a:?}");
                 };
 
                 ensure!((a - b).abs() < ERROR_MARGIN, "{trace}: {a} != {b}");
