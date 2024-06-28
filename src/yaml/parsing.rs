@@ -21,14 +21,14 @@ macro_rules! ctl {
 
 /// Ascii whitespace matching.
 macro_rules! other_ws {
-    () => {
-        b'\t' | b'\x0C' | b'\r' | raw::SPACE
+    ($($pat:pat_param)|*) => {
+        b'\t' | b'\x0C' | b'\r' | raw::SPACE $(| $pat)*
     };
 }
 
 macro_rules! ws {
-    () => {
-        raw::NEWLINE | other_ws!()
+    ($($pat:pat_param)|*) => {
+        other_ws!(raw::NEWLINE $(| $pat)*)
     };
 }
 
@@ -754,20 +754,21 @@ impl<'a> Parser<'a> {
     fn key_or_eol(&mut self, start: usize) -> Option<raw::String> {
         loop {
             self.find2(b':', raw::NEWLINE);
-            let [a, b] = self.peek();
 
-            if matches!(a, EOF | raw::NEWLINE) {
-                return None;
+            match self.peek() {
+                [raw::NEWLINE | EOF, _] => {
+                    return None;
+                }
+                // Only treat something as a key if it's a colon immediately
+                // followed by spacing.
+                [b':', ws!(EOF)] => {
+                    let key = self.data.insert_str(self.string(start));
+                    return Some(raw::String::new(raw::RawStringKind::Bare, key, key));
+                }
+                _ => {
+                    self.bump(1);
+                }
             }
-
-            // Only treat something as a key if it's a colon immediately
-            // followed by spacing.
-            if a == b':' && matches!(b, ws!() | EOF) {
-                let key = self.data.insert_str(self.string(start));
-                return Some(raw::String::new(raw::RawStringKind::Bare, key, key));
-            }
-
-            self.bump(1);
         }
     }
 

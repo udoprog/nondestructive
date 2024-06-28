@@ -12,7 +12,7 @@ use twox_hash::xxh3::{Hash128, HasherExt};
 use crate::yaml::raw;
 
 /// The unique hash of a string.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde-edits", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde-edits", serde(transparent))]
 #[repr(transparent)]
@@ -25,6 +25,13 @@ impl fmt::Display for StringId {
     }
 }
 
+impl fmt::Debug for StringId {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_tuple("StringId").field(&Hex(&self.0)).finish()
+    }
+}
+
 struct Hex<'a>(&'a [u8]);
 
 impl fmt::Display for Hex<'_> {
@@ -34,6 +41,12 @@ impl fmt::Display for Hex<'_> {
         }
 
         Ok(())
+    }
+}
+
+impl fmt::Debug for Hex<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Display::fmt(self, f)
     }
 }
 

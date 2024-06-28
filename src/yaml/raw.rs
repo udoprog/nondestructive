@@ -3,7 +3,7 @@ use std::io;
 use std::iter;
 use std::mem;
 
-use bstr::ByteSlice;
+use bstr::{BStr, ByteSlice};
 #[cfg(feature = "serde-edits")]
 use serde::{Deserialize, Serialize};
 
@@ -136,7 +136,17 @@ where
     I: IntoIterator,
     I::Item: AsRef<str>,
 {
-    let (_, prefix) = make_indent(data, id, 2);
+    let (indent, prefix) = match data.raw(id) {
+        Raw::Mapping(raw) => (raw.indent.wrapping_add(2), BStr::new(b"")),
+        Raw::Sequence(raw) => (raw.indent.wrapping_add(2), BStr::new(b"")),
+        _ => {
+            let prefix = data.str(data.layout(id).prefix);
+
+            let n = prefix.rfind([NEWLINE]).map_or(0, |i| i.wrapping_add(1));
+
+            (2, &prefix[n..])
+        }
+    };
 
     let mut original = Vec::new();
     let mut out = Vec::new();
@@ -152,7 +162,9 @@ where
     let mut it = iter.into_iter().peekable();
 
     while let Some(part) = it.next() {
-        original.extend_from_slice(data.str(prefix));
+        original.push(NEWLINE);
+        original.extend_from_slice(prefix.as_bytes());
+        original.resize(original.len() + indent, SPACE);
         original.extend(part.as_ref().as_bytes());
         out.extend(part.as_ref().as_bytes());
 
@@ -301,6 +313,19 @@ impl Raw {
         }
 
         Ok(())
+    }
+
+    pub(crate) fn is_tabular(&self) -> bool {
+        matches!(
+            self,
+            Self::Sequence(Sequence {
+                kind: SequenceKind::Mapping,
+                ..
+            }) | Self::Mapping(Mapping {
+                kind: MappingKind::Mapping,
+                ..
+            })
+        )
     }
 }
 

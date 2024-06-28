@@ -177,10 +177,22 @@ impl<'a> MappingMut<'a> {
             .insert(Raw::Null(Null::Empty), item_prefix, Some(self.id));
 
         let value_prefix = match separator {
-            Separator::Auto => match self.data.mapping(self.id).items.last() {
-                Some(last) => self.data.layout(self.data.mapping_item(*last).value).prefix,
-                None => self.data.insert_str(" "),
-            },
+            Separator::Auto => {
+                if value.is_tabular() {
+                    let mapping = self.data.mapping(self.id);
+
+                    if let Some(last) = mapping.items.last() {
+                        self.data.layout(self.data.mapping_item(*last).value).prefix
+                    } else {
+                        let mut value_prefix = Vec::new();
+                        value_prefix.push(raw::NEWLINE);
+                        value_prefix.resize(mapping.indent.saturating_add(2), raw::SPACE);
+                        self.data.insert_str(&value_prefix)
+                    }
+                } else {
+                    self.data.insert_str(" ")
+                }
+            }
             Separator::Custom(separator) => self.data.insert_str(separator),
         };
 
