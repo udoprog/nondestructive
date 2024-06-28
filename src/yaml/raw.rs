@@ -895,8 +895,8 @@ pub(crate) struct MappingItem {
 
 impl MappingItem {
     fn display(&self, data: &Data, f: &mut fmt::Formatter) -> fmt::Result {
-        let key = data.str(self.key.id);
-        write!(f, "{key}:")?;
+        self.key.display(data, f)?;
+        write!(f, ":")?;
         data.raw(self.value).display(data, f, Some(self.value))?;
         Ok(())
     }
@@ -905,7 +905,7 @@ impl MappingItem {
     where
         O: ?Sized + io::Write,
     {
-        o.write_all(data.str(self.key.id))?;
+        self.key.write_to(data, o)?;
         write!(o, ":")?;
         o.write_all(data.prefix(self.value))?;
         data.raw(self.value).write_to(data, o)?;

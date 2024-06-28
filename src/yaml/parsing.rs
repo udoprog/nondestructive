@@ -313,7 +313,7 @@ impl<'a> Parser<'a> {
     }
 
     /// Read a double-quoted string.
-    fn single_quoted(&mut self) -> Raw {
+    fn single_quoted(&mut self) -> raw::String {
         let original = self.n;
         self.bump(1);
         let start = self.n;
@@ -336,15 +336,11 @@ impl<'a> Parser<'a> {
         self.bump(usize::from(!self.is_eof()));
         let original = self.data.insert_str(self.string(original));
 
-        Raw::String(raw::String::new(
-            raw::RawStringKind::Original,
-            string,
-            original,
-        ))
+        raw::String::new(raw::RawStringKind::Original, string, original)
     }
 
     /// Read a single-quoted escaped string.
-    fn single_quoted_escaped(&mut self, start: usize, original: usize) -> Raw {
+    fn single_quoted_escaped(&mut self, start: usize, original: usize) -> raw::String {
         self.scratch.extend(self.string(start));
 
         loop {
@@ -369,15 +365,11 @@ impl<'a> Parser<'a> {
 
         let original = self.data.insert_str(self.string(original));
 
-        Raw::String(raw::String::new(
-            raw::RawStringKind::Original,
-            string,
-            original,
-        ))
+        raw::String::new(raw::RawStringKind::Original, string, original)
     }
 
     /// Read a double-quoted string.
-    fn double_quoted(&mut self) -> Result<Raw> {
+    fn double_quoted(&mut self) -> Result<raw::String> {
         let original = self.n;
         self.bump(1);
         let start = self.n;
@@ -398,15 +390,15 @@ impl<'a> Parser<'a> {
         self.bump(usize::from(!self.is_eof()));
         let original = self.data.insert_str(self.string(original));
 
-        Ok(Raw::String(raw::String::new(
+        Ok(raw::String::new(
             raw::RawStringKind::Original,
             string,
             original,
-        )))
+        ))
     }
 
     /// Parse a double quoted string.
-    fn double_quoted_escaped(&mut self, start: usize, original: usize) -> Result<Raw> {
+    fn double_quoted_escaped(&mut self, start: usize, original: usize) -> Result<raw::String> {
         self.scratch.extend(self.string(start));
 
         loop {
@@ -430,11 +422,11 @@ impl<'a> Parser<'a> {
 
         let original = self.data.insert_str(self.string(original));
 
-        Ok(Raw::String(raw::String::new(
+        Ok(raw::String::new(
             raw::RawStringKind::Original,
             string,
             original,
-        )))
+        ))
     }
 
     /// Unescape into the scratch buffer.
@@ -862,8 +854,26 @@ impl<'a> Parser<'a> {
             [b'-', ws!()] if !s.inline => {
                 return self.sequence(s);
             }
-            [b'"', _] => (self.double_quoted()?, None),
-            [b'\'', _] => (self.single_quoted(), None),
+            [b'"', _] => {
+                let start = self.n;
+                let string = self.double_quoted()?;
+
+                if !s.inline && self.peek1() == b':' {
+                    return self.mapping_or_nul(s, start, string);
+                }
+
+                (Raw::String(string), None)
+            }
+            [b'\'', _] => {
+                let start = self.n;
+                let string = self.single_quoted();
+
+                if !s.inline && self.peek1() == b':' {
+                    return self.mapping_or_nul(s, start, string);
+                }
+
+                (Raw::String(string), None)
+            }
             [b'[', _] => return Ok((self.inline_sequence(s)?, None)),
             [b'{', _] => return Ok((self.inline_mapping(s)?, None)),
             [b'~', _] => (Raw::Null(Null::Tilde), None),
