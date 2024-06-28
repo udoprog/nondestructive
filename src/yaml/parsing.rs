@@ -20,10 +20,69 @@ macro_rules! ctl {
 }
 
 /// Ascii whitespace matching.
+macro_rules! other_ws {
+    () => {
+        b'\t' | b'\x0C' | b'\r' | raw::SPACE
+    };
+}
+
 macro_rules! ws {
     () => {
-        b'\t' | raw::NEWLINE | b'\x0C' | b'\r' | raw::SPACE
+        raw::NEWLINE | other_ws!()
     };
+}
+
+struct State {
+    prefix: StringId,
+    parent: Option<Id>,
+    inline: bool,
+    tabular: bool,
+    parent_indent: Option<usize>,
+}
+
+impl State {
+    #[inline]
+    fn new(prefix: StringId) -> Self {
+        Self {
+            prefix,
+            parent: None,
+            inline: false,
+            tabular: false,
+            parent_indent: None,
+        }
+    }
+
+    #[inline]
+    fn with_parent(self, parent: Id) -> Self {
+        Self {
+            parent: Some(parent),
+            ..self
+        }
+    }
+
+    #[inline]
+    fn with_inline(self) -> Self {
+        Self {
+            inline: true,
+            ..self
+        }
+    }
+
+    #[inline]
+    fn with_tabular(self) -> Self {
+        Self {
+            tabular: true,
+            ..self
+        }
+    }
+
+    #[inline]
+    fn with_parent_indent(self, indent: usize) -> Self {
+        Self {
+            parent_indent: Some(indent),
+            ..self
+        }
+    }
 }
 
 /// A YAML parser.
@@ -50,7 +109,7 @@ impl<'a> Parser<'a> {
     pub(crate) fn parse(mut self) -> Result<Document> {
         let prefix = self.start_of_document();
 
-        let (root, suffix) = self.value(prefix, None, false, true, None)?;
+        let (root, suffix) = self.value(&State::new(prefix).with_tabular())?;
 
         let suffix = match suffix {
             Some(suffix) => suffix,
@@ -101,12 +160,6 @@ impl<'a> Parser<'a> {
     fn peek1(&self) -> u8 {
         let [a] = self.peek();
         a
-    }
-
-    /// Peek the next next value.
-    fn peek2(&self) -> (u8, u8) {
-        let [a, b] = self.peek();
-        (a, b)
     }
 
     /// Peek the next three values.
@@ -190,19 +243,23 @@ impl<'a> Parser<'a> {
 
         while let Some(&b) = self.input.get(n) {
             match b {
-                raw::NEWLINE => return true,
-                b if !b.is_ascii_whitespace() => return false,
-                _ => {}
+                raw::NEWLINE => {
+                    return true;
+                }
+                other_ws!() => {
+                    n = n.wrapping_add(1);
+                }
+                _ => {
+                    return false;
+                }
             }
-
-            n = n.wrapping_add(1);
         }
 
         true
     }
 
     /// Consume a single number.
-    fn number(&mut self, start: usize, tabular: bool) -> Option<Raw> {
+    fn number(&mut self, s: &State, start: usize) -> Option<Raw> {
         let mut hint = serde_hint::U64;
 
         if matches!(self.peek1(), b'-') {
@@ -242,7 +299,7 @@ impl<'a> Parser<'a> {
             return None;
         }
 
-        if tabular && !self.is_eol() {
+        if s.tabular && !self.is_eol() {
             return None;
         }
 
@@ -262,11 +319,11 @@ impl<'a> Parser<'a> {
         let start = self.n;
 
         loop {
-            match self.peek2() {
-                (b'\'', b'\'') => {
+            match self.peek() {
+                [b'\'', b'\''] => {
                     return self.single_quoted_escaped(start, original);
                 }
-                (b'\'', _) => {
+                [b'\'', _] => {
                     break;
                 }
                 _ => {
@@ -291,15 +348,15 @@ impl<'a> Parser<'a> {
         self.scratch.extend(self.string(start));
 
         loop {
-            match self.peek2() {
-                (b'\'', b'\'') => {
+            match self.peek() {
+                [b'\'', b'\''] => {
                     self.bump(2);
                     self.scratch.push(b'\'');
                 }
-                (b'\'', _) => {
+                [b'\'', _] => {
                     break;
                 }
-                (b, _) => {
+                [b, _] => {
                     self.bump(1);
                     self.scratch.push(b);
                 }
@@ -441,8 +498,8 @@ impl<'a> Parser<'a> {
     }
 
     /// Parse an inline sequence.
-    fn inline_sequence(&mut self, prefix: StringId, parent: Option<Id>) -> Result<Id> {
-        let id = self.placeholder(prefix, parent);
+    fn inline_sequence(&mut self, s: &State) -> Result<Id> {
+        let id = self.placeholder(s.prefix, s.parent);
 
         self.bump(1);
 
@@ -457,7 +514,7 @@ impl<'a> Parser<'a> {
             let item_id = self.placeholder(item_prefix, Some(id));
             let value_prefix = self.ws();
             let (value, next_prefix) =
-                self.value(value_prefix, Some(item_id), true, false, None)?;
+                self.value(&State::new(value_prefix).with_parent(item_id).with_inline())?;
 
             self.data.replace(item_id, raw::SequenceItem { value });
 
@@ -503,8 +560,8 @@ impl<'a> Parser<'a> {
     }
 
     /// Parse an inline mapping.
-    fn inline_mapping(&mut self, prefix: StringId, parent: Option<Id>) -> Result<Id> {
-        let id = self.placeholder(prefix, parent);
+    fn inline_mapping(&mut self, s: &State) -> Result<Id> {
+        let id = self.placeholder(s.prefix, s.parent);
         self.bump(1);
 
         let mut items = Vec::new();
@@ -524,7 +581,7 @@ impl<'a> Parser<'a> {
             self.bump(1);
             let value_prefix = self.ws();
             let (value, next_prefix) =
-                self.value(value_prefix, Some(item_id), true, false, None)?;
+                self.value(&State::new(value_prefix).with_parent(item_id).with_inline())?;
 
             self.data.replace(item_id, raw::MappingItem { key, value });
             items.push(item_id);
@@ -568,9 +625,9 @@ impl<'a> Parser<'a> {
     }
 
     /// Parse a sequence.
-    fn sequence(&mut self, prefix: StringId, parent: Option<Id>) -> Result<(Id, Option<StringId>)> {
+    fn sequence(&mut self, s: &State) -> Result<(Id, Option<StringId>)> {
         let empty = self.data.insert_str("");
-        let mapping_id = self.placeholder(prefix, parent);
+        let mapping_id = self.placeholder(s.prefix, s.parent);
 
         let mut items = Vec::new();
         let mut previous_ws = None;
@@ -583,7 +640,8 @@ impl<'a> Parser<'a> {
             self.bump(1);
 
             let value_prefix = self.ws();
-            let (value, ws) = self.value(value_prefix, Some(item_id), false, true, None)?;
+            let (value, ws) =
+                self.value(&State::new(value_prefix).with_parent(item_id).with_tabular())?;
 
             self.data.replace(item_id, raw::SequenceItem { value });
             items.push(item_id);
@@ -613,14 +671,12 @@ impl<'a> Parser<'a> {
     /// If the indentation level is same as the parent, process this as a nul.
     fn mapping_or_nul(
         &mut self,
+        s: &State,
         mut start: usize,
-        prefix: StringId,
-        parent: Option<Id>,
         key: raw::String,
-        parent_indent: Option<usize>,
     ) -> Result<(Id, Option<StringId>)> {
         let empty = self.data.insert_str("");
-        let mapping_id = self.placeholder(prefix, parent);
+        let mapping_id = self.placeholder(s.prefix, s.parent);
 
         let mut items = Vec::new();
         let mut previous_ws = None;
@@ -630,11 +686,11 @@ impl<'a> Parser<'a> {
 
         // Finding a mapping on a smaller indentation level than the parent
         // indentation means that we've encountered a nul value and need to rewind parsing.
-        if matches!(parent_indent, Some(i) if i >= indent) {
+        if matches!(s.parent_indent, Some(i) if i >= indent) {
             self.n = start;
             self.data
                 .replace_with(mapping_id, empty, Raw::Null(Null::Empty));
-            return Ok((mapping_id, Some(prefix)));
+            return Ok((mapping_id, Some(s.prefix)));
         }
 
         while let Some(key) = current_key.take() {
@@ -649,7 +705,12 @@ impl<'a> Parser<'a> {
             self.bump(1);
 
             let value_prefix = self.ws();
-            let (value, ws) = self.value(value_prefix, Some(item_id), false, true, Some(indent))?;
+            let (value, ws) = self.value(
+                &State::new(value_prefix)
+                    .with_parent(item_id)
+                    .with_tabular()
+                    .with_parent_indent(indent),
+            )?;
 
             self.data.replace(item_id, raw::MappingItem { key, value });
             items.push(item_id);
@@ -693,7 +754,7 @@ impl<'a> Parser<'a> {
     fn key_or_eol(&mut self, start: usize) -> Option<raw::String> {
         loop {
             self.find2(b':', raw::NEWLINE);
-            let (a, b) = self.peek2();
+            let [a, b] = self.peek();
 
             if matches!(a, EOF | raw::NEWLINE) {
                 return None;
@@ -701,7 +762,7 @@ impl<'a> Parser<'a> {
 
             // Only treat something as a key if it's a colon immediately
             // followed by spacing.
-            if a == b':' && is_spacing(b) {
+            if a == b':' && matches!(b, ws!() | EOF) {
                 let key = self.data.insert_str(self.string(start));
                 return Some(raw::String::new(raw::RawStringKind::Bare, key, key));
             }
@@ -795,24 +856,17 @@ impl<'a> Parser<'a> {
     }
 
     /// Consume a single value.
-    fn value(
-        &mut self,
-        prefix: StringId,
-        parent: Option<Id>,
-        inline: bool,
-        tabular: bool,
-        parent_indent: Option<usize>,
-    ) -> Result<(Id, Option<StringId>)> {
-        let (raw, ws) = match self.peek2() {
-            (b'-', ws!()) if !inline => {
-                return self.sequence(prefix, parent);
+    fn value(&mut self, s: &State) -> Result<(Id, Option<StringId>)> {
+        let (raw, ws) = match self.peek() {
+            [b'-', ws!()] if !s.inline => {
+                return self.sequence(s);
             }
-            (b'"', _) => (self.double_quoted()?, None),
-            (b'\'', _) => (self.single_quoted(), None),
-            (b'[', _) => return Ok((self.inline_sequence(prefix, parent)?, None)),
-            (b'{', _) => return Ok((self.inline_mapping(prefix, parent)?, None)),
-            (b'~', _) => (Raw::Null(Null::Tilde), None),
-            (a @ (b'>' | b'|'), b) => self.block(
+            [b'"', _] => (self.double_quoted()?, None),
+            [b'\'', _] => (self.single_quoted(), None),
+            [b'[', _] => return Ok((self.inline_sequence(s)?, None)),
+            [b'{', _] => return Ok((self.inline_mapping(s)?, None)),
+            [b'~', _] => (Raw::Null(Null::Tilde), None),
+            [a @ (b'>' | b'|'), b] => self.block(
                 matches!(b, b'-' | b'+').then_some(2).unwrap_or(1),
                 if a == b'>' { raw::SPACE } else { raw::NEWLINE },
                 a == b'>',
@@ -823,18 +877,18 @@ impl<'a> Parser<'a> {
                 'default: {
                     let start = self.n;
 
-                    if let Some(number) = self.number(start, tabular) {
+                    if let Some(number) = self.number(s, start) {
                         break 'default (number, None);
                     }
 
-                    if inline {
+                    if s.inline {
                         // Seek until we find a control character, since we're
                         // simply treating the current segment as a string.
                         while !matches!(self.peek1(), ctl!()) {
                             self.bump(1);
                         }
                     } else if let Some(key) = self.key_or_eol(start) {
-                        return self.mapping_or_nul(start, prefix, parent, key, parent_indent);
+                        return self.mapping_or_nul(s, start, key);
                     }
 
                     // NB: calling `key_or_eol` will have consumed up until end
@@ -854,7 +908,7 @@ impl<'a> Parser<'a> {
             }
         };
 
-        let value = self.data.insert(raw, prefix, parent);
+        let value = self.data.insert(raw, s.prefix, s.parent);
         Ok((value, ws))
     }
 
@@ -882,8 +936,4 @@ impl<'a> Parser<'a> {
         let string = self.data.insert_str(string);
         Some(raw::String::new(raw::RawStringKind::Bare, string, string))
     }
-}
-
-fn is_spacing(b: u8) -> bool {
-    b.is_ascii_whitespace() || b == EOF
 }
