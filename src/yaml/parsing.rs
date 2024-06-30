@@ -1,7 +1,5 @@
 use std::array;
 
-use bstr::ByteSlice;
-
 use crate::yaml::data::{Data, Id, StringId};
 use crate::yaml::error::{Error, ErrorKind};
 use crate::yaml::raw::{self, Raw};
@@ -32,6 +30,7 @@ macro_rules! ws {
     };
 }
 
+#[derive(Clone, Copy)]
 struct State {
     prefix: StringId,
     parent: Option<Id>,
@@ -109,7 +108,7 @@ impl<'a> Parser<'a> {
     pub(crate) fn parse(mut self) -> Result<Document> {
         let prefix = self.start_of_document();
 
-        let (root, suffix) = self.value(&State::new(prefix).with_tabular())?;
+        let (root, suffix) = self.value(State::new(prefix).with_tabular())?;
 
         let suffix = match suffix {
             Some(suffix) => suffix,
@@ -243,14 +242,14 @@ impl<'a> Parser<'a> {
     }
 
     /// Consume whitespace and newline up until the specified indendation level.
-    fn ws_nl_indent(&mut self, limit: usize) -> (StringId, u32) {
-        let (start, _, nl) = self.ws_nl_indent_raw(limit);
-        (self.data.insert_str(self.string(start)), nl)
+    fn ws_nl_to(&mut self, limit: usize) -> (StringId, usize, u32) {
+        let (start, indent, nl) = self.ws_nl_indent_raw(limit);
+        (self.data.insert_str(self.string(start)), indent, nl)
     }
 
     /// Consume whitespace and newline.
-    fn ws_nl(&mut self) -> (StringId, u32) {
-        self.ws_nl_indent(usize::MAX)
+    fn ws_nl(&mut self) -> (StringId, usize, u32) {
+        self.ws_nl_to(usize::MAX)
     }
 
     /// Consume whitespace.
@@ -280,7 +279,7 @@ impl<'a> Parser<'a> {
     }
 
     /// Consume a single number.
-    fn number(&mut self, s: &State, start: usize) -> Option<Raw> {
+    fn number(&mut self, s: State, start: usize) -> Option<Raw> {
         let mut hint = serde_hint::U64;
 
         if matches!(self.peek1(), b'-') {
@@ -511,7 +510,7 @@ impl<'a> Parser<'a> {
     }
 
     /// Parse an inline sequence.
-    fn inline_sequence(&mut self, s: &State) -> Result<Id> {
+    fn inline_sequence(&mut self, s: State) -> Result<Id> {
         let id = self.placeholder(s.prefix, s.parent);
 
         self.bump(1);
@@ -527,7 +526,7 @@ impl<'a> Parser<'a> {
             let item_id = self.placeholder(item_prefix, Some(id));
             let value_prefix = self.ws();
             let (value, next_prefix) =
-                self.value(&State::new(value_prefix).with_parent(item_id).with_inline())?;
+                self.value(State::new(value_prefix).with_parent(item_id).with_inline())?;
 
             self.data.replace(item_id, raw::SequenceItem { value });
 
@@ -573,7 +572,7 @@ impl<'a> Parser<'a> {
     }
 
     /// Parse an inline mapping.
-    fn inline_mapping(&mut self, s: &State) -> Result<Id> {
+    fn inline_mapping(&mut self, s: State) -> Result<Id> {
         let id = self.placeholder(s.prefix, s.parent);
         self.bump(1);
 
@@ -594,7 +593,7 @@ impl<'a> Parser<'a> {
             self.bump(1);
             let value_prefix = self.ws();
             let (value, next_prefix) =
-                self.value(&State::new(value_prefix).with_parent(item_id).with_inline())?;
+                self.value(State::new(value_prefix).with_parent(item_id).with_inline())?;
 
             self.data.replace(item_id, raw::MappingItem { key, value });
             items.push(item_id);
@@ -638,7 +637,7 @@ impl<'a> Parser<'a> {
     }
 
     /// Parse a sequence.
-    fn sequence(&mut self, s: &State) -> Result<(Id, Option<StringId>)> {
+    fn sequence(&mut self, s: State) -> Result<(Id, Option<StringId>)> {
         let empty = self.data.insert_str("");
         let mapping_id = self.placeholder(s.prefix, s.parent);
 
@@ -654,7 +653,7 @@ impl<'a> Parser<'a> {
 
             let value_prefix = self.ws();
             let (value, ws) =
-                self.value(&State::new(value_prefix).with_parent(item_id).with_tabular())?;
+                self.value(State::new(value_prefix).with_parent(item_id).with_tabular())?;
 
             self.data.replace(item_id, raw::SequenceItem { value });
             items.push(item_id);
@@ -684,7 +683,7 @@ impl<'a> Parser<'a> {
     /// If the indentation level is same as the parent, process this as a nul.
     fn mapping_or_nul(
         &mut self,
-        s: &State,
+        s: State,
         mut start: usize,
         key: raw::String,
     ) -> Result<(Id, Option<StringId>)> {
@@ -719,7 +718,7 @@ impl<'a> Parser<'a> {
 
             let value_prefix = self.ws();
             let (value, ws) = self.value(
-                &State::new(value_prefix)
+                State::new(value_prefix)
                     .with_parent(item_id)
                     .with_tabular()
                     .with_parent_indent(indent),
@@ -806,52 +805,59 @@ impl<'a> Parser<'a> {
         let prefix = self.data.insert_str(self.string(start));
 
         let start = self.n;
-        let (mut ws, mut nl) = self.ws_nl();
+        let (mut ws, mut indent, mut nl) = self.ws_nl();
 
         if nl == 0 {
+            let at = self.n;
             self.find(raw::NEWLINE);
-            let out = self.input.get(start..self.n).unwrap_or_default().trim();
-            self.scratch.extend_from_slice(out);
 
-            (ws, nl) = self.ws_nl();
-
-            if !self.is_eof() {
-                self.scratch.push(join);
+            if let Some(out) = self.input.get(at..self.n) {
+                self.scratch.extend_from_slice(out);
             }
+
+            (ws, indent, nl) = self.ws_nl();
         }
 
         let mut end = self.n;
-        let indent = self.indent();
 
         while !self.is_eof() {
-            let s = self.n;
+            if nl > 0 && !self.scratch.is_empty() {
+                for _ in 0..if folded { 1 } else { nl } {
+                    self.scratch.push(join);
+                }
+            }
+
+            let start = self.n;
             self.find(raw::NEWLINE);
 
-            if let Some(out) = self.input.get(s..self.n) {
+            if let Some(out) = self.input.get(start..self.n) {
                 self.scratch.extend_from_slice(out);
             }
 
             end = self.n;
-            (ws, nl) = self.ws_nl();
 
-            if self.indent() < indent {
+            let actual;
+
+            (ws, actual, nl) = if folded {
+                self.ws_nl()
+            } else {
+                self.ws_nl_to(indent)
+            };
+
+            if actual < indent {
                 break;
-            }
-
-            for _ in 0..if folded { 1 } else { nl } {
-                self.scratch.push(join);
             }
         }
 
-        for _ in 0..if clip { 0 } else { nl } {
+        for _ in 0..if clip { 0 } else { nl.min(1) } {
             self.scratch.push(raw::NEWLINE);
         }
 
         let string = self.data.insert_str(&self.scratch);
         self.scratch.clear();
 
-        let out = self.input.get(start..end).unwrap_or_default();
-        let original = self.data.insert_str(out);
+        let original = self.input.get(start..end).unwrap_or_default();
+        let original = self.data.insert_str(original);
 
         let kind = raw::RawStringKind::Multiline { prefix };
         (
@@ -861,7 +867,7 @@ impl<'a> Parser<'a> {
     }
 
     /// Process a block as a string.
-    fn plain_flow(&mut self, s: &State, start: usize) -> Option<(Raw, Option<StringId>)> {
+    fn plain_flow(&mut self, s: State, start: usize) -> Option<(Raw, Option<StringId>)> {
         let parent_indent = s.parent_indent?;
         let mut original = self.n;
 
@@ -890,9 +896,9 @@ impl<'a> Parser<'a> {
                     original = self.n;
                 }
 
-                let (ws, nl) = self.ws_nl();
+                let (ws, actual, nl) = self.ws_nl();
 
-                if self.indent() < indent {
+                if actual < indent {
                     break 'out Some(ws);
                 }
 
@@ -913,7 +919,7 @@ impl<'a> Parser<'a> {
     }
 
     /// Consume a single value.
-    fn value(&mut self, s: &State) -> Result<(Id, Option<StringId>)> {
+    fn value(&mut self, s: State) -> Result<(Id, Option<StringId>)> {
         let (raw, ws) = {
             match self.peek() {
                 [b'-', ws!()] if !s.inline => {
