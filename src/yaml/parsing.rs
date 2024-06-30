@@ -106,7 +106,7 @@ impl<'a> Parser<'a> {
 
     /// Parses a single value, and returns its kind.
     pub(crate) fn parse(mut self) -> Result<Document> {
-        let prefix = self.start_of_document();
+        let (header, prefix) = self.start_of_document();
 
         let (root, suffix) = self.value(State::new(prefix).with_tabular())?;
 
@@ -119,26 +119,27 @@ impl<'a> Parser<'a> {
             return Err(Error::new(self.n..self.input.len(), ErrorKind::ExpectedEof));
         }
 
-        Ok(Document::new(suffix, root, self.data))
+        Ok(Document::new(header, suffix, root, self.data))
     }
 
     /// Process document delimiter.
     ///
     /// This is a `---` that is allowed to exist at the beginning of the document.
-    fn start_of_document(&mut self) -> StringId {
-        let mut prefix = self.ws();
+    fn start_of_document(&mut self) -> (StringId, StringId) {
+        let (start, _, _) = self.ws_ign_comment(usize::MAX);
+
+        let header_start = self.n;
 
         loop {
             match self.peek() {
                 // Process headers.
                 [b'%', _, _] => {
                     self.find(raw::NEWLINE);
-                    prefix = self.ws();
+                    self.bump(1);
                 }
                 // Process start-of-document.
                 [b'-', b'-', b'-'] => {
                     self.bump(3);
-                    prefix = self.ws();
                     break;
                 }
                 _ => {
@@ -147,7 +148,16 @@ impl<'a> Parser<'a> {
             }
         }
 
-        prefix
+        if header_start != self.n {
+            if let Some(header) = self.input.get(header_start..self.n) {
+                let header = self.data.insert_str(header);
+                return (header, self.ws());
+            }
+        }
+
+        let header = self.data.insert_str("");
+        let prefix = self.data.insert_str(self.string(start));
+        (header, prefix)
     }
 
     /// Test if eof.
@@ -213,7 +223,7 @@ impl<'a> Parser<'a> {
     }
 
     /// Consume whitespace and newline up until the specified indendation level.
-    fn ws_nl_indent_raw(&mut self, limit: usize) -> (usize, usize, u32) {
+    fn ws_ign_comment(&mut self, limit: usize) -> (usize, usize, u32) {
         let start = self.n;
         let mut nl = 0u32;
 
@@ -242,19 +252,45 @@ impl<'a> Parser<'a> {
     }
 
     /// Consume whitespace and newline up until the specified indendation level.
-    fn ws_nl_to(&mut self, limit: usize) -> (StringId, usize, u32) {
-        let (start, indent, nl) = self.ws_nl_indent_raw(limit);
+    fn ws_cap_comment(&mut self, limit: usize) -> (usize, usize, u32) {
+        let start = self.n;
+        let mut nl = 0u32;
+
+        let mut indent = 0;
+
+        while indent < limit {
+            match self.peek1() {
+                raw::NEWLINE => {
+                    nl = nl.wrapping_add(1);
+                    indent = 0;
+                }
+                other_ws!() => {
+                    indent += 1;
+                }
+                _ => break,
+            }
+
+            self.bump(1);
+        }
+
+        (start, indent, nl)
+    }
+
+    /// Consume whitespace and newline up until the specified indendation level.
+    fn ws_cap_comment_str_with(&mut self, limit: usize) -> (StringId, usize, u32) {
+        let (start, indent, nl) = self.ws_cap_comment(limit);
         (self.data.insert_str(self.string(start)), indent, nl)
     }
 
     /// Consume whitespace and newline.
-    fn ws_nl(&mut self) -> (StringId, usize, u32) {
-        self.ws_nl_to(usize::MAX)
+    fn ws_cap_comment_str(&mut self) -> (StringId, usize, u32) {
+        self.ws_cap_comment_str_with(usize::MAX)
     }
 
     /// Consume whitespace.
     fn ws(&mut self) -> StringId {
-        self.ws_nl().0
+        let (start, _, _) = self.ws_ign_comment(usize::MAX);
+        self.data.insert_str(self.string(start))
     }
 
     /// Test if current position contains nothing but whitespace until we reach a line end.
@@ -805,7 +841,7 @@ impl<'a> Parser<'a> {
         let prefix = self.data.insert_str(self.string(start));
 
         let start = self.n;
-        let (mut ws, mut indent, mut nl) = self.ws_nl();
+        let (mut ws, mut indent, mut nl) = self.ws_cap_comment_str();
 
         if nl == 0 {
             let at = self.n;
@@ -815,7 +851,7 @@ impl<'a> Parser<'a> {
                 self.scratch.extend_from_slice(out);
             }
 
-            (ws, indent, nl) = self.ws_nl();
+            (ws, indent, nl) = self.ws_cap_comment_str();
         }
 
         let mut end = self.n;
@@ -839,9 +875,9 @@ impl<'a> Parser<'a> {
             let actual;
 
             (ws, actual, nl) = if folded {
-                self.ws_nl()
+                self.ws_cap_comment_str()
             } else {
-                self.ws_nl_to(indent)
+                self.ws_cap_comment_str_with(indent)
             };
 
             if actual < indent {
@@ -871,7 +907,7 @@ impl<'a> Parser<'a> {
         let parent_indent = s.parent_indent?;
         let mut original = self.n;
 
-        let (_, indent, _) = self.ws_nl_indent_raw(usize::MAX);
+        let (_, indent, _) = self.ws_cap_comment(usize::MAX);
 
         if indent <= parent_indent {
             self.n = original;
@@ -896,7 +932,7 @@ impl<'a> Parser<'a> {
                     original = self.n;
                 }
 
-                let (ws, actual, nl) = self.ws_nl();
+                let (ws, actual, nl) = self.ws_cap_comment_str();
 
                 if actual < indent {
                     break 'out Some(ws);
