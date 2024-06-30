@@ -17,12 +17,13 @@ fn compare_with_libyaml() -> Result<()> {
             .join("tests")
             .join("yaml");
 
-    test_dir(&manifest_path)?;
+    test_dir(&manifest_path, &[])?;
     Ok(())
 }
 
+const IGNORES: &[&str] = &["4RWC", "6HB6", "8G76", "DK95", "F8F9"];
+
 #[test]
-#[ignore = "Not ready yet"]
 fn compare_yaml_test_suite() -> Result<()> {
     let manifest_path =
         PathBuf::from(env::var_os("CARGO_MANIFEST_DIR").context("missing CARGO_MANIFEST_DIR")?)
@@ -30,11 +31,11 @@ fn compare_yaml_test_suite() -> Result<()> {
             .join("yaml-test-suite")
             .join("src");
 
-    test_dir(&manifest_path)?;
+    test_dir(&manifest_path, IGNORES)?;
     Ok(())
 }
 
-fn test_dir(path: &Path) -> Result<()> {
+fn test_dir(path: &Path, ignores: &[&str]) -> Result<()> {
     let mut paths = Vec::new();
 
     for e in fs::read_dir(path)? {
@@ -53,6 +54,8 @@ fn test_dir(path: &Path) -> Result<()> {
     }
 
     if !errors.is_empty() {
+        let mut fatal = false;
+
         for (path, error) in &errors {
             println!("{}:", path.display());
             println!("{error}");
@@ -60,9 +63,19 @@ fn test_dir(path: &Path) -> Result<()> {
             for cause in error.chain().skip(1) {
                 println!("  caused by: {cause}");
             }
+
+            if let Some(name) = path.file_stem().and_then(|n| n.to_str()) {
+                if ignores.contains(&name) {
+                    continue;
+                }
+            }
+
+            fatal = true;
         }
 
-        bail!("{} errors in comparison", errors.len());
+        if fatal {
+            bail!("{} errors in comparison", errors.len());
+        }
     }
 
     Ok(())
