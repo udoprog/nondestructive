@@ -30,6 +30,7 @@ use crate::yaml::{Value, ValueMut};
 #[derive(Clone)]
 #[cfg_attr(feature = "serde-edits", derive(Serialize, Deserialize))]
 pub struct Document {
+    header: StringId,
     suffix: StringId,
     pub(crate) root: Id,
     pub(crate) data: Data,
@@ -37,8 +38,13 @@ pub struct Document {
 
 impl Document {
     /// Construct a new document.
-    pub(crate) fn new(suffix: StringId, root: Id, data: Data) -> Self {
-        Self { suffix, root, data }
+    pub(crate) fn new(header: StringId, suffix: StringId, root: Id, data: Data) -> Self {
+        Self {
+            header,
+            suffix,
+            root,
+            data,
+        }
     }
 
     /// Get the document as a [`Value`].
@@ -267,6 +273,7 @@ impl Document {
     where
         O: io::Write,
     {
+        output.write_all(self.data.str(self.header))?;
         output.write_all(self.data.prefix(self.root))?;
         self.data.raw(self.root).write_to(&self.data, &mut output)?;
         output.write_all(self.data.str(self.suffix))?;
@@ -277,6 +284,7 @@ impl Document {
     fn display(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use std::fmt::Display;
 
+        self.data.str(self.header).fmt(f)?;
         self.data.prefix(self.root).fmt(f)?;
         self.data.raw(self.root).display(&self.data, f, None)?;
         self.data.str(self.suffix).fmt(f)?;

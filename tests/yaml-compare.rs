@@ -22,7 +22,7 @@ fn compare_with_libyaml() -> Result<()> {
 }
 
 #[test]
-#[ignore = "This test does not pass right now"]
+#[ignore = "Not ready yet"]
 fn compare_yaml_test_suite() -> Result<()> {
     let manifest_path =
         PathBuf::from(env::var_os("CARGO_MANIFEST_DIR").context("missing CARGO_MANIFEST_DIR")?)
@@ -176,6 +176,7 @@ fn compare(trace: &mut Trace, a: &yaml::Value<'_>, b: &serde_yaml::Value) -> Res
 
             bail!("{trace}: not comparable: {a:?} == {b:?}");
         }
+        (yaml::Any::Null, serde_yaml::Value::Null) => {}
         _ => {
             bail!("{trace}: not comparable: {a:?} == {b:?}");
         }
