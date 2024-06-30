@@ -190,13 +190,15 @@ impl<'a> Parser<'a> {
     }
 
     /// Find the given character.
-    fn find(&mut self, a: u8) {
+    fn find(&mut self, a: u8) -> bool {
         let input = self.input.get(self.n..).unwrap_or_default();
 
         if let Some(n) = memchr::memchr(a, input) {
             self.bump(n);
+            true
         } else {
             self.n = self.input.len();
+            false
         }
     }
 
@@ -211,25 +213,44 @@ impl<'a> Parser<'a> {
         }
     }
 
-    /// Consume whitespace.
-    fn ws_nl(&mut self) -> (StringId, u32) {
+    /// Consume whitespace and newline up until the specified indendation level.
+    fn ws_nl_indent_raw(&mut self, limit: usize) -> (usize, usize, u32) {
         let start = self.n;
         let mut nl = 0u32;
 
-        loop {
+        let mut indent = 0;
+
+        while indent < limit {
             match self.peek1() {
                 b'#' => {
                     self.find(raw::NEWLINE);
+                    indent = 0;
                 }
-                ws!() => {}
+                raw::NEWLINE => {
+                    nl = nl.wrapping_add(1);
+                    indent = 0;
+                }
+                other_ws!() => {
+                    indent += 1;
+                }
                 _ => break,
             }
 
-            nl = nl.wrapping_add(u32::from(matches!(self.peek1(), raw::NEWLINE)));
             self.bump(1);
         }
 
+        (start, indent, nl)
+    }
+
+    /// Consume whitespace and newline up until the specified indendation level.
+    fn ws_nl_indent(&mut self, limit: usize) -> (StringId, u32) {
+        let (start, _, nl) = self.ws_nl_indent_raw(limit);
         (self.data.insert_str(self.string(start)), nl)
+    }
+
+    /// Consume whitespace and newline.
+    fn ws_nl(&mut self) -> (StringId, u32) {
+        self.ws_nl_indent(usize::MAX)
     }
 
     /// Consume whitespace.
@@ -779,14 +800,7 @@ impl<'a> Parser<'a> {
     }
 
     /// Process a block as a string.
-    fn block(
-        &mut self,
-        n: usize,
-        join: u8,
-        folded: bool,
-        chomp: bool,
-        clip: bool,
-    ) -> (Raw, Option<StringId>) {
+    fn block(&mut self, n: usize, join: u8, folded: bool, clip: bool) -> (Raw, Option<StringId>) {
         let start = self.n;
         self.bump(n);
         let prefix = self.data.insert_str(self.string(start));
@@ -812,8 +826,10 @@ impl<'a> Parser<'a> {
         while !self.is_eof() {
             let s = self.n;
             self.find(raw::NEWLINE);
-            let out = self.input.get(s..self.n).unwrap_or_default().trim();
-            self.scratch.extend_from_slice(out);
+
+            if let Some(out) = self.input.get(s..self.n) {
+                self.scratch.extend_from_slice(out);
+            }
 
             end = self.n;
             (ws, nl) = self.ws_nl();
@@ -827,12 +843,8 @@ impl<'a> Parser<'a> {
             }
         }
 
-        for _ in 0..chomp.then_some(nl).unwrap_or_default() {
+        for _ in 0..if clip { 0 } else { nl } {
             self.scratch.push(raw::NEWLINE);
-
-            if clip {
-                break;
-            }
         }
 
         let string = self.data.insert_str(&self.scratch);
@@ -848,71 +860,130 @@ impl<'a> Parser<'a> {
         )
     }
 
+    /// Process a block as a string.
+    fn plain_flow(&mut self, s: &State, start: usize) -> Option<(Raw, Option<StringId>)> {
+        let parent_indent = s.parent_indent?;
+        let mut original = self.n;
+
+        let (_, indent, _) = self.ws_nl_indent_raw(usize::MAX);
+
+        if indent <= parent_indent {
+            self.n = original;
+            return None;
+        }
+
+        let string = self.input.get(start..original).unwrap_or_default();
+        self.scratch.extend_from_slice(string);
+
+        let mut join = Some(b' ');
+
+        let ws = 'out: {
+            while !self.is_eof() {
+                let s = self.n;
+                self.find(raw::NEWLINE);
+
+                let j = join.take();
+
+                if let Some(out) = self.input.get(s..self.n) {
+                    self.scratch.extend(j);
+                    self.scratch.extend_from_slice(out);
+                    original = self.n;
+                }
+
+                let (ws, nl) = self.ws_nl();
+
+                if self.indent() < indent {
+                    break 'out Some(ws);
+                }
+
+                join = Some(if nl > 1 { raw::NEWLINE } else { b' ' });
+            }
+
+            None
+        };
+
+        let string = self.data.insert_str(&self.scratch);
+        self.scratch.clear();
+        let original = self
+            .data
+            .insert_str(self.input.get(start..original).unwrap_or_default());
+
+        let kind = raw::RawStringKind::PlainFlow;
+        Some((Raw::String(raw::String::new(kind, string, original)), ws))
+    }
+
     /// Consume a single value.
     fn value(&mut self, s: &State) -> Result<(Id, Option<StringId>)> {
-        let (raw, ws) = match self.peek() {
-            [b'-', ws!()] if !s.inline => {
-                return self.sequence(s);
-            }
-            [b'"', _] => {
-                let start = self.n;
-                let string = self.double_quoted()?;
-
-                if !s.inline && self.peek1() == b':' {
-                    return self.mapping_or_nul(s, start, string);
+        let (raw, ws) = {
+            match self.peek() {
+                [b'-', ws!()] if !s.inline => {
+                    return self.sequence(s);
                 }
-
-                (Raw::String(string), None)
-            }
-            [b'\'', _] => {
-                let start = self.n;
-                let string = self.single_quoted();
-
-                if !s.inline && self.peek1() == b':' {
-                    return self.mapping_or_nul(s, start, string);
-                }
-
-                (Raw::String(string), None)
-            }
-            [b'[', _] => return Ok((self.inline_sequence(s)?, None)),
-            [b'{', _] => return Ok((self.inline_mapping(s)?, None)),
-            [b'~', _] => (Raw::Null(Null::Tilde), None),
-            [a @ (b'>' | b'|'), b] => self.block(
-                matches!(b, b'-' | b'+').then_some(2).unwrap_or(1),
-                if a == b'>' { raw::SPACE } else { raw::NEWLINE },
-                a == b'>',
-                b != b'-',
-                b == b'-',
-            ),
-            _ => {
-                'default: {
+                [b'"', _] => {
                     let start = self.n;
+                    let string = self.double_quoted()?;
 
-                    if let Some(number) = self.number(s, start) {
-                        break 'default (number, None);
+                    if !s.inline && self.peek1() == b':' {
+                        return self.mapping_or_nul(s, start, string);
                     }
 
-                    if s.inline {
-                        // Seek until we find a control character, since we're
-                        // simply treating the current segment as a string.
-                        while !matches!(self.peek1(), ctl!()) {
-                            self.bump(1);
+                    (Raw::String(string), None)
+                }
+                [b'\'', _] => {
+                    let start = self.n;
+                    let string = self.single_quoted();
+
+                    if !s.inline && self.peek1() == b':' {
+                        return self.mapping_or_nul(s, start, string);
+                    }
+
+                    (Raw::String(string), None)
+                }
+                [b'[', _] => return Ok((self.inline_sequence(s)?, None)),
+                [b'{', _] => return Ok((self.inline_mapping(s)?, None)),
+                [b'~', _] => (Raw::Null(Null::Tilde), None),
+                [a @ (b'>' | b'|'), b] => self.block(
+                    matches!(b, b'-' | b'+').then_some(2).unwrap_or(1),
+                    if a == b'>' { raw::SPACE } else { raw::NEWLINE },
+                    a == b'>',
+                    b == b'-',
+                ),
+                _ => {
+                    'default: {
+                        let start = self.n;
+
+                        if let Some(number) = self.number(s, start) {
+                            break 'default (number, None);
                         }
-                    } else if let Some(key) = self.key_or_eol(start) {
-                        return self.mapping_or_nul(s, start, key);
-                    }
 
-                    // NB: calling `key_or_eol` will have consumed up until end
-                    // of line for us, so use the current span as the production
-                    // string.
-                    match self.string(start) {
-                        b"null" => (Raw::Null(Null::Keyword), None),
-                        b"true" => (Raw::Boolean(true), None),
-                        b"false" => (Raw::Boolean(false), None),
-                        string => {
-                            let string = self.data.insert_str(string);
-                            let string = raw::String::new(raw::RawStringKind::Bare, string, string);
-                            (Raw::String(string), None)
+                        if s.inline {
+                            // Seek until we find a control character, since we're
+                            // simply treating the current segment as a string.
+                            while !matches!(self.peek1(), ctl!()) {
+                                self.bump(1);
+                            }
+                        } else if let Some(key) = self.key_or_eol(start) {
+                            return self.mapping_or_nul(s, start, key);
+                        }
+
+                        // Check if we've encountered a plain flow value.
+                        if let Some(plain_flow) = self.plain_flow(s, start) {
+                            break 'default plain_flow;
+                        }
+
+                        // NB: calling `key_or_eol` will have consumed up until end
+                        // of line for us, so use the current span as the production
+                        // string.
+                        match self.string(start) {
+                            b"null" => (Raw::Null(Null::Keyword), None),
+                            b"true" => (Raw::Boolean(true), None),
+                            b"false" => (Raw::Boolean(false), None),
+                            string => {
+                                let string = self.data.insert_str(string);
+                                let string =
+                                    raw::String::new(raw::RawStringKind::Bare, string, string);
+                                (Raw::String(string), None)
+                            }
                         }
                     }
                 }
