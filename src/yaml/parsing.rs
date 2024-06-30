@@ -1,4 +1,5 @@
 use std::array;
+use std::ops::Range;
 
 use crate::yaml::data::{Data, Id, StringId};
 use crate::yaml::error::{Error, ErrorKind};
@@ -252,7 +253,7 @@ impl<'a> Parser<'a> {
     }
 
     /// Consume whitespace and newline up until the specified indendation level.
-    fn ws_cap_comment(&mut self, limit: usize) -> (usize, usize, u32) {
+    fn ws_cap_comment(&mut self, limit: usize) -> (Range<usize>, usize, u32) {
         let start = self.n;
         let mut nl = 0u32;
 
@@ -273,13 +274,14 @@ impl<'a> Parser<'a> {
             self.bump(1);
         }
 
-        (start, indent, nl)
+        (start..self.n, indent, nl)
     }
 
     /// Consume whitespace and newline up until the specified indendation level.
     fn ws_cap_comment_str_with(&mut self, limit: usize) -> (StringId, usize, u32) {
-        let (start, indent, nl) = self.ws_cap_comment(limit);
-        (self.data.insert_str(self.string(start)), indent, nl)
+        let (ws, indent, nl) = self.ws_cap_comment(limit);
+        let ws = self.data.insert_str(self.input.get(ws).unwrap_or_default());
+        (ws, indent, nl)
     }
 
     /// Consume whitespace and newline.
@@ -835,25 +837,42 @@ impl<'a> Parser<'a> {
     }
 
     /// Process a block as a string.
-    fn block(&mut self, n: usize, join: u8, folded: bool, clip: bool) -> (Raw, Option<StringId>) {
-        let start = self.n;
-        self.bump(n);
+    fn block(
+        &mut self,
+        s: State,
+        start: usize,
+        join: u8,
+        folded: bool,
+        clip: bool,
+        fixed_indent: Option<usize>,
+    ) -> (Raw, Option<StringId>) {
+        let start_n = |indent: usize, n: usize| -> usize {
+            let Some(adjust) = fixed_indent else {
+                return n;
+            };
+
+            let parent = s.parent_indent.unwrap_or_default();
+            n - indent.saturating_sub(parent).saturating_sub(adjust)
+        };
+
         let prefix = self.data.insert_str(self.string(start));
 
         let start = self.n;
-        let (mut ws, mut indent, mut nl) = self.ws_cap_comment_str();
+
+        let (mut ws, mut indent, mut nl) = self.ws_cap_comment(usize::MAX);
 
         if nl == 0 {
-            let at = self.n;
+            let at = start_n(indent, self.n);
             self.find(raw::NEWLINE);
 
             if let Some(out) = self.input.get(at..self.n) {
                 self.scratch.extend_from_slice(out);
             }
 
-            (ws, indent, nl) = self.ws_cap_comment_str();
+            (ws, indent, nl) = self.ws_cap_comment(usize::MAX);
         }
 
+        let mut last = indent;
         let mut end = self.n;
 
         while !self.is_eof() {
@@ -863,24 +882,22 @@ impl<'a> Parser<'a> {
                 }
             }
 
-            let start = self.n;
+            let at = start_n(last, self.n);
             self.find(raw::NEWLINE);
 
-            if let Some(out) = self.input.get(start..self.n) {
+            if let Some(out) = self.input.get(at..self.n) {
                 self.scratch.extend_from_slice(out);
             }
 
             end = self.n;
 
-            let actual;
-
-            (ws, actual, nl) = if folded {
-                self.ws_cap_comment_str()
+            (ws, last, nl) = if folded {
+                self.ws_cap_comment(usize::MAX)
             } else {
-                self.ws_cap_comment_str_with(indent)
+                self.ws_cap_comment(indent)
             };
 
-            if actual < indent {
+            if last < indent {
                 break;
             }
         }
@@ -896,6 +913,9 @@ impl<'a> Parser<'a> {
         let original = self.data.insert_str(original);
 
         let kind = raw::RawStringKind::Multiline { prefix };
+
+        let ws = self.data.insert_str(self.input.get(ws).unwrap_or_default());
+
         (
             Raw::String(raw::String::new(kind, string, original)),
             Some(ws),
@@ -984,12 +1004,41 @@ impl<'a> Parser<'a> {
                 [b'[', _] => return Ok((self.inline_sequence(s)?, None)),
                 [b'{', _] => return Ok((self.inline_mapping(s)?, None)),
                 [b'~', _] => (Raw::Null(Null::Tilde), None),
-                [a @ (b'>' | b'|'), b] => self.block(
-                    matches!(b, b'-' | b'+').then_some(2).unwrap_or(1),
-                    if a == b'>' { raw::SPACE } else { raw::NEWLINE },
-                    a == b'>',
-                    b == b'-',
-                ),
+                [a @ (b'>' | b'|'), _] => {
+                    let start = self.n;
+                    self.bump(1);
+
+                    let (folded, join) = if a == b'>' {
+                        (true, raw::SPACE)
+                    } else {
+                        (false, raw::NEWLINE)
+                    };
+                    let mut clip = false;
+
+                    let mut indent = None;
+
+                    loop {
+                        match self.peek1() {
+                            b @ b'0'..=b'9' => {
+                                indent = Some((b - b'0') as usize);
+                                self.bump(1);
+                            }
+                            b'+' => {
+                                clip = false;
+                                self.bump(1);
+                            }
+                            b'-' => {
+                                clip = true;
+                                self.bump(1);
+                            }
+                            _ => {
+                                break;
+                            }
+                        }
+                    }
+
+                    self.block(s, start, join, folded, clip, indent)
+                }
                 _ => {
                     'default: {
                         let start = self.n;
