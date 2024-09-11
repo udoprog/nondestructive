@@ -539,7 +539,7 @@ impl String {
         where
             O: ?Sized + io::Write,
         {
-            f.write_all(&[b'\''])?;
+            f.write_all(b"\'")?;
 
             loop {
                 let Some(index) = memchr::memchr(b'\'', string) else {
@@ -552,7 +552,7 @@ impl String {
                 string = &string[index.saturating_add(1)..];
             }
 
-            f.write_all(&[b'\''])?;
+            f.write_all(b"\'")?;
             Ok(())
         }
 
@@ -562,7 +562,7 @@ impl String {
         where
             O: ?Sized + io::Write,
         {
-            o.write_all(&[b'"'])?;
+            o.write_all(b"\"")?;
             let mut s = 0;
 
             for (index, b) in string.bytes().enumerate() {
@@ -594,7 +594,7 @@ impl String {
             }
 
             o.write_all(&string[s..])?;
-            o.write_all(&[b'"'])?;
+            o.write_all(b"\"")?;
             Ok(())
         }
 
