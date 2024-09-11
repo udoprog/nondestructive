@@ -49,7 +49,7 @@ fn string_newlines() -> Result<()> {
 
     assert_eq!(
         root.get("first").and_then(|v| v.as_str()),
-        Some("foo\nbar\nbaz\n")
+        Some("foo\n\nbar\nbaz\n")
     );
     assert_eq!(root.get("second").and_then(|v| v.as_u32()), Some(2));
 
@@ -108,7 +108,7 @@ fn string_newlines_keep() -> Result<()> {
 
     assert_eq!(
         root.get("first").and_then(|v| v.as_str()),
-        Some("foo\n\nbar\nbaz\n\n")
+        Some("foo\n\nbar\nbaz\n")
     );
     assert_eq!(root.get("second").and_then(|v| v.as_u32()), Some(2));
     Ok(())

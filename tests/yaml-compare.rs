@@ -1,8 +1,8 @@
 use std::collections::HashMap;
+use std::env;
 use std::fmt;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::{env, mem};
 
 use anyhow::{anyhow, bail, ensure, Context, Result};
 use bstr::{BStr, ByteSlice};
@@ -17,10 +17,65 @@ fn compare_with_libyaml() -> Result<()> {
             .join("tests")
             .join("yaml");
 
-    for e in fs::read_dir(manifest_path)? {
-        let e = e?;
-        let path = e.path();
-        compare_path(&path).with_context(|| anyhow!("{}", path.display()))?;
+    test_dir(&manifest_path, &[])?;
+    Ok(())
+}
+
+const IGNORES: &[&str] = &["4RWC", "6HB6", "8G76", "DK95", "F8F9"];
+
+#[test]
+fn compare_yaml_test_suite() -> Result<()> {
+    let manifest_path =
+        PathBuf::from(env::var_os("CARGO_MANIFEST_DIR").context("missing CARGO_MANIFEST_DIR")?)
+            .join("tests")
+            .join("yaml-test-suite")
+            .join("src");
+
+    test_dir(&manifest_path, IGNORES)?;
+    Ok(())
+}
+
+fn test_dir(path: &Path, ignores: &[&str]) -> Result<()> {
+    let mut paths = Vec::new();
+
+    for e in fs::read_dir(path)? {
+        let e = e.with_context(|| anyhow!("Reading directory: {}", path.display()))?;
+        paths.push(e.path());
+    }
+
+    paths.sort();
+
+    let mut errors = Vec::new();
+
+    for path in paths {
+        if let Err(error) = compare_path(&path) {
+            errors.push((path, error));
+        }
+    }
+
+    if !errors.is_empty() {
+        let mut fatal = false;
+
+        for (path, error) in &errors {
+            println!("{}:", path.display());
+            println!("{error}");
+
+            for cause in error.chain().skip(1) {
+                println!("  caused by: {cause}");
+            }
+
+            if let Some(name) = path.file_stem().and_then(|n| n.to_str()) {
+                if ignores.contains(&name) {
+                    continue;
+                }
+            }
+
+            fatal = true;
+        }
+
+        if fatal {
+            bail!("{} errors in comparison", errors.len());
+        }
     }
 
     Ok(())
@@ -38,18 +93,10 @@ struct Trace {
 
 impl fmt::Display for Trace {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut leading = true;
-
         for step in &self.path {
-            let leading = !mem::take(&mut leading);
-
             match step {
                 Step::Key(key) => {
-                    if !leading {
-                        write!(f, ".")?;
-                    }
-
-                    write!(f, "{key}")?;
+                    write!(f, ".{key}")?;
                 }
                 Step::Index(index) => {
                     write!(f, "[{index}]")?;
@@ -108,7 +155,7 @@ fn compare(trace: &mut Trace, a: &yaml::Value<'_>, b: &serde_yaml::Value) -> Res
                 bail!("{trace}: nondestructive is not a utf-8 string, but is a {a:?}");
             };
 
-            ensure!(a == *b, "{trace}: {a} != {b}");
+            ensure!(a == *b, "{trace}: {a:?} != {b:?}");
         }
         (yaml::Any::Number(a), serde_yaml::Value::Number(n)) => 'ok: {
             if let Some(b) = n.as_u64() {
@@ -142,6 +189,7 @@ fn compare(trace: &mut Trace, a: &yaml::Value<'_>, b: &serde_yaml::Value) -> Res
 
             bail!("{trace}: not comparable: {a:?} == {b:?}");
         }
+        (yaml::Any::Null, serde_yaml::Value::Null) => {}
         _ => {
             bail!("{trace}: not comparable: {a:?} == {b:?}");
         }

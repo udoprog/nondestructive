@@ -390,6 +390,8 @@ pub(crate) enum RawStringKind {
     Original,
     /// A multiline string.
     Multiline { prefix: StringId },
+    /// A plain flow string.
+    PlainFlow,
 }
 
 impl RawStringKind {
@@ -524,6 +526,10 @@ impl String {
                 let string = data.str(self.original);
                 write!(f, "{}{string}", data.str(*prefix))?;
             }
+            RawStringKind::PlainFlow => {
+                let string = data.str(self.original);
+                write!(f, "{string}")?;
+            }
         }
 
         Ok(())
@@ -615,6 +621,9 @@ impl String {
             }
             RawStringKind::Multiline { prefix } => {
                 o.write_all(data.str(*prefix))?;
+                o.write_all(data.str(self.original))?;
+            }
+            RawStringKind::PlainFlow => {
                 o.write_all(data.str(self.original))?;
             }
         }

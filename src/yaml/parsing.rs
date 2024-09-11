@@ -1,6 +1,5 @@
 use std::array;
-
-use bstr::ByteSlice;
+use std::ops::Range;
 
 use crate::yaml::data::{Data, Id, StringId};
 use crate::yaml::error::{Error, ErrorKind};
@@ -32,6 +31,7 @@ macro_rules! ws {
     };
 }
 
+#[derive(Clone, Copy)]
 struct State {
     prefix: StringId,
     parent: Option<Id>,
@@ -107,9 +107,9 @@ impl<'a> Parser<'a> {
 
     /// Parses a single value, and returns its kind.
     pub(crate) fn parse(mut self) -> Result<Document> {
-        let prefix = self.start_of_document();
+        let (header, prefix) = self.start_of_document();
 
-        let (root, suffix) = self.value(&State::new(prefix).with_tabular())?;
+        let (root, suffix) = self.value(State::new(prefix).with_tabular())?;
 
         let suffix = match suffix {
             Some(suffix) => suffix,
@@ -120,26 +120,27 @@ impl<'a> Parser<'a> {
             return Err(Error::new(self.n..self.input.len(), ErrorKind::ExpectedEof));
         }
 
-        Ok(Document::new(suffix, root, self.data))
+        Ok(Document::new(header, suffix, root, self.data))
     }
 
     /// Process document delimiter.
     ///
     /// This is a `---` that is allowed to exist at the beginning of the document.
-    fn start_of_document(&mut self) -> StringId {
-        let mut prefix = self.ws();
+    fn start_of_document(&mut self) -> (StringId, StringId) {
+        let (start, _, _) = self.ws_ign_comment(usize::MAX);
+
+        let header_start = self.n;
 
         loop {
             match self.peek() {
                 // Process headers.
                 [b'%', _, _] => {
                     self.find(raw::NEWLINE);
-                    prefix = self.ws();
+                    self.bump(1);
                 }
                 // Process start-of-document.
                 [b'-', b'-', b'-'] => {
                     self.bump(3);
-                    prefix = self.ws();
                     break;
                 }
                 _ => {
@@ -148,7 +149,16 @@ impl<'a> Parser<'a> {
             }
         }
 
-        prefix
+        if header_start != self.n {
+            if let Some(header) = self.input.get(header_start..self.n) {
+                let header = self.data.insert_str(header);
+                return (header, self.ws());
+            }
+        }
+
+        let header = self.data.insert_str("");
+        let prefix = self.data.insert_str(self.string(start));
+        (header, prefix)
     }
 
     /// Test if eof.
@@ -190,13 +200,15 @@ impl<'a> Parser<'a> {
     }
 
     /// Find the given character.
-    fn find(&mut self, a: u8) {
+    fn find(&mut self, a: u8) -> bool {
         let input = self.input.get(self.n..).unwrap_or_default();
 
         if let Some(n) = memchr::memchr(a, input) {
             self.bump(n);
+            true
         } else {
             self.n = self.input.len();
+            false
         }
     }
 
@@ -211,30 +223,76 @@ impl<'a> Parser<'a> {
         }
     }
 
-    /// Consume whitespace.
-    fn ws_nl(&mut self) -> (StringId, u32) {
+    /// Consume whitespace and newline up until the specified indendation level.
+    fn ws_ign_comment(&mut self, limit: usize) -> (usize, usize, u32) {
         let start = self.n;
         let mut nl = 0u32;
 
-        loop {
+        let mut indent = 0;
+
+        while indent < limit {
             match self.peek1() {
                 b'#' => {
                     self.find(raw::NEWLINE);
+                    indent = 0;
                 }
-                ws!() => {}
+                raw::NEWLINE => {
+                    nl = nl.wrapping_add(1);
+                    indent = 0;
+                }
+                other_ws!() => {
+                    indent += 1;
+                }
                 _ => break,
             }
 
-            nl = nl.wrapping_add(u32::from(matches!(self.peek1(), raw::NEWLINE)));
             self.bump(1);
         }
 
-        (self.data.insert_str(self.string(start)), nl)
+        (start, indent, nl)
+    }
+
+    /// Consume whitespace and newline up until the specified indendation level.
+    fn ws_cap_comment(&mut self, limit: usize) -> (Range<usize>, usize, u32) {
+        let start = self.n;
+        let mut nl = 0u32;
+
+        let mut indent = 0;
+
+        while indent < limit {
+            match self.peek1() {
+                raw::NEWLINE => {
+                    nl = nl.wrapping_add(1);
+                    indent = 0;
+                }
+                other_ws!() => {
+                    indent += 1;
+                }
+                _ => break,
+            }
+
+            self.bump(1);
+        }
+
+        (start..self.n, indent, nl)
+    }
+
+    /// Consume whitespace and newline up until the specified indendation level.
+    fn ws_cap_comment_str_with(&mut self, limit: usize) -> (StringId, usize, u32) {
+        let (ws, indent, nl) = self.ws_cap_comment(limit);
+        let ws = self.data.insert_str(self.input.get(ws).unwrap_or_default());
+        (ws, indent, nl)
+    }
+
+    /// Consume whitespace and newline.
+    fn ws_cap_comment_str(&mut self) -> (StringId, usize, u32) {
+        self.ws_cap_comment_str_with(usize::MAX)
     }
 
     /// Consume whitespace.
     fn ws(&mut self) -> StringId {
-        self.ws_nl().0
+        let (start, _, _) = self.ws_ign_comment(usize::MAX);
+        self.data.insert_str(self.string(start))
     }
 
     /// Test if current position contains nothing but whitespace until we reach a line end.
@@ -259,7 +317,7 @@ impl<'a> Parser<'a> {
     }
 
     /// Consume a single number.
-    fn number(&mut self, s: &State, start: usize) -> Option<Raw> {
+    fn number(&mut self, s: State, start: usize) -> Option<Raw> {
         let mut hint = serde_hint::U64;
 
         if matches!(self.peek1(), b'-') {
@@ -490,7 +548,7 @@ impl<'a> Parser<'a> {
     }
 
     /// Parse an inline sequence.
-    fn inline_sequence(&mut self, s: &State) -> Result<Id> {
+    fn inline_sequence(&mut self, s: State) -> Result<Id> {
         let id = self.placeholder(s.prefix, s.parent);
 
         self.bump(1);
@@ -506,7 +564,7 @@ impl<'a> Parser<'a> {
             let item_id = self.placeholder(item_prefix, Some(id));
             let value_prefix = self.ws();
             let (value, next_prefix) =
-                self.value(&State::new(value_prefix).with_parent(item_id).with_inline())?;
+                self.value(State::new(value_prefix).with_parent(item_id).with_inline())?;
 
             self.data.replace(item_id, raw::SequenceItem { value });
 
@@ -552,7 +610,7 @@ impl<'a> Parser<'a> {
     }
 
     /// Parse an inline mapping.
-    fn inline_mapping(&mut self, s: &State) -> Result<Id> {
+    fn inline_mapping(&mut self, s: State) -> Result<Id> {
         let id = self.placeholder(s.prefix, s.parent);
         self.bump(1);
 
@@ -573,7 +631,7 @@ impl<'a> Parser<'a> {
             self.bump(1);
             let value_prefix = self.ws();
             let (value, next_prefix) =
-                self.value(&State::new(value_prefix).with_parent(item_id).with_inline())?;
+                self.value(State::new(value_prefix).with_parent(item_id).with_inline())?;
 
             self.data.replace(item_id, raw::MappingItem { key, value });
             items.push(item_id);
@@ -617,7 +675,7 @@ impl<'a> Parser<'a> {
     }
 
     /// Parse a sequence.
-    fn sequence(&mut self, s: &State) -> Result<(Id, Option<StringId>)> {
+    fn sequence(&mut self, s: State) -> Result<(Id, Option<StringId>)> {
         let empty = self.data.insert_str("");
         let mapping_id = self.placeholder(s.prefix, s.parent);
 
@@ -633,7 +691,7 @@ impl<'a> Parser<'a> {
 
             let value_prefix = self.ws();
             let (value, ws) =
-                self.value(&State::new(value_prefix).with_parent(item_id).with_tabular())?;
+                self.value(State::new(value_prefix).with_parent(item_id).with_tabular())?;
 
             self.data.replace(item_id, raw::SequenceItem { value });
             items.push(item_id);
@@ -663,7 +721,7 @@ impl<'a> Parser<'a> {
     /// If the indentation level is same as the parent, process this as a nul.
     fn mapping_or_nul(
         &mut self,
-        s: &State,
+        s: State,
         mut start: usize,
         key: raw::String,
     ) -> Result<(Id, Option<StringId>)> {
@@ -698,7 +756,7 @@ impl<'a> Parser<'a> {
 
             let value_prefix = self.ws();
             let (value, ws) = self.value(
-                &State::new(value_prefix)
+                State::new(value_prefix)
                     .with_parent(item_id)
                     .with_tabular()
                     .with_parent_indent(indent),
@@ -781,138 +839,242 @@ impl<'a> Parser<'a> {
     /// Process a block as a string.
     fn block(
         &mut self,
-        n: usize,
+        s: State,
+        start: usize,
         join: u8,
         folded: bool,
-        chomp: bool,
         clip: bool,
+        fixed_indent: Option<usize>,
     ) -> (Raw, Option<StringId>) {
-        let start = self.n;
-        self.bump(n);
+        let start_n = |indent: usize, n: usize| -> usize {
+            let Some(adjust) = fixed_indent else {
+                return n;
+            };
+
+            let parent = s.parent_indent.unwrap_or_default();
+            n - indent.saturating_sub(parent).saturating_sub(adjust)
+        };
+
         let prefix = self.data.insert_str(self.string(start));
 
         let start = self.n;
-        let (mut ws, mut nl) = self.ws_nl();
+
+        let (mut ws, mut indent, mut nl) = self.ws_cap_comment(usize::MAX);
 
         if nl == 0 {
+            let at = start_n(indent, self.n);
             self.find(raw::NEWLINE);
-            let out = self.input.get(start..self.n).unwrap_or_default().trim();
-            self.scratch.extend_from_slice(out);
 
-            (ws, nl) = self.ws_nl();
-
-            if !self.is_eof() {
-                self.scratch.push(join);
+            if let Some(out) = self.input.get(at..self.n) {
+                self.scratch.extend_from_slice(out);
             }
+
+            (ws, indent, nl) = self.ws_cap_comment(usize::MAX);
         }
 
+        let mut last = indent;
         let mut end = self.n;
-        let indent = self.indent();
 
         while !self.is_eof() {
-            let s = self.n;
-            self.find(raw::NEWLINE);
-            let out = self.input.get(s..self.n).unwrap_or_default().trim();
-            self.scratch.extend_from_slice(out);
-
-            end = self.n;
-            (ws, nl) = self.ws_nl();
-
-            if self.indent() < indent {
-                break;
+            if nl > 0 && !self.scratch.is_empty() {
+                for _ in 0..if folded { 1 } else { nl } {
+                    self.scratch.push(join);
+                }
             }
 
-            for _ in 0..if folded { 1 } else { nl } {
-                self.scratch.push(join);
+            let at = start_n(last, self.n);
+            self.find(raw::NEWLINE);
+
+            if let Some(out) = self.input.get(at..self.n) {
+                self.scratch.extend_from_slice(out);
+            }
+
+            end = self.n;
+
+            (ws, last, nl) = if folded {
+                self.ws_cap_comment(usize::MAX)
+            } else {
+                self.ws_cap_comment(indent)
+            };
+
+            if last < indent {
+                break;
             }
         }
 
-        for _ in 0..chomp.then_some(nl).unwrap_or_default() {
+        for _ in 0..if clip { 0 } else { nl.min(1) } {
             self.scratch.push(raw::NEWLINE);
-
-            if clip {
-                break;
-            }
         }
 
         let string = self.data.insert_str(&self.scratch);
         self.scratch.clear();
 
-        let out = self.input.get(start..end).unwrap_or_default();
-        let original = self.data.insert_str(out);
+        let original = self.input.get(start..end).unwrap_or_default();
+        let original = self.data.insert_str(original);
 
         let kind = raw::RawStringKind::Multiline { prefix };
+
+        let ws = self.data.insert_str(self.input.get(ws).unwrap_or_default());
+
         (
             Raw::String(raw::String::new(kind, string, original)),
             Some(ws),
         )
     }
 
+    /// Process a block as a string.
+    fn plain_flow(&mut self, s: State, start: usize) -> Option<(Raw, Option<StringId>)> {
+        let parent_indent = s.parent_indent?;
+        let mut original = self.n;
+
+        let (_, indent, _) = self.ws_cap_comment(usize::MAX);
+
+        if indent <= parent_indent {
+            self.n = original;
+            return None;
+        }
+
+        let string = self.input.get(start..original).unwrap_or_default();
+        self.scratch.extend_from_slice(string);
+
+        let mut join = Some(b' ');
+
+        let ws = 'out: {
+            while !self.is_eof() {
+                let s = self.n;
+                self.find(raw::NEWLINE);
+
+                let j = join.take();
+
+                if let Some(out) = self.input.get(s..self.n) {
+                    self.scratch.extend(j);
+                    self.scratch.extend_from_slice(out);
+                    original = self.n;
+                }
+
+                let (ws, actual, nl) = self.ws_cap_comment_str();
+
+                if actual < indent {
+                    break 'out Some(ws);
+                }
+
+                join = Some(if nl > 1 { raw::NEWLINE } else { b' ' });
+            }
+
+            None
+        };
+
+        let string = self.data.insert_str(&self.scratch);
+        self.scratch.clear();
+        let original = self
+            .data
+            .insert_str(self.input.get(start..original).unwrap_or_default());
+
+        let kind = raw::RawStringKind::PlainFlow;
+        Some((Raw::String(raw::String::new(kind, string, original)), ws))
+    }
+
     /// Consume a single value.
-    fn value(&mut self, s: &State) -> Result<(Id, Option<StringId>)> {
-        let (raw, ws) = match self.peek() {
-            [b'-', ws!()] if !s.inline => {
-                return self.sequence(s);
-            }
-            [b'"', _] => {
-                let start = self.n;
-                let string = self.double_quoted()?;
-
-                if !s.inline && self.peek1() == b':' {
-                    return self.mapping_or_nul(s, start, string);
+    fn value(&mut self, s: State) -> Result<(Id, Option<StringId>)> {
+        let (raw, ws) = {
+            match self.peek() {
+                [b'-', ws!()] if !s.inline => {
+                    return self.sequence(s);
                 }
-
-                (Raw::String(string), None)
-            }
-            [b'\'', _] => {
-                let start = self.n;
-                let string = self.single_quoted();
-
-                if !s.inline && self.peek1() == b':' {
-                    return self.mapping_or_nul(s, start, string);
-                }
-
-                (Raw::String(string), None)
-            }
-            [b'[', _] => return Ok((self.inline_sequence(s)?, None)),
-            [b'{', _] => return Ok((self.inline_mapping(s)?, None)),
-            [b'~', _] => (Raw::Null(Null::Tilde), None),
-            [a @ (b'>' | b'|'), b] => self.block(
-                matches!(b, b'-' | b'+').then_some(2).unwrap_or(1),
-                if a == b'>' { raw::SPACE } else { raw::NEWLINE },
-                a == b'>',
-                b != b'-',
-                b == b'-',
-            ),
-            _ => {
-                'default: {
+                [b'"', _] => {
                     let start = self.n;
+                    let string = self.double_quoted()?;
 
-                    if let Some(number) = self.number(s, start) {
-                        break 'default (number, None);
+                    if !s.inline && self.peek1() == b':' {
+                        return self.mapping_or_nul(s, start, string);
                     }
 
-                    if s.inline {
-                        // Seek until we find a control character, since we're
-                        // simply treating the current segment as a string.
-                        while !matches!(self.peek1(), ctl!()) {
-                            self.bump(1);
+                    (Raw::String(string), None)
+                }
+                [b'\'', _] => {
+                    let start = self.n;
+                    let string = self.single_quoted();
+
+                    if !s.inline && self.peek1() == b':' {
+                        return self.mapping_or_nul(s, start, string);
+                    }
+
+                    (Raw::String(string), None)
+                }
+                [b'[', _] => return Ok((self.inline_sequence(s)?, None)),
+                [b'{', _] => return Ok((self.inline_mapping(s)?, None)),
+                [b'~', _] => (Raw::Null(Null::Tilde), None),
+                [a @ (b'>' | b'|'), _] => {
+                    let start = self.n;
+                    self.bump(1);
+
+                    let (folded, join) = if a == b'>' {
+                        (true, raw::SPACE)
+                    } else {
+                        (false, raw::NEWLINE)
+                    };
+                    let mut clip = false;
+
+                    let mut indent = None;
+
+                    loop {
+                        match self.peek1() {
+                            b @ b'0'..=b'9' => {
+                                indent = Some((b - b'0') as usize);
+                                self.bump(1);
+                            }
+                            b'+' => {
+                                clip = false;
+                                self.bump(1);
+                            }
+                            b'-' => {
+                                clip = true;
+                                self.bump(1);
+                            }
+                            _ => {
+                                break;
+                            }
                         }
-                    } else if let Some(key) = self.key_or_eol(start) {
-                        return self.mapping_or_nul(s, start, key);
                     }
 
-                    // NB: calling `key_or_eol` will have consumed up until end
-                    // of line for us, so use the current span as the production
-                    // string.
-                    match self.string(start) {
-                        b"null" => (Raw::Null(Null::Keyword), None),
-                        b"true" => (Raw::Boolean(true), None),
-                        b"false" => (Raw::Boolean(false), None),
-                        string => {
-                            let string = self.data.insert_str(string);
-                            let string = raw::String::new(raw::RawStringKind::Bare, string, string);
-                            (Raw::String(string), None)
+                    self.block(s, start, join, folded, clip, indent)
+                }
+                _ => {
+                    'default: {
+                        let start = self.n;
+
+                        if let Some(number) = self.number(s, start) {
+                            break 'default (number, None);
+                        }
+
+                        if s.inline {
+                            // Seek until we find a control character, since we're
+                            // simply treating the current segment as a string.
+                            while !matches!(self.peek1(), ctl!()) {
+                                self.bump(1);
+                            }
+                        } else if let Some(key) = self.key_or_eol(start) {
+                            return self.mapping_or_nul(s, start, key);
+                        }
+
+                        // Check if we've encountered a plain flow value.
+                        if let Some(plain_flow) = self.plain_flow(s, start) {
+                            break 'default plain_flow;
+                        }
+
+                        // NB: calling `key_or_eol` will have consumed up until end
+                        // of line for us, so use the current span as the production
+                        // string.
+                        match self.string(start) {
+                            b"null" => (Raw::Null(Null::Keyword), None),
+                            b"true" => (Raw::Boolean(true), None),
+                            b"false" => (Raw::Boolean(false), None),
+                            string => {
+                                let string = self.data.insert_str(string);
+                                let string =
+                                    raw::String::new(raw::RawStringKind::Bare, string, string);
+                                (Raw::String(string), None)
+                            }
                         }
                     }
                 }
