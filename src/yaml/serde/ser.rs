@@ -14,7 +14,7 @@ impl Serialize for Value<'_> {
     {
         match self.data.raw(self.id) {
             raw::Raw::Null(..) => serializer.serialize_none(),
-            raw::Raw::Boolean(value) => serializer.serialize_bool(*value),
+            raw::Raw::Boolean(bool) => serializer.serialize_bool(bool.value),
             raw::Raw::Number(raw) => match raw.hint {
                 RawNumberHint::Float32 => match self.as_f32() {
                     Some(value) => serializer.serialize_f32(value),

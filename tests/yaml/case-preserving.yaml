@@ -1,0 +1,11 @@
+true_value: true
+upper_true_value: TRUE
+mixed_true_value: True
+
+false_value: true
+upper_false_value: TRUE
+mixed_false_value: True
+
+null_value: null
+upper_null_value: NULL
+mixed_null_value: Null

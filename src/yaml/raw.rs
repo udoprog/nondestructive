@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::yaml::data::{Data, Id, StringId};
 use crate::yaml::serde_hint::RawNumberHint;
-use crate::yaml::{Block, Chomp, Null, StringKind};
+use crate::yaml::{Block, Chomp, StringKind};
 
 /// Newline character used in YAML.
 pub(crate) const NEWLINE: u8 = b'\n';
@@ -33,8 +33,9 @@ pub(crate) fn count_indent(string: &[u8]) -> usize {
 }
 
 /// Construct a raw kind associated with booleans.
-pub(crate) fn new_bool(value: bool) -> Raw {
-    Raw::Boolean(value)
+pub(crate) fn new_bool(data: &mut Data, value: bool) -> Raw {
+    let string = data.insert_str(if value { "true" } else { "false" });
+    Raw::Boolean(Boolean::new(value, string))
 }
 
 /// Construct a raw kind associated with a string.
@@ -201,7 +202,7 @@ pub(crate) enum Raw {
     /// A null value.
     Null(Null),
     /// A boolean value.
-    Boolean(bool),
+    Boolean(Boolean),
     /// A single number.
     Number(Number),
     /// A string.
@@ -232,11 +233,7 @@ impl Raw {
                     write!(f, "{}", data.prefix(id))?;
                 }
 
-                if *raw {
-                    write!(f, "true")?;
-                } else {
-                    write!(f, "false")?;
-                }
+                raw.display(data, f)?;
             }
             Raw::Number(raw) => {
                 if let Some(id) = prefix {
@@ -283,14 +280,10 @@ impl Raw {
     {
         match self {
             Raw::Null(raw) => {
-                raw.write_to(o)?;
+                raw.write_to(data, o)?;
             }
             Raw::Boolean(raw) => {
-                if *raw {
-                    write!(o, "true")?;
-                } else {
-                    write!(o, "false")?;
-                }
+                raw.write_to(data, o)?;
             }
             Raw::Number(raw) => {
                 raw.write_to(data, o)?;
@@ -344,6 +337,95 @@ from!(Mapping);
 from!(MappingItem);
 from!(Sequence);
 from!(SequenceItem);
+
+/// A YAML null.
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde-edits", derive(Serialize, Deserialize))]
+pub(crate) enum Null {
+    /// A keyword `null` value.
+    Keyword(StringId),
+    /// A tilde `~` null value.
+    Tilde,
+    /// An empty null value.
+    Empty,
+}
+
+impl Null {
+    pub(crate) fn display(
+        &self,
+        data: &Data,
+        f: &mut fmt::Formatter<'_>,
+        prefix: Option<Id>,
+    ) -> fmt::Result {
+        match self {
+            Null::Keyword(string) => {
+                if let Some(id) = prefix {
+                    write!(f, "{}", data.prefix(id))?;
+                }
+
+                write!(f, "{}", data.str(*string))?;
+            }
+            Null::Tilde => {
+                if let Some(id) = prefix {
+                    write!(f, "{}", data.prefix(id))?;
+                }
+
+                write!(f, "~")?;
+            }
+            Null::Empty => {
+                // empty values count as null.
+            }
+        }
+
+        Ok(())
+    }
+
+    pub(crate) fn write_to<O>(&self, data: &Data, o: &mut O) -> io::Result<()>
+    where
+        O: ?Sized + io::Write,
+    {
+        match self {
+            Null::Keyword(string) => {
+                o.write_all(data.str(*string))?;
+            }
+            Null::Tilde => {
+                write!(o, "~")?;
+            }
+            Null::Empty => {
+                // empty values count as null.
+            }
+        }
+
+        Ok(())
+    }
+}
+
+/// A YAML boolean.
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde-edits", derive(Serialize, Deserialize))]
+pub(crate) struct Boolean {
+    pub(crate) value: bool,
+    pub(crate) string: StringId,
+}
+
+impl Boolean {
+    pub(crate) fn new(value: bool, string: StringId) -> Self {
+        Self { value, string }
+    }
+
+    #[inline]
+    fn display(&self, data: &Data, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", data.str(self.string))
+    }
+
+    #[inline]
+    pub(crate) fn write_to<O>(&self, data: &Data, o: &mut O) -> io::Result<()>
+    where
+        O: ?Sized + io::Write,
+    {
+        o.write_all(data.str(self.string))
+    }
+}
 
 /// A YAML number.
 #[derive(Debug, Clone)]

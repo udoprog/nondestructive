@@ -2,7 +2,7 @@ use core::mem;
 
 use crate::yaml::data::{Data, Id, StringId};
 use crate::yaml::raw::{self, new_bool, new_string, Raw};
-use crate::yaml::{Block, Mapping, Null, Separator, ValueMut};
+use crate::yaml::{Block, Mapping, Separator, ValueMut};
 
 /// Mutator for a mapping.
 ///
@@ -174,7 +174,7 @@ impl<'a> MappingMut<'a> {
 
         let item_id = self
             .data
-            .insert(Raw::Null(Null::Empty), item_prefix, Some(self.id));
+            .insert(Raw::Null(raw::Null::Empty), item_prefix, Some(self.id));
 
         let value_prefix = match separator {
             Separator::Auto => {
@@ -501,7 +501,7 @@ impl<'a> MappingMut<'a> {
     where
         K: AsRef<[u8]>,
     {
-        let value = self._insert(key.as_ref(), separator, Raw::Null(Null::Empty));
+        let value = self._insert(key.as_ref(), separator, Raw::Null(raw::Null::Empty));
         ValueMut::new(self.data, value)
     }
 
@@ -689,7 +689,7 @@ impl<'a> MappingMut<'a> {
     where
         K: AsRef<[u8]>,
     {
-        let value = new_bool(value);
+        let value = new_bool(self.data, value);
         self._insert(key.as_ref(), Separator::Auto, value);
     }
 

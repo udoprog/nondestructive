@@ -6,7 +6,7 @@ use crate::yaml::data::{Data, Id, StringId};
 use crate::yaml::error::{Error, ErrorKind};
 use crate::yaml::raw::{self, Raw};
 use crate::yaml::serde_hint;
-use crate::yaml::{Document, Null};
+use crate::yaml::Document;
 
 type Result<T, E = Error> = std::result::Result<T, E>;
 
@@ -309,7 +309,8 @@ impl<'a> Parser<'a> {
 
     /// Insert a null value as a placeholder.
     fn placeholder(&mut self, prefix: StringId, parent: Option<Id>) -> Id {
-        self.data.insert(Raw::Null(Null::Empty), prefix, parent)
+        self.data
+            .insert(Raw::Null(raw::Null::Empty), prefix, parent)
     }
 
     /// Read a double-quoted string.
@@ -681,7 +682,7 @@ impl<'a> Parser<'a> {
         if matches!(s.parent_indent, Some(i) if i >= indent) {
             self.n = start;
             self.data
-                .replace_with(mapping_id, empty, Raw::Null(Null::Empty));
+                .replace_with(mapping_id, empty, Raw::Null(raw::Null::Empty));
             return Ok((mapping_id, Some(s.prefix)));
         }
 
@@ -904,17 +905,22 @@ impl<'a> Parser<'a> {
                     // NB: calling `key_or_eol` will have consumed up until end
                     // of line for us, so use the current span as the production
                     // string.
-                    match self.string(start) {
-                        b"~" => (Raw::Null(Null::Tilde), None),
-                        b"null" => (Raw::Null(Null::Keyword), None),
-                        b"true" => (Raw::Boolean(true), None),
-                        b"false" => (Raw::Boolean(false), None),
-                        string => {
+                    let string = self.string(start);
+                    (
+                        if string == b"~" {
+                            Raw::Null(raw::Null::Tilde)
+                        } else if string.eq_ignore_ascii_case(b"null") {
+                            Raw::Null(raw::Null::Keyword(self.data.insert_str(string)))
+                        } else if string.eq_ignore_ascii_case(b"true") {
+                            Raw::Boolean(raw::Boolean::new(true, self.data.insert_str(string)))
+                        } else if string.eq_ignore_ascii_case(b"false") {
+                            Raw::Boolean(raw::Boolean::new(false, self.data.insert_str(string)))
+                        } else {
                             let string = self.data.insert_str(string);
-                            let string = raw::String::new(raw::RawStringKind::Bare, string, string);
-                            (Raw::String(string), None)
-                        }
-                    }
+                            Raw::String(raw::String::new(raw::RawStringKind::Bare, string, string))
+                        },
+                        None,
+                    )
                 }
             }
         };
