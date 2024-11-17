@@ -1,0 +1,7 @@
+empty_value:
+null_value: null
+tilde_null_value: ~
+
+tilde_quoted_value: "~"
+tilde_quoted_path_value: "~/some/path"
+tilde_string_path_value: ~/some/path

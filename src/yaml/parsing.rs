@@ -876,7 +876,6 @@ impl<'a> Parser<'a> {
             }
             [b'[', _] => return Ok((self.inline_sequence(s)?, None)),
             [b'{', _] => return Ok((self.inline_mapping(s)?, None)),
-            [b'~', _] => (Raw::Null(Null::Tilde), None),
             [a @ (b'>' | b'|'), b] => self.block(
                 matches!(b, b'-' | b'+').then_some(2).unwrap_or(1),
                 if a == b'>' { raw::SPACE } else { raw::NEWLINE },
@@ -906,6 +905,7 @@ impl<'a> Parser<'a> {
                     // of line for us, so use the current span as the production
                     // string.
                     match self.string(start) {
+                        b"~" => (Raw::Null(Null::Tilde), None),
                         b"null" => (Raw::Null(Null::Keyword), None),
                         b"true" => (Raw::Boolean(true), None),
                         b"false" => (Raw::Boolean(false), None),

@@ -94,6 +94,7 @@ fn compare_path(path: &Path) -> Result<()> {
 /// Structurally compare two values.
 fn compare(trace: &mut Trace, a: &yaml::Value<'_>, b: &serde_yaml::Value) -> Result<()> {
     match (a.as_any(), b) {
+        (yaml::Any::Null, serde_yaml::Value::Null) => {}
         (yaml::Any::Sequence(a), serde_yaml::Value::Sequence(b)) => {
             compare_sequences(trace, &a, b)?;
         }
