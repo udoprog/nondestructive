@@ -1,5 +1,4 @@
 use std::fmt;
-use std::io;
 
 use bstr::{BStr, ByteSlice};
 #[cfg(feature = "serde-edits")]
@@ -111,58 +110,8 @@ pub enum Null {
     Keyword,
     /// A tilde `~` null value.
     Tilde,
-    /// A empty null value.
+    /// An empty null value.
     Empty,
-}
-
-impl Null {
-    pub(crate) fn display(
-        self,
-        data: &Data,
-        f: &mut fmt::Formatter<'_>,
-        prefix: Option<Id>,
-    ) -> fmt::Result {
-        match self {
-            Null::Keyword => {
-                if let Some(id) = prefix {
-                    write!(f, "{}", data.prefix(id))?;
-                }
-
-                write!(f, "null")?;
-            }
-            Null::Tilde => {
-                if let Some(id) = prefix {
-                    write!(f, "{}", data.prefix(id))?;
-                }
-
-                write!(f, "~")?;
-            }
-            Null::Empty => {
-                // empty values count as null.
-            }
-        }
-
-        Ok(())
-    }
-
-    pub(crate) fn write_to<O>(self, o: &mut O) -> io::Result<()>
-    where
-        O: ?Sized + io::Write,
-    {
-        match self {
-            Null::Keyword => {
-                write!(o, "null")?;
-            }
-            Null::Tilde => {
-                write!(o, "~")?;
-            }
-            Null::Empty => {
-                // empty values count as null.
-            }
-        }
-
-        Ok(())
-    }
 }
 
 /// A value inside of the document.
@@ -260,7 +209,7 @@ impl<'a> Value<'a> {
     pub fn into_any(self) -> Any<'a> {
         match self.data.raw(self.id) {
             Raw::Null(..) => Any::Null,
-            Raw::Boolean(bool) => Any::Bool(*bool),
+            Raw::Boolean(bool) => Any::Bool(bool.value),
             Raw::Number(number) => Any::Number(Number::new(self.data, number)),
             Raw::String(string) => Any::String(String::new(self.data, string)),
             Raw::Mapping(..) => Any::Mapping(Mapping::new(self.data, self.id)),
@@ -305,7 +254,7 @@ impl<'a> Value<'a> {
     pub fn as_any(&self) -> Any<'_> {
         match self.data.raw(self.id) {
             Raw::Null(..) => Any::Null,
-            Raw::Boolean(bool) => Any::Bool(*bool),
+            Raw::Boolean(bool) => Any::Bool(bool.value),
             Raw::Number(number) => Any::Number(Number::new(self.data, number)),
             Raw::String(string) => Any::String(String::new(self.data, string)),
             Raw::Mapping(..) => Any::Mapping(Mapping::new(self.data, self.id)),
@@ -503,7 +452,7 @@ impl<'a> Value<'a> {
     #[must_use]
     pub fn as_bool(&self) -> Option<bool> {
         match self.data.raw(self.id) {
-            Raw::Boolean(value) => Some(*value),
+            Raw::Boolean(bool) => Some(bool.value),
             _ => None,
         }
     }

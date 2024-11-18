@@ -387,7 +387,12 @@ impl<'a> ValueMut<'a> {
     /// ```
     #[inline]
     pub fn set_null(&mut self, kind: Null) {
-        self.data.replace(self.id, Raw::Null(kind));
+        let raw_kind = match kind {
+            Null::Keyword => raw::Null::Keyword(self.data.insert_str("null")),
+            Null::Tilde => raw::Null::Tilde,
+            Null::Empty => raw::Null::Empty,
+        };
+        self.data.replace(self.id, Raw::Null(raw_kind));
     }
 
     /// Set the value as a string.
@@ -588,7 +593,7 @@ impl<'a> ValueMut<'a> {
     /// # Ok::<_, anyhow::Error>(())
     /// ```
     pub fn set_bool(&mut self, value: bool) {
-        let value = raw::new_bool(value);
+        let value = raw::new_bool(self.data, value);
         self.data.replace(self.id, value);
     }
 

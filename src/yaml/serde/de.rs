@@ -38,7 +38,7 @@ impl<'de> Deserializer<'de> for Value<'de> {
     {
         match self.data.raw(self.id) {
             raw::Raw::Null(..) => visitor.visit_none(),
-            raw::Raw::Boolean(value) => visitor.visit_bool(*value),
+            raw::Raw::Boolean(bool) => visitor.visit_bool(bool.value),
             raw::Raw::Number(raw) => match raw.hint {
                 RawNumberHint::Float32 => self.deserialize_f32(visitor),
                 RawNumberHint::Float64 => self.deserialize_f64(visitor),

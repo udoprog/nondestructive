@@ -2,7 +2,7 @@ use core::mem;
 
 use crate::yaml::data::{Data, Id, StringId};
 use crate::yaml::raw::{self, Raw};
-use crate::yaml::{Block, Null, Separator, Sequence, ValueMut};
+use crate::yaml::{Block, Separator, Sequence, ValueMut};
 
 /// Mutator for a sequence.
 pub struct SequenceMut<'a> {
@@ -111,7 +111,7 @@ impl<'a> SequenceMut<'a> {
 
         let item_id = self
             .data
-            .insert(Raw::Null(Null::Empty), item_prefix, Some(self.id));
+            .insert(Raw::Null(raw::Null::Empty), item_prefix, Some(self.id));
 
         let value_prefix = match separator {
             Separator::Auto => match self.data.sequence(self.id).items.last() {
@@ -391,7 +391,7 @@ impl<'a> SequenceMut<'a> {
     /// # Ok::<_, anyhow::Error>(())
     /// ```
     pub fn push(&mut self, separator: Separator<'_>) -> ValueMut<'_> {
-        let value = self._push(separator, Raw::Null(Null::Empty));
+        let value = self._push(separator, Raw::Null(raw::Null::Empty));
         ValueMut::new(self.data, value)
     }
 
@@ -576,7 +576,7 @@ impl<'a> SequenceMut<'a> {
     /// # Ok::<_, anyhow::Error>(())
     /// ```
     pub fn push_bool(&mut self, value: bool) {
-        let value = raw::new_bool(value);
+        let value = raw::new_bool(self.data, value);
         self._push(Separator::Auto, value);
     }
 
