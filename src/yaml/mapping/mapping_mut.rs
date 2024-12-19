@@ -85,7 +85,7 @@ macro_rules! insert_float {
             let mut buffer = ryu::Buffer::new();
             let number = self.data.insert_str(buffer.format(value));
             let value = Raw::Number(raw::Number::new(number, crate::yaml::serde_hint::$hint));
-            self._insert(key.as_ref(), Separator::Auto, value);
+            self.inner_insert(key.as_ref(), Separator::Auto, value);
         }
     };
 }
@@ -126,7 +126,7 @@ macro_rules! insert_number {
             let mut buffer = itoa::Buffer::new();
             let number = self.data.insert_str(buffer.format(value));
             let value = Raw::Number(raw::Number::new(number, crate::yaml::serde_hint::$hint));
-            self._insert(key.as_ref(), Separator::Auto, value);
+            self.inner_insert(key.as_ref(), Separator::Auto, value);
         }
     };
 }
@@ -148,7 +148,7 @@ impl<'a> MappingMut<'a> {
     }
 
     /// Insert a value into the mapping.
-    fn _insert(&mut self, key: &[u8], separator: Separator<'_>, value: Raw) -> Id {
+    fn inner_insert(&mut self, key: &[u8], separator: Separator<'_>, value: Raw) -> Id {
         let key = self.data.insert_str(key);
 
         if let Some(id) = self
@@ -501,7 +501,7 @@ impl<'a> MappingMut<'a> {
     where
         K: AsRef<[u8]>,
     {
-        let value = self._insert(key.as_ref(), separator, Raw::Null(raw::Null::Empty));
+        let value = self.inner_insert(key.as_ref(), separator, Raw::Null(raw::Null::Empty));
         ValueMut::new(self.data, value)
     }
 
@@ -537,7 +537,7 @@ impl<'a> MappingMut<'a> {
         S: AsRef<str>,
     {
         let string = new_string(self.data, string);
-        self._insert(key.as_ref(), Separator::Auto, string);
+        self.inner_insert(key.as_ref(), Separator::Auto, string);
     }
 
     /// Insert a value as a literal block.
@@ -656,7 +656,7 @@ impl<'a> MappingMut<'a> {
         I::Item: AsRef<str>,
     {
         let value = raw::new_block(self.data, self.id, iter, block);
-        self._insert(key.as_ref(), Separator::Auto, value);
+        self.inner_insert(key.as_ref(), Separator::Auto, value);
     }
 
     /// Insert a bool.
@@ -690,7 +690,7 @@ impl<'a> MappingMut<'a> {
         K: AsRef<[u8]>,
     {
         let value = new_bool(self.data, value);
-        self._insert(key.as_ref(), Separator::Auto, value);
+        self.inner_insert(key.as_ref(), Separator::Auto, value);
     }
 
     insert_float!(insert_f32, f32, "32-bit float", 10.42, F32);

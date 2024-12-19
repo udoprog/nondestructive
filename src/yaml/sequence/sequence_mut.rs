@@ -42,7 +42,7 @@ macro_rules! push_float {
             let mut buffer = ryu::Buffer::new();
             let number = self.data.insert_str(buffer.format(value));
             let value = Raw::Number(raw::Number::new(number, crate::yaml::serde_hint::$hint));
-            self._push(Separator::Auto, value);
+            self.inner_push(Separator::Auto, value);
         }
     };
 }
@@ -80,7 +80,7 @@ macro_rules! push_number {
             let mut buffer = itoa::Buffer::new();
             let number = self.data.insert_str(buffer.format(value));
             let value = Raw::Number(raw::Number::new(number, crate::yaml::serde_hint::$hint));
-            self._push(Separator::Auto, value);
+            self.inner_push(Separator::Auto, value);
         }
     };
 }
@@ -102,7 +102,7 @@ impl<'a> SequenceMut<'a> {
     }
 
     /// Push a value on the sequence.
-    fn _push(&mut self, separator: Separator, value: Raw) -> Id {
+    fn inner_push(&mut self, separator: Separator, value: Raw) -> Id {
         let item_prefix = if self.data.sequence(self.id).items.last().is_some() {
             self.make_prefix()
         } else {
@@ -391,7 +391,7 @@ impl<'a> SequenceMut<'a> {
     /// # Ok::<_, anyhow::Error>(())
     /// ```
     pub fn push(&mut self, separator: Separator<'_>) -> ValueMut<'_> {
-        let value = self._push(separator, Raw::Null(raw::Null::Empty));
+        let value = self.inner_push(separator, Raw::Null(raw::Null::Empty));
         ValueMut::new(self.data, value)
     }
 
@@ -427,7 +427,7 @@ impl<'a> SequenceMut<'a> {
         S: AsRef<str>,
     {
         let string = raw::new_string(self.data, string);
-        self._push(Separator::Auto, string);
+        self.inner_push(Separator::Auto, string);
     }
 
     /// Push a value as a literal block.
@@ -545,7 +545,7 @@ impl<'a> SequenceMut<'a> {
         I::Item: AsRef<str>,
     {
         let value = raw::new_block(self.data, self.id, iter, block);
-        self._push(Separator::Auto, value);
+        self.inner_push(Separator::Auto, value);
     }
 
     /// Push a bool.
@@ -577,7 +577,7 @@ impl<'a> SequenceMut<'a> {
     /// ```
     pub fn push_bool(&mut self, value: bool) {
         let value = raw::new_bool(self.data, value);
-        self._push(Separator::Auto, value);
+        self.inner_push(Separator::Auto, value);
     }
 
     push_float!(push_f32, f32, "32-bit float", 10.42, F32);
