@@ -13,24 +13,26 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  test:
+  msrv:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        rust: ["1.73", stable]
     steps:
     - uses: actions/checkout@v4
-    - uses: dtolnay/rust-toolchain@master
-      with:
-        toolchain: ${{matrix.rust}}
+    - uses: dtolnay/rust-toolchain@1.73
+    - run: cargo test --workspace --all-targets --no-default-features
+    - run: cargo test --workspace --all-targets --no-default-features --features serde-edits
+    - run: cargo test --workspace --all-targets --all-features
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: dtolnay/rust-toolchain@stable
     - run: cargo test --workspace --all-targets --no-default-features
     - run: cargo test --workspace --all-targets --no-default-features --features serde-edits
     - run: cargo test --workspace --all-targets --all-features
     - run: cargo test --workspace --doc --all-features
       env:
          RUSTFLAGS: --cfg nondestructive_write_to_eq
-      if: matrix.rust == 'stable'
 
   clippy:
     runs-on: ubuntu-latest
