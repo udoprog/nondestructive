@@ -828,7 +828,7 @@ impl<'a> Parser<'a> {
             }
         }
 
-        for _ in 0..chomp.then_some(nl).unwrap_or_default() {
+        for _ in 0..if chomp { nl } else { Default::default() } {
             self.scratch.push(raw::NEWLINE);
 
             if clip {
