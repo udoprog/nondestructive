@@ -174,9 +174,7 @@ impl<'a> MappingMut<'a> {
             self.data.insert_str("")
         };
 
-        let item_id = self
-            .data
-            .insert(Raw::Null(raw::Null::Empty), item_prefix, Some(self.id));
+        let item_id = self.data.insert(Raw::Empty, item_prefix, Some(self.id));
 
         let value_prefix = match separator {
             Separator::Auto => {

@@ -129,6 +129,6 @@ fn edit_element() -> Result<()> {
 
     sequence.push_string("value");
 
-    assert_eq!(doc.to_string(), "a:\n  inner:\n    - value\nb:\nc:");
+    assert_eq!(doc.to_string(), "a:\n  inner:\n  - value\nb:\nc:");
     Ok(())
 }

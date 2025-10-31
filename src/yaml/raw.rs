@@ -1,5 +1,4 @@
 use core::fmt::{self, Write};
-use core::iter;
 use core::mem;
 
 use alloc::vec::Vec;
@@ -53,36 +52,26 @@ where
 }
 
 /// Construct an indentation prefix.
-pub(crate) fn make_indent(data: &mut Data, id: Id, extra: usize) -> (usize, StringId) {
-    let parent = data.layout(id).parent;
+pub(crate) fn make_indent(d: &mut Data, id: Id, is_seq: bool) -> (usize, StringId) {
+    let this_lo = d.layout(id);
 
-    let container = parent
-        .and_then(|id| data.layout(id).parent)
-        .map(|id| data.pair(id));
+    let Some(pparent) = this_lo.parent.and_then(|id| d.layout(id).parent) else {
+        let indent = self::count_indent(d.str(this_lo.prefix));
+        return (indent, this_lo.prefix);
+    };
 
-    let (indent, is_sequence_mapping, layout) = match container {
-        Some((Raw::Mapping(raw), layout)) => (raw.indent, false, layout),
-        Some((Raw::Sequence(raw), layout)) => (
-            raw.indent,
-            matches!(raw.kind, SequenceKind::Mapping),
-            layout,
-        ),
+    let (raw, lo) = d.pair(pparent);
+
+    let (indent, is_seq_mapping) = match raw {
+        Raw::Mapping(raw) => (raw.indent, false),
+        Raw::Sequence(raw) => (raw.indent, matches!(raw.kind, SequenceKind::Mapping)),
         _ => {
-            let prefix = data.layout(id).prefix;
-            let indent = self::count_indent(data.str(prefix)).saturating_add(extra);
-
-            if extra == 0 {
-                return (indent, prefix);
-            }
-
-            let mut out = data.str(prefix).to_vec();
-            out.extend(iter::repeat(SPACE).take(extra));
-            let prefix = data.insert_str(&out);
-            return (indent, prefix);
+            let indent = self::count_indent(d.str(this_lo.prefix));
+            return (indent, this_lo.prefix);
         }
     };
 
-    if is_sequence_mapping {
+    if is_seq_mapping {
         // If we are an immediate child of a sequence item, then we want to be
         // nested at the same level as the item.
         //
@@ -93,17 +82,21 @@ pub(crate) fn make_indent(data: &mut Data, id: Id, extra: usize) -> (usize, Stri
         // - two: 2
         //   three: 3
         // ```
-        if let Some((Raw::SequenceItem(..), layout)) = parent.map(|id| data.pair(id)) {
-            let indent = self::count_indent(data.str(layout.prefix))
-                .saturating_add(2)
-                .saturating_add(extra);
-            return (indent, data.insert_str(" "));
+        if let Some((Raw::SequenceItem(..), lo)) = this_lo.parent.map(|id| d.pair(id)) {
+            let indent = self::count_indent(d.str(lo.prefix)).saturating_add(2);
+            return (indent, d.insert_str(" "));
         }
     }
 
-    let indent = indent.saturating_add(2);
-    // Take some pains to preserve the existing suffix, synthesize extra spaces characters where needed.
-    let mut existing = self::indent(data.str(layout.prefix)).chars();
+    let indent = if is_seq {
+        indent
+    } else {
+        indent.saturating_add(2)
+    };
+
+    // Take some pains to preserve the existing suffix, synthesize extra spaces
+    // characters where needed.
+    let mut existing = self::indent(d.str(lo.prefix)).chars();
 
     let mut prefix = Vec::new();
 
@@ -117,7 +110,7 @@ pub(crate) fn make_indent(data: &mut Data, id: Id, extra: usize) -> (usize, Stri
         }
     }
 
-    (indent, data.insert_str(prefix))
+    (indent, d.insert_str(prefix))
 }
 
 /// Construct a raw kind associated with a string with a custom string kind.
@@ -203,6 +196,8 @@ pub(crate) struct Layout {
 #[cfg_attr(feature = "serde-edits", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde-edits", serde(tag = "kind", content = "value"))]
 pub(crate) enum Raw {
+    /// An uninitialized empty value.
+    Empty,
     /// A null value.
     Null(Null),
     /// A boolean value.
@@ -229,6 +224,9 @@ impl Raw {
         prefix: Option<Id>,
     ) -> fmt::Result {
         match self {
+            Raw::Empty => {
+                return Err(fmt::Error);
+            }
             Raw::Null(raw) => {
                 raw.display(data, f, prefix)?;
             }
@@ -284,6 +282,9 @@ impl Raw {
         O: ?Sized + io::Write,
     {
         match self {
+            Raw::Empty => {
+                return Err(io::Error::from(io::ErrorKind::InvalidData));
+            }
             Raw::Null(raw) => {
                 raw.write_to(data, o)?;
             }
