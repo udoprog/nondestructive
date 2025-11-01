@@ -10,6 +10,7 @@ use std::io;
 use serde::{Deserialize, Serialize};
 
 use crate::yaml::data::{Data, Id, StringId};
+use crate::yaml::raw::{Null, Raw, NEWLINE};
 use crate::yaml::{Value, ValueMut};
 
 /// A whitespace preserving YAML document.
@@ -41,8 +42,32 @@ pub struct Document {
 }
 
 impl Document {
+    /// Construct a new empty document.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nondestructive::yaml::{Document, Separator};
+    ///
+    /// let mut doc = Document::new();
+    /// assert_eq!(doc.to_string(), "\n");
+    ///
+    /// let mut mapping_item = doc.as_mut().make_mapping();
+    /// mapping_item.insert("foo", Separator::Auto).set_u32(42);
+    /// assert_eq!(doc.to_string(), "foo: 42\n");
+    /// ```
+    #[must_use]
+    pub fn new() -> Self {
+        let mut data = Data::default();
+        let prefix = data.insert_str(b"");
+        let root = data.insert(Raw::Null(Null::Empty), prefix, None);
+        let suffix = data.insert_str([NEWLINE]);
+
+        Self { suffix, root, data }
+    }
+
     /// Construct a new document.
-    pub(crate) fn new(suffix: StringId, root: Id, data: Data) -> Self {
+    pub(crate) fn from_parsed(suffix: StringId, root: Id, data: Data) -> Self {
         Self { suffix, root, data }
     }
 

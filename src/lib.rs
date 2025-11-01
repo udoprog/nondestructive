@@ -185,6 +185,7 @@
 #![deny(missing_docs)]
 #![allow(clippy::module_inception)]
 #![allow(clippy::module_name_repetitions)]
+#![allow(clippy::new_without_default)]
 #![cfg_attr(doc_cfg, feature(doc_cfg))]
 #![no_std]
 

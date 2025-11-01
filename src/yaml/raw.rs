@@ -1,5 +1,4 @@
 use core::fmt::{self, Write};
-use core::iter;
 use core::mem;
 
 use alloc::vec::Vec;
@@ -53,52 +52,51 @@ where
 }
 
 /// Construct an indentation prefix.
-pub(crate) fn make_indent(data: &mut Data, id: Id, extra: usize) -> (usize, StringId) {
+pub(crate) fn make_indent(data: &mut Data, id: Id) -> (usize, StringId) {
     let parent = data.layout(id).parent;
 
-    let container = parent
-        .and_then(|id| data.layout(id).parent)
-        .map(|id| data.pair(id));
+    let Some(container) = parent.and_then(|id| data.layout(id).parent) else {
+        let prefix = data.layout(id).prefix;
+        let indent = self::count_indent(data.str(prefix));
+        return (indent, prefix);
+    };
 
-    let (indent, is_sequence_mapping, layout) = match container {
-        Some((Raw::Mapping(raw), layout)) => (raw.indent, false, layout),
-        Some((Raw::Sequence(raw), layout)) => (
-            raw.indent,
-            matches!(raw.kind, SequenceKind::Mapping),
-            layout,
-        ),
+    let (raw, layout) = data.pair(container);
+
+    let indent = match raw {
+        Raw::Mapping(raw) => raw.indent,
+        Raw::Sequence(raw) => raw.indent,
         _ => {
             let prefix = data.layout(id).prefix;
-            let indent = self::count_indent(data.str(prefix)).saturating_add(extra);
-
-            if extra == 0 {
-                return (indent, prefix);
-            }
-
-            let mut out = data.str(prefix).to_vec();
-            out.extend(iter::repeat(SPACE).take(extra));
-            let prefix = data.insert_str(&out);
+            let indent = self::count_indent(data.str(prefix));
             return (indent, prefix);
         }
     };
 
-    if is_sequence_mapping {
+    let is_sequence_mapping = matches!(
+        raw,
+        Raw::Sequence(Sequence {
+            kind: SequenceKind::Mapping,
+            ..
+        })
+    );
+
+    if is_sequence_mapping && matches!(parent.map(|id| data.raw(id)), Some(Raw::SequenceItem(..))) {
         // If we are an immediate child of a sequence item, then we want to be
         // nested at the same level as the item.
         //
-        // This allows for a more natural representation of sequences, like these:
+        // This allows for a more natural representation of sequences, like
+        // these:
         //
         // ```yaml
         // - one
         // - two: 2
         //   three: 3
         // ```
-        if let Some((Raw::SequenceItem(..), layout)) = parent.map(|id| data.pair(id)) {
-            let indent = self::count_indent(data.str(layout.prefix))
-                .saturating_add(2)
-                .saturating_add(extra);
-            return (indent, data.insert_str(" "));
-        }
+        //
+        // Use the sequence's base indentation plus the dash and space (2 chars)
+        let indent = indent.saturating_add(2);
+        return (indent, data.insert_str(" "));
     }
 
     let indent = indent.saturating_add(2);
@@ -106,7 +104,6 @@ pub(crate) fn make_indent(data: &mut Data, id: Id, extra: usize) -> (usize, Stri
     let mut existing = self::indent(data.str(layout.prefix)).chars();
 
     let mut prefix = Vec::new();
-
     prefix.push(NEWLINE);
 
     for _ in 0..indent {

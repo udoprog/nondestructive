@@ -693,7 +693,7 @@ impl<'a> ValueMut<'a> {
     #[must_use]
     pub fn make_mapping(self) -> MappingMut<'a> {
         if !matches!(self.data.raw(self.id), Raw::Mapping(..)) {
-            let (indent, prefix) = raw::make_indent(self.data, self.id, 0);
+            let (indent, prefix) = raw::make_indent(self.data, self.id);
 
             self.data.replace_with(
                 self.id,
@@ -759,7 +759,7 @@ impl<'a> ValueMut<'a> {
     #[must_use]
     pub fn make_sequence(self) -> SequenceMut<'a> {
         if !matches!(self.data.raw(self.id), Raw::Sequence(..)) {
-            let (indent, prefix) = raw::make_indent(self.data, self.id, 0);
+            let (indent, prefix) = raw::make_indent(self.data, self.id);
 
             self.data.replace_with(
                 self.id,

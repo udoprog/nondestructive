@@ -120,7 +120,7 @@ impl<'a> Parser<'a> {
             return Err(Error::new(self.n..self.input.len(), ErrorKind::ExpectedEof));
         }
 
-        Ok(Document::new(suffix, root, self.data))
+        Ok(Document::from_parsed(suffix, root, self.data))
     }
 
     /// Process document delimiter.
