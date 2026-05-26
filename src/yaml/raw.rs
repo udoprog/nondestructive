@@ -570,6 +570,7 @@ impl String {
                     '\u{0c}' => "\\f",
                     '\r' => "\\r",
                     '\u{1b}' => "\\e",
+                    '\\' => "\\\\",
                     '\"' => "\\\"",
                     c if c.is_ascii_control() => {
                         write!(f, "{}\\x{:02x}", &string[start..index], c as u8)?;
@@ -664,6 +665,7 @@ impl String {
                     0x0c => b"\\f",
                     b'\r' => b"\\r",
                     0x1b => b"\\e",
+                    b'\\' => b"\\\\",
                     b'\"' => b"\\\"",
                     c if c.is_ascii_control() => {
                         o.write_all(&string[s..index])?;
