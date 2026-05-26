@@ -43,8 +43,8 @@ fn double_quotes() -> Result<()> {
 
 #[test]
 fn backslash_roundtrip() -> Result<()> {
-    use anyhow::Context;
     use crate::yaml::StringKind;
+    use anyhow::Context;
 
     let mut doc = yaml::from_slice("key: value")?;
 

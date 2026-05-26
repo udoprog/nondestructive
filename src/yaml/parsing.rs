@@ -433,23 +433,57 @@ impl<'a> Parser<'a> {
     /// Unescape into the scratch buffer.
     fn unescape(&mut self, start: usize) -> Result<()> {
         match self.peek1() {
-            b'n' => { self.scratch.push(raw::NEWLINE); }
-            b'0' => { self.scratch.push(b'\x00'); }
-            b'a' => { self.scratch.push(b'\x07'); }
-            b'b' => { self.scratch.push(b'\x08'); }
-            b't' | b'\x09' => { self.scratch.push(b'\x09'); }
-            b'v' => { self.scratch.push(b'\x0b'); }
-            b'f' => { self.scratch.push(b'\x0c'); }
-            b'r' => { self.scratch.push(b'\r'); }
-            b'e' => { self.scratch.push(b'\x1b'); }
-            b' ' => { self.scratch.push(b' '); }
-            b'/' => { self.scratch.push(b'/'); }
-            b'\\' => { self.scratch.push(b'\\'); }
-            b'"' => { self.scratch.push(b'"'); }
-            b'N' => { self.scratch.extend("\u{0085}".as_bytes()); }
-            b'_' => { self.scratch.extend("\u{00A0}".as_bytes()); }
-            b'L' => { self.scratch.extend("\u{2028}".as_bytes()); }
-            b'P' => { self.scratch.extend("\u{2029}".as_bytes()); }
+            b'n' => {
+                self.scratch.push(raw::NEWLINE);
+            }
+            b'0' => {
+                self.scratch.push(b'\x00');
+            }
+            b'a' => {
+                self.scratch.push(b'\x07');
+            }
+            b'b' => {
+                self.scratch.push(b'\x08');
+            }
+            b't' | b'\x09' => {
+                self.scratch.push(b'\x09');
+            }
+            b'v' => {
+                self.scratch.push(b'\x0b');
+            }
+            b'f' => {
+                self.scratch.push(b'\x0c');
+            }
+            b'r' => {
+                self.scratch.push(b'\r');
+            }
+            b'e' => {
+                self.scratch.push(b'\x1b');
+            }
+            b' ' => {
+                self.scratch.push(b' ');
+            }
+            b'/' => {
+                self.scratch.push(b'/');
+            }
+            b'\\' => {
+                self.scratch.push(b'\\');
+            }
+            b'"' => {
+                self.scratch.push(b'"');
+            }
+            b'N' => {
+                self.scratch.extend("\u{0085}".as_bytes());
+            }
+            b'_' => {
+                self.scratch.extend("\u{00A0}".as_bytes());
+            }
+            b'L' => {
+                self.scratch.extend("\u{2028}".as_bytes());
+            }
+            b'P' => {
+                self.scratch.extend("\u{2029}".as_bytes());
+            }
             b'x' => {
                 self.bump(1);
                 return self.unescape_unicode(start, 2, ErrorKind::BadHexEscape);
@@ -466,7 +500,7 @@ impl<'a> Parser<'a> {
                 self.bump(1);
                 return Err(Error::new(start..self.n, ErrorKind::BadEscape));
             }
-        };
+        }
 
         self.bump(1);
         Ok(())

@@ -19,10 +19,7 @@ fn plain_multiline_scalar() -> Result<()> {
         inner.get("key1").and_then(|v| v.as_str()),
         Some("hello world continuation line")
     );
-    assert_eq!(
-        inner.get("key2").and_then(|v| v.as_str()),
-        Some("after")
-    );
+    assert_eq!(inner.get("key2").and_then(|v| v.as_str()), Some("after"));
 
     assert_eq!(doc.to_string(), input);
 
