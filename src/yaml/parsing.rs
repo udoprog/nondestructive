@@ -442,7 +442,8 @@ impl<'a> Parser<'a> {
             b'f' => b'\x0c',
             b'r' => b'\r',
             b'e' => b'\x1b',
-            b'\\' => b'\"',
+            b'\\' => b'\\',
+            b'"' => b'"',
             b'x' => {
                 self.bump(1);
                 return self.unescape_unicode(start, 2, ErrorKind::BadHexEscape);
@@ -898,14 +899,63 @@ impl<'a> Parser<'a> {
                         while !matches!(self.peek1(), ctl!()) {
                             self.bump(1);
                         }
-                    } else if let Some(key) = self.key_or_eol(start) {
-                        return self.mapping_or_nul(s, start, key);
+                    } else {
+                        if let Some(key) = self.key_or_eol(start) {
+                            return self.mapping_or_nul(s, start, key);
+                        }
+
+                        // key_or_eol consumed up until end of line.
+                        // Check for plain multi-line scalar continuation
+                        // lines indented deeper than the parent mapping.
+                        if let Some(parent_indent) = s.parent_indent {
+                            loop {
+                                if self.peek1() != raw::NEWLINE {
+                                    break;
+                                }
+                                let saved = self.n;
+                                self.bump(1);
+                                while matches!(self.peek1(), other_ws!()) {
+                                    self.bump(1);
+                                }
+                                if self.is_eof()
+                                    || self.peek1() == raw::NEWLINE
+                                    || self.indent() <= parent_indent
+                                {
+                                    self.n = saved;
+                                    break;
+                                }
+                                self.find(raw::NEWLINE);
+                            }
+                        }
                     }
 
-                    // NB: calling `key_or_eol` will have consumed up until end
-                    // of line for us, so use the current span as the production
-                    // string.
                     let string = self.string(start);
+
+                    if memchr::memchr(raw::NEWLINE, string).is_some() {
+                        // Multi-line plain scalar: fold lines with spaces
+                        for line in string.split(|&b| b == raw::NEWLINE) {
+                            let trimmed = trim(line);
+                            if trimmed.is_empty() {
+                                continue;
+                            }
+                            if !self.scratch.is_empty() {
+                                self.scratch.push(raw::SPACE);
+                            }
+                            self.scratch.extend_from_slice(trimmed);
+                        }
+                        let folded = self.data.insert_str(&self.scratch);
+                        self.scratch.clear();
+                        let original = self.data.insert_str(string);
+                        break 'default (
+                            Raw::String(raw::String::new(
+                                raw::RawStringKind::Original,
+                                folded,
+                                original,
+                            )),
+                            None,
+                        );
+                    }
+
                     (
                         if string == b"~" {
                             Raw::Null(raw::Null::Tilde)

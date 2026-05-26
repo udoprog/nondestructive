@@ -5,6 +5,31 @@ use anyhow::{Context, Result};
 use crate::yaml;
 
 #[test]
+fn plain_multiline_scalar() -> Result<()> {
+    let input = "top:\n  key1: hello world\n    continuation line\n  key2: after\n";
+    let doc = yaml::from_slice(input)?;
+
+    let root = doc.as_ref().as_mapping().context("missing root mapping")?;
+    let inner = root
+        .get("top")
+        .and_then(|v| v.as_mapping())
+        .context("missing inner mapping")?;
+
+    assert_eq!(
+        inner.get("key1").and_then(|v| v.as_str()),
+        Some("hello world continuation line")
+    );
+    assert_eq!(
+        inner.get("key2").and_then(|v| v.as_str()),
+        Some("after")
+    );
+
+    assert_eq!(doc.to_string(), input);
+
+    Ok(())
+}
+
+#[test]
 fn string_newlines() -> Result<()> {
     let doc = yaml::from_slice(
         r"
