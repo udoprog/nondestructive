@@ -572,6 +572,10 @@ impl String {
                     '\u{1b}' => "\\e",
                     '\\' => "\\\\",
                     '\"' => "\\\"",
+                    '\u{85}' => "\\N",
+                    '\u{A0}' => "\\_",
+                    '\u{2028}' => "\\L",
+                    '\u{2029}' => "\\P",
                     c if c.is_ascii_control() => {
                         write!(f, "{}\\x{:02x}", &string[start..index], c as u8)?;
                         start = end;
@@ -654,23 +658,27 @@ impl String {
             o.write_all(b"\"")?;
             let mut s = 0;
 
-            for (index, b) in string.bytes().enumerate() {
-                let esc = match b {
-                    b'\0' => b"\\0",
-                    0x07 => b"\\a",
-                    0x08 => b"\\b",
-                    0x09 => b"\\t",
-                    b'\n' => b"\\n",
-                    0x0b => b"\\v",
-                    0x0c => b"\\f",
-                    b'\r' => b"\\r",
-                    0x1b => b"\\e",
-                    b'\\' => b"\\\\",
-                    b'\"' => b"\\\"",
+            for (index, end, c) in string.char_indices() {
+                let esc: &[u8] = match c {
+                    '\u{00}' => b"\\0",
+                    '\u{07}' => b"\\a",
+                    '\u{08}' => b"\\b",
+                    '\u{09}' => b"\\t",
+                    '\n' => b"\\n",
+                    '\u{0b}' => b"\\v",
+                    '\u{0c}' => b"\\f",
+                    '\r' => b"\\r",
+                    '\u{1b}' => b"\\e",
+                    '\\' => b"\\\\",
+                    '\"' => b"\\\"",
+                    '\u{85}' => b"\\N",
+                    '\u{A0}' => b"\\_",
+                    '\u{2028}' => b"\\L",
+                    '\u{2029}' => b"\\P",
                     c if c.is_ascii_control() => {
                         o.write_all(&string[s..index])?;
-                        write!(o, "\\x{c:02x}")?;
-                        s = index.saturating_add(1);
+                        write!(o, "\\x{:02x}", c as u8)?;
+                        s = end;
                         continue;
                     }
                     _ => {
@@ -680,7 +688,7 @@ impl String {
 
                 o.write_all(&string[s..index])?;
                 o.write_all(esc)?;
-                s = index.saturating_add(1);
+                s = end;
             }
 
             o.write_all(&string[s..])?;

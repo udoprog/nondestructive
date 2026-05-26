@@ -13,20 +13,31 @@ macro_rules! test {
 
 #[test]
 fn double_quotes() -> Result<()> {
-    test!("\"a \\n b\"", "a \n b");
+    // Single-byte escapes
     test!("\"a \\0 b\"", "a \x00 b");
     test!("\"a \\a b\"", "a \x07 b");
     test!("\"a \\b b\"", "a \x08 b");
     test!("\"a \\t b\"", "a \x09 b");
+    test!("\"a \\n b\"", "a \n b");
     test!("\"a \\v b\"", "a \x0b b");
     test!("\"a \\f b\"", "a \x0c b");
     test!("\"a \\r b\"", "a \r b");
     test!("\"a \\e b\"", "a \x1b b");
     test!("\"a \\\\ b\"", "a \\ b");
     test!("\"a \\\" b\"", "a \" b");
+    test!("\"a \\  b\"", "a   b");
+    test!("\"a \\/ b\"", "a / b");
 
+    // Multi-byte Unicode escapes
+    test!("\"a \\N b\"", "a \u{0085} b");
+    test!("\"a \\_ b\"", "a \u{00A0} b");
+    test!("\"a \\L b\"", "a \u{2028} b");
+    test!("\"a \\P b\"", "a \u{2029} b");
+
+    // Variable-length hex/unicode escapes
     test!("\"a \\x77 b\"", "a \x77 b");
     test!("\"a \\u79c1 b\"", "a 私 b");
+    test!("\"a \\U00010437 b\"", "a \u{10437} b");
     Ok(())
 }
 
