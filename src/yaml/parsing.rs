@@ -712,8 +712,12 @@ impl<'a> Parser<'a> {
             self.bump(1);
 
             let value_prefix = self.ws();
-            let (value, ws) =
-                self.value(&State::new(value_prefix).with_parent(item_id).with_tabular())?;
+            let (value, ws) = self.value(
+                &State::new(value_prefix)
+                    .with_parent(item_id)
+                    .with_tabular()
+                    .with_parent_indent(indent),
+            )?;
 
             self.data.replace(item_id, raw::SequenceItem { value });
             items.push(item_id);
@@ -859,6 +863,8 @@ impl<'a> Parser<'a> {
     }
 
     /// Process a block as a string.
+    ///
+    /// Content lines must be indented deeper than `parent_indent`.
     fn block(
         &mut self,
         n: usize,
@@ -866,30 +872,36 @@ impl<'a> Parser<'a> {
         folded: bool,
         chomp: bool,
         clip: bool,
+        parent_indent: Option<usize>,
     ) -> (Raw, Option<StringId>) {
         let start = self.n;
         self.bump(n);
         let prefix = self.data.insert_str(self.string(start));
 
         let start = self.n;
+        let mut end = self.n;
+        let mut content = false;
         let (mut ws, mut nl) = self.ws_nl();
 
         if nl == 0 {
             self.find(raw::NEWLINE);
             let out = trim(self.input.get(start..self.n).unwrap_or_default());
             self.scratch.extend_from_slice(out);
-
+            content = true;
+            end = self.n;
             (ws, nl) = self.ws_nl();
-
-            if !self.is_eof() {
-                self.scratch.push(join);
-            }
         }
 
-        let mut end = self.n;
         let indent = self.indent();
+        let deeper = !self.is_eof() && parent_indent.map_or(true, |p| indent > p);
 
-        while !self.is_eof() {
+        if deeper && content {
+            self.scratch.push(join);
+        }
+
+        content |= deeper;
+
+        while deeper && !self.is_eof() {
             let s = self.n;
             self.find(raw::NEWLINE);
             let out = trim(self.input.get(s..self.n).unwrap_or_default());
@@ -907,11 +919,13 @@ impl<'a> Parser<'a> {
             }
         }
 
-        for _ in 0..if chomp { nl } else { Default::default() } {
-            self.scratch.push(raw::NEWLINE);
+        if content {
+            for _ in 0..if chomp { nl } else { Default::default() } {
+                self.scratch.push(raw::NEWLINE);
 
-            if clip {
-                break;
+                if clip {
+                    break;
+                }
             }
         }
 
@@ -962,6 +976,7 @@ impl<'a> Parser<'a> {
                 a == b'>',
                 b != b'-',
                 b == b'-',
+                s.parent_indent,
             ),
             _ => {
                 'default: {

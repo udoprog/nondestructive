@@ -1,4 +1,5 @@
 use alloc::string::ToString;
+use alloc::vec::Vec;
 
 use anyhow::{Context, Result};
 
@@ -220,5 +221,71 @@ fn string_spaces() -> Result<()> {
         "
     );
 
+    Ok(())
+}
+
+#[track_caller]
+fn round_trip(input: &str) -> Result<yaml::Document> {
+    let doc = yaml::from_slice(input)?;
+    assert_eq!(doc.to_string(), input);
+    let mut out = Vec::new();
+    doc.write_to(&mut out)?;
+    assert_eq!(out, input.as_bytes());
+    Ok(doc)
+}
+
+#[test]
+fn empty_block_round_trip() -> Result<()> {
+    let doc = round_trip("a: |\n")?;
+    let root = doc.as_ref().as_mapping().context("missing root mapping")?;
+    assert_eq!(root.get("a").and_then(|v| v.as_str()), Some(""));
+
+    let doc = round_trip("|-\n")?;
+    assert_eq!(doc.as_ref().as_str(), Some(""));
+
+    let doc = round_trip("|\n  \n")?;
+    assert_eq!(doc.as_ref().as_str(), Some(""));
+
+    let doc = round_trip("a: >\n")?;
+    let root = doc.as_ref().as_mapping().context("missing root mapping")?;
+    assert_eq!(root.get("a").and_then(|v| v.as_str()), Some(""));
+    Ok(())
+}
+
+#[test]
+fn empty_block_keeps_sibling() -> Result<()> {
+    let doc = round_trip("a: |\nb: 1\n")?;
+    let root = doc.as_ref().as_mapping().context("missing root mapping")?;
+    assert_eq!(root.get("a").and_then(|v| v.as_str()), Some(""));
+    assert_eq!(root.get("b").and_then(|v| v.as_u32()), Some(1));
+    assert_eq!(root.len(), 2);
+
+    let doc = round_trip("top:\n  a: |-\n  b: 1\nc: 2\n")?;
+    let root = doc.as_ref().as_mapping().context("missing root mapping")?;
+    let top = root
+        .get("top")
+        .and_then(|v| v.as_mapping())
+        .context("missing top")?;
+    assert_eq!(top.get("a").and_then(|v| v.as_str()), Some(""));
+    assert_eq!(top.get("b").and_then(|v| v.as_u32()), Some(1));
+    assert_eq!(root.get("c").and_then(|v| v.as_u32()), Some(2));
+
+    let doc = round_trip("a: |\n  x\nb: 1\n")?;
+    let root = doc.as_ref().as_mapping().context("missing root mapping")?;
+    assert_eq!(root.get("a").and_then(|v| v.as_str()), Some("x\n"));
+    assert_eq!(root.get("b").and_then(|v| v.as_u32()), Some(1));
+    Ok(())
+}
+
+#[test]
+fn empty_block_in_sequence() -> Result<()> {
+    let doc = round_trip("- |\n- b\n")?;
+    let seq = doc
+        .as_ref()
+        .as_sequence()
+        .context("missing root sequence")?;
+    assert_eq!(seq.get(0).and_then(|v| v.as_str()), Some(""));
+    assert_eq!(seq.get(1).and_then(|v| v.as_str()), Some("b"));
+    assert_eq!(seq.len(), 2);
     Ok(())
 }
