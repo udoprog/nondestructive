@@ -168,7 +168,8 @@ impl<'a> MappingMut<'a> {
             return id;
         }
 
-        let key = raw::String::new(raw::RawStringKind::Bare, key, key);
+        let kind = raw::key_kind(self.data.str(key));
+        let key = raw::String::new(kind, key, key);
 
         let mapping = self.data.mapping(self.id);
 

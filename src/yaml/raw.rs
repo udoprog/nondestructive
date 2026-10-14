@@ -621,6 +621,18 @@ impl RawStringKind {
     }
 }
 
+/// Detect the kind to write a mapping key `key` as.
+///
+/// Keys follow the same rules as values through [`RawStringKind::detect`],
+/// which already quotes strings starting with `?` or containing `": "`. Keys
+/// that are not valid UTF-8 are written bare.
+pub(crate) fn key_kind(key: &[u8]) -> RawStringKind {
+    match core::str::from_utf8(key) {
+        Ok(key) => RawStringKind::detect(key),
+        Err(..) => RawStringKind::Bare,
+    }
+}
+
 /// The plain spellings of null under the YAML 1.2 core schema.
 pub(crate) const NULL: [&[u8]; 4] = [b"~", b"null", b"Null", b"NULL"];
 /// The plain spellings of `true` under the YAML 1.2 core schema.

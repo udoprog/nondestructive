@@ -6,7 +6,7 @@ use anyhow::{bail, Context, Result};
 use crate::yaml;
 
 /// Strings that must be quoted, with the exact output expected.
-const QUOTED: &[(&str, &str)] = &[
+pub(super) const QUOTED: &[(&str, &str)] = &[
     ("", "''"),
     ("~", "'~'"),
     ("null", "'null'"),
@@ -65,7 +65,7 @@ const QUOTED: &[(&str, &str)] = &[
 ];
 
 /// Strings that stay bare.
-const BARE: &[&str] = &[
+pub(super) const BARE: &[&str] = &[
     "x",
     "hello world",
     "i-am-a-string",

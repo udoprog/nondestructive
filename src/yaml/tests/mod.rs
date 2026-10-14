@@ -5,6 +5,7 @@ mod block;
 mod escape;
 mod float_output;
 mod flow;
+mod insert_key;
 mod mapping;
 mod multiline;
 mod null;
