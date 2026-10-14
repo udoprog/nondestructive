@@ -1,0 +1,11 @@
+1: one
+-2: minus two
+0x10: hex
+3.5: float
+true: yes
+False: no
+~: tilde null
+"4": quoted string
+nested:
+  10: ten
+  false: off

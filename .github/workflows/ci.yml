@@ -37,9 +37,12 @@ jobs:
     - uses: actions/checkout@v4
     - uses: dtolnay/rust-toolchain@stable
     - run: cargo test --workspace --all-targets --all-features
+    - run: cargo test --workspace --all-targets --all-features
+      env:
+        RUSTFLAGS: --cfg nondestructive_write_to_eq
     - run: cargo test --workspace --doc --all-features
       env:
-         RUSTFLAGS: --cfg nondestructive_write_to_eq
+        RUSTFLAGS: --cfg nondestructive_write_to_eq
 
   clippy:
     runs-on: ubuntu-latest

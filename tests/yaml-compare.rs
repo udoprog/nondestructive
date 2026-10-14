@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use std::{env, mem};
 
 use anyhow::{anyhow, bail, ensure, Context, Result};
-use bstr::{BStr, ByteSlice};
+use bstr::{BStr, BString, ByteSlice};
 use nondestructive::yaml;
 
 /// Compare the processing of some document with a known good source, in this
@@ -196,13 +196,17 @@ fn compare_mappings(
         .collect::<HashMap<_, _>>();
 
     for (key, b) in b {
-        let key = key.as_str().context("only string keys supported")?;
+        let key = match key {
+            serde_yaml::Value::String(key) => key.clone(),
+            key => find_scalar_key(expected.keys(), key)
+                .with_context(|| anyhow!("{trace}: key {key:?} missing in nondestructive"))?,
+        };
 
         let a = expected
             .remove(BStr::new(key.as_bytes()))
             .with_context(|| anyhow!("{trace}: key {key} missing in nondestructive"))?;
 
-        trace.path.push(Step::Key(key.to_owned()));
+        trace.path.push(Step::Key(key));
         compare(trace, &a, b)?;
         trace.path.pop();
     }
@@ -218,4 +222,18 @@ fn compare_mappings(
     }
 
     Ok(())
+}
+
+/// Find the nondestructive key whose text resolves to the non-string libyaml
+/// key, since nondestructive keys are only available as text.
+fn find_scalar_key<'a, I>(keys: I, key: &serde_yaml::Value) -> Option<String>
+where
+    I: IntoIterator<Item = &'a BString>,
+{
+    keys.into_iter().find_map(|text| {
+        let text = text.to_str().ok()?;
+        let doc = yaml::from_slice(text).ok()?;
+        compare(&mut Trace::default(), &doc.as_ref(), key).ok()?;
+        Some(text.to_owned())
+    })
 }
