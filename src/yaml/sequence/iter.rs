@@ -32,7 +32,7 @@ impl<'a> Iterator for Iter<'a> {
 
     #[inline]
     fn nth(&mut self, n: usize) -> Option<Self::Item> {
-        let item = self.data.sequence_item(*self.iter.nth(n)?);
+        let item = self.data.sequence_item(*self.iter.nth_back(n)?);
         Some(Value::new(self.data, item.value))
     }
 
@@ -51,7 +51,7 @@ impl DoubleEndedIterator for Iter<'_> {
 
     #[inline]
     fn nth_back(&mut self, n: usize) -> Option<Self::Item> {
-        let item = self.data.sequence_item(*self.iter.nth(n)?);
+        let item = self.data.sequence_item(*self.iter.nth_back(n)?);
         Some(Value::new(self.data, item.value))
     }
 }

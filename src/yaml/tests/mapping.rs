@@ -132,3 +132,19 @@ fn edit_element() -> Result<()> {
     assert_eq!(doc.to_string(), "a:\n  inner:\n    - value\nb:\nc:");
     Ok(())
 }
+
+#[test]
+fn mapping_nth_back() -> Result<()> {
+    let doc = yaml::from_slice("a: 1\nb: 2\nc: 3\n")?;
+    let map = doc.as_ref().as_mapping().context("missing mapping")?;
+
+    assert_eq!(
+        map.iter().nth_back(0).map(|(k, _)| k.as_ref()),
+        Some(b"c".as_slice())
+    );
+    assert_eq!(
+        map.iter().rev().nth(1).map(|(k, _)| k.as_ref()),
+        Some(b"b".as_slice())
+    );
+    Ok(())
+}

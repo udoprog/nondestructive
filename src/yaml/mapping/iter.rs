@@ -36,7 +36,7 @@ impl<'a> Iterator for Iter<'a> {
 
     #[inline]
     fn nth(&mut self, n: usize) -> Option<Self::Item> {
-        let item = self.data.mapping_item(*self.iter.nth(n)?);
+        let item = self.data.mapping_item(*self.iter.nth_back(n)?);
         let key = self.data.str(item.key.id);
         let value = Value::new(self.data, item.value);
         Some((key, value))
@@ -59,7 +59,7 @@ impl DoubleEndedIterator for Iter<'_> {
 
     #[inline]
     fn nth_back(&mut self, n: usize) -> Option<Self::Item> {
-        let item = self.data.mapping_item(*self.iter.nth(n)?);
+        let item = self.data.mapping_item(*self.iter.nth_back(n)?);
         let key = self.data.str(item.key.id);
         let value = Value::new(self.data, item.value);
         Some((key, value))

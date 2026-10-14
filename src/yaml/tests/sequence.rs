@@ -77,3 +77,17 @@ fn mutable_nested_sequence() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn sequence_nth_back() -> Result<()> {
+    let doc = yaml::from_slice("- 1\n- 2\n- 3\n")?;
+    let seq = doc.as_ref().as_sequence().context("missing sequence")?;
+
+    assert_eq!(seq.iter().nth_back(0).and_then(|v| v.as_u32()), Some(3));
+    assert_eq!(seq.iter().rev().nth(1).and_then(|v| v.as_u32()), Some(2));
+
+    let mut it = seq.iter();
+    it.next_back();
+    assert_eq!(it.nth_back(0).and_then(|v| v.as_u32()), Some(2));
+    Ok(())
+}
