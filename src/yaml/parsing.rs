@@ -123,23 +123,23 @@ impl<'a> Parser<'a> {
         Ok(Document::from_parsed(suffix, root, self.data))
     }
 
-    /// Process document delimiter.
+    /// Process directives and the `---` document start marker.
     ///
-    /// This is a `---` that is allowed to exist at the beginning of the document.
+    /// Everything up to the root value is kept verbatim as its prefix so that
+    /// the header round-trips.
     fn start_of_document(&mut self) -> StringId {
-        let mut prefix = self.ws();
+        let start = self.n;
+        self.ws();
 
         loop {
             match self.peek() {
-                // Process headers.
                 [b'%', _, _] => {
                     self.find(raw::NEWLINE);
-                    prefix = self.ws();
+                    self.ws();
                 }
-                // Process start-of-document.
                 [b'-', b'-', b'-'] => {
                     self.bump(3);
-                    prefix = self.ws();
+                    self.ws();
                     break;
                 }
                 _ => {
@@ -148,7 +148,7 @@ impl<'a> Parser<'a> {
             }
         }
 
-        prefix
+        self.data.insert_str(self.string(start))
     }
 
     /// Test if eof.

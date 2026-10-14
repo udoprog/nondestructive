@@ -21,16 +21,19 @@ use crate::yaml::{Value, ValueMut};
 /// use anyhow::Context;
 /// use nondestructive::yaml;
 ///
-/// let doc = yaml::from_slice(r#"
+/// let input = r#"
 /// %YAML 1.2
 /// ---
 /// first: 32
 /// second: 64
-/// "#)?;
+/// "#;
+///
+/// let doc = yaml::from_slice(input)?;
 ///
 /// let root = doc.as_ref().as_mapping().context("missing root")?;
 /// assert_eq!(root.get("first").and_then(|v| v.as_u32()), Some(32));
 /// assert_eq!(root.get("second").and_then(|v| v.as_u32()), Some(64));
+/// assert_eq!(doc.to_string(), input);
 /// # Ok::<_, anyhow::Error>(())
 /// ```
 #[derive(Clone)]
