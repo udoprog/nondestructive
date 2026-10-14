@@ -170,7 +170,7 @@ impl<'a> Parser<'a> {
         a
     }
 
-    /// Peek the next three values.
+    /// Peek the next `N` values.
     fn peek<const N: usize>(&self) -> [u8; N] {
         array::from_fn(|n| {
             self.input
@@ -180,7 +180,7 @@ impl<'a> Parser<'a> {
         })
     }
 
-    /// Bump a single byte of input.
+    /// Bump `n` bytes of input.
     fn bump(&mut self, n: usize) {
         self.n = self.n.wrapping_add(n).min(self.input.len());
     }

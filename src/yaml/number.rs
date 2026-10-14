@@ -249,11 +249,11 @@ impl<'a> Number<'a> {
     as_number!(as_i8, i8, "8-bit signed integer", -42);
     as_number!(as_u16, u16, "16-bit unsigned integer", 42);
     as_number!(as_i16, i16, "16-bit signed integer", -42);
-    as_number!(as_u32, u32, "16-bit unsigned integer", 42);
+    as_number!(as_u32, u32, "32-bit unsigned integer", 42);
     as_number!(as_i32, i32, "32-bit signed integer", -42);
-    as_number!(as_u64, u64, "16-bit unsigned integer", 42);
+    as_number!(as_u64, u64, "64-bit unsigned integer", 42);
     as_number!(as_i64, i64, "64-bit signed integer", -42);
-    as_number!(as_u128, u128, "16-bit unsigned integer", 42);
+    as_number!(as_u128, u128, "128-bit unsigned integer", 42);
     as_number!(as_i128, i128, "128-bit signed integer", -42);
 }
 

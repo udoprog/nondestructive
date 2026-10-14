@@ -291,7 +291,7 @@ where
 #[derive(Debug, Clone, Copy)]
 #[cfg_attr(feature = "serde-edits", derive(Serialize, Deserialize))]
 pub(crate) struct Layout {
-    /// Reference to the indentation just preceeding the current value.
+    /// Reference to the indentation just preceding the current value.
     pub(crate) prefix: StringId,
     /// Reference to the parent of a value.
     pub(crate) parent: Option<Id>,
@@ -718,7 +718,7 @@ pub(crate) struct String {
 }
 
 impl String {
-    /// A simple number.
+    /// A YAML string.
     pub(crate) fn new(kind: RawStringKind, id: StringId, original: StringId) -> Self {
         Self { kind, id, original }
     }
@@ -931,7 +931,7 @@ pub(crate) enum SequenceKind {
     /// A compact inline YAML sequence.
     ///
     /// ```yaml
-    /// [one two three]
+    /// [one, two, three]
     /// ```
     Inline {
         /// Trailing `,` separator.
@@ -1091,7 +1091,7 @@ pub(crate) enum MappingKind {
     Inline {
         /// Trailing `,` separator.
         trailing: bool,
-        /// The inner suffix, before the trailing `]`.
+        /// The inner suffix, before the trailing `}`.
         suffix: StringId,
     },
 }

@@ -127,7 +127,7 @@ impl Document {
     ///
     /// let mut doc = yaml::from_slice(
     ///     r"
-    ///     first: 32c::
+    ///     first: 32
     ///     second: [1, 2, 3]
     ///     "
     /// )?;
