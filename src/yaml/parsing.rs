@@ -647,7 +647,7 @@ impl<'a> Parser<'a> {
         let mut item_prefix = self.ws();
 
         while !matches!(self.peek1(), b'}' | EOF) {
-            let Some(key) = self.until_colon(self.n) else {
+            let Some(key) = self.until_colon(self.n)? else {
                 return Err(Error::new(start..self.n, ErrorKind::BadMappingSeparator));
             };
 
@@ -796,7 +796,7 @@ impl<'a> Parser<'a> {
             }
 
             start = self.n;
-            current_key = self.next_mapping_key();
+            current_key = self.next_mapping_key()?;
         }
 
         self.data.replace(
@@ -823,55 +823,89 @@ impl<'a> Parser<'a> {
         raw::count_indent(string)
     }
 
-    /// Process a key up until `:` or end of the current line.
+    /// Process a plain block key up until a `:` followed by whitespace or end
+    /// of input.
+    ///
+    /// Returns `None` with the cursor at the end of the line if the line has no
+    /// such `:`.
     fn key_or_eol(&mut self, start: usize) -> Option<raw::String> {
         loop {
             self.find2(b':', raw::NEWLINE);
 
             match self.peek() {
-                [raw::NEWLINE | EOF, _] => {
-                    return None;
-                }
-                // Only treat something as a key if it's a colon immediately
-                // followed by spacing.
-                [b':', ws!(EOF)] => {
-                    let key = self.data.insert_str(self.string(start));
-                    return Some(raw::String::new(raw::RawStringKind::Bare, key, key));
-                }
-                _ => {
-                    self.bump(1);
-                }
+                [raw::NEWLINE | EOF, _] => return None,
+                [b':', ws!(EOF)] => break,
+                _ => self.bump(1),
             }
         }
+
+        Some(self.plain_key(start))
+    }
+
+    /// Build a plain key from `start` to the cursor, excluding trailing
+    /// whitespace from its value but keeping it in its original form.
+    fn plain_key(&mut self, start: usize) -> raw::String {
+        let original = self.string(start);
+        let trimmed = trim_end(original);
+        let key = self.data.insert_str(trimmed);
+
+        if trimmed.len() == original.len() {
+            return raw::String::new(raw::RawStringKind::Bare, key, key);
+        }
+
+        let original = self.data.insert_str(original);
+        raw::String::new(raw::RawStringKind::Original, key, original)
+    }
+
+    /// Treat a just-read quoted string which started at `start` as a key if
+    /// it is followed by `:`, optionally after spaces.
+    ///
+    /// Otherwise the cursor is left after the closing quote.
+    fn quoted_key(&mut self, start: usize, string: &raw::String) -> Option<raw::String> {
+        let end = self.n;
+
+        while matches!(self.peek1(), other_ws!()) {
+            self.bump(1);
+        }
+
+        if self.peek1() != b':' {
+            self.n = end;
+            return None;
+        }
+
+        if self.n == end {
+            return Some(string.clone());
+        }
+
+        let original = self.data.insert_str(self.string(start));
+        Some(raw::String::new(
+            raw::RawStringKind::Original,
+            string.id,
+            original,
+        ))
     }
 
     /// Process a flow mapping key up until its `:` separator.
     ///
     /// Returns `None` if the key ends at `,`, `}` or end of input instead.
-    fn until_colon(&mut self, start: usize) -> Option<raw::String> {
-        let quote = match self.input.get(start) {
-            Some(&q @ (b'"' | b'\'')) => Some(q),
-            _ => None,
+    fn until_colon(&mut self, start: usize) -> Result<Option<raw::String>> {
+        let string = match self.peek1() {
+            b'"' => self.double_quoted()?,
+            b'\'' => self.single_quoted()?,
+            _ => {
+                loop {
+                    match self.peek() {
+                        [b',' | b'}' | EOF, _] => return Ok(None),
+                        [b':', ws_or_flow!()] => break,
+                        _ => self.bump(1),
+                    }
+                }
+
+                return Ok(Some(self.plain_key(start)));
+            }
         };
 
-        loop {
-            match self.peek() {
-                [b',' | b'}' | EOF, _] => return None,
-                [b':', ws_or_flow!()] => break,
-                // JSON-like keys such as `{"a":1}`.
-                [b':', _]
-                    if self.n > start.wrapping_add(1)
-                        && quote.is_some()
-                        && self.input.get(self.n.wrapping_sub(1)).copied() == quote =>
-                {
-                    break;
-                }
-                _ => self.bump(1),
-            }
-        }
-
-        let key = self.data.insert_str(self.string(start));
-        Some(raw::String::new(raw::RawStringKind::Bare, key, key))
+        Ok(self.quoted_key(start, &string))
     }
 
     /// Test if a flow scalar ends at the current position, optionally after
@@ -1079,8 +1113,10 @@ impl<'a> Parser<'a> {
                 let start = self.n;
                 let string = self.double_quoted()?;
 
-                if !s.inline && self.peek1() == b':' {
-                    return self.mapping_or_nul(s, start, string);
+                if !s.inline {
+                    if let Some(key) = self.quoted_key(start, &string) {
+                        return self.mapping_or_nul(s, start, key);
+                    }
                 }
 
                 (Raw::String(string), None)
@@ -1089,8 +1125,10 @@ impl<'a> Parser<'a> {
                 let start = self.n;
                 let string = self.single_quoted()?;
 
-                if !s.inline && self.peek1() == b':' {
-                    return self.mapping_or_nul(s, start, string);
+                if !s.inline {
+                    if let Some(key) = self.quoted_key(start, &string) {
+                        return self.mapping_or_nul(s, start, key);
+                    }
                 }
 
                 (Raw::String(string), None)
@@ -1196,29 +1234,28 @@ impl<'a> Parser<'a> {
         Ok((value, ws))
     }
 
-    /// Parse next mapping key.
-    fn next_mapping_key(&mut self) -> Option<raw::String> {
+    /// Parse the next key of a block mapping, or `None` at end of input or a
+    /// line starting with `:`.
+    fn next_mapping_key(&mut self) -> Result<Option<raw::String>> {
         let start = self.n;
 
-        let string = loop {
-            match self.peek1() {
-                b':' | EOF => {
-                    let string = self.string(start);
-
-                    if string.is_empty() {
-                        return None;
-                    }
-
-                    break string;
-                }
-                _ => {
-                    self.bump(1);
-                }
+        let key = match self.peek1() {
+            b':' | EOF => return Ok(None),
+            b'"' => {
+                let string = self.double_quoted()?;
+                self.quoted_key(start, &string)
             }
+            b'\'' => {
+                let string = self.single_quoted()?;
+                self.quoted_key(start, &string)
+            }
+            _ => self.key_or_eol(start),
         };
 
-        let string = self.data.insert_str(string);
-        Some(raw::String::new(raw::RawStringKind::Bare, string, string))
+        match key {
+            Some(key) => Ok(Some(key)),
+            None => Err(Error::new(start..self.n, ErrorKind::BadMappingSeparator)),
+        }
     }
 }
 
@@ -1231,6 +1268,17 @@ const fn trim(bytes: &[u8]) -> &[u8] {
     }
 
     while let [rest @ .., ws!()] = out {
+        out = rest;
+    }
+
+    out
+}
+
+/// Trim trailing spaces and tabs.
+const fn trim_end(bytes: &[u8]) -> &[u8] {
+    let mut out = bytes;
+
+    while let [rest @ .., other_ws!()] = out {
         out = rest;
     }
 

@@ -16,8 +16,10 @@
 //! * Text after a block scalar header (`|` or `>`) on the same line is taken
 //!   as its first line.
 //! * Neither input nor output is not required to be UTF-8.
-//! * Keys in [Mappings][Mapping] can be anything, the only requirement is that
-//!   they are succeeded by a colon (`:`).
+//! * Plain keys in [Mappings][Mapping] can be anything on a single line, the
+//!   only requirement is that they are succeeded by a colon (`:`) followed by
+//!   whitespace. Quoted keys may be followed directly by a colon in block
+//!   mappings too, so `"a":1` is accepted.
 //! * [Sequences][Sequence] can also be anything, everything after the `-` is
 //!   used as a value.
 //! * Every key in a flow mapping must be followed by a colon, so `{a, b: 1}` is

@@ -152,3 +152,55 @@ fn mapping_nth_back() -> Result<()> {
     );
     Ok(())
 }
+
+#[test]
+fn key_lexing() -> Result<()> {
+    let cases: &[(&str, &[(&str, u32)])] = &[
+        ("a: 1\n\"b\": 2\n'c': 3", &[("a", 1), ("b", 2), ("c", 3)]),
+        ("\"a\" : 1\n'b'  : 2", &[("a", 1), ("b", 2)]),
+        ("a : 1\nb\t: 2", &[("a", 1), ("b", 2)]),
+        ("a: 1\nurl:x: 2", &[("a", 1), ("url:x", 2)]),
+        ("a: 1\n\"b\\tc\": 2", &[("a", 1), ("b\tc", 2)]),
+        (
+            "{\"a\": 1, 'b': 2, \"c\" : 3, d : 4}",
+            &[("a", 1), ("b", 2), ("c", 3), ("d", 4)],
+        ),
+    ];
+
+    for (input, expected) in cases {
+        let doc = yaml::from_slice(input)?;
+        let root = doc.as_ref().as_mapping().context("missing root mapping")?;
+        assert_eq!(root.len(), expected.len(), "{input:?}");
+
+        for (key, value) in *expected {
+            assert_eq!(
+                root.get(key).and_then(|v| v.as_u32()),
+                Some(*value),
+                "{input:?}: {key:?}"
+            );
+        }
+
+        assert_eq!(doc.to_string(), *input);
+    }
+
+    Ok(())
+}
+
+#[test]
+fn key_lexing_edit_keeps_key_bytes() -> Result<()> {
+    let mut doc = yaml::from_slice("a : 1\n'b'  : 2\n")?;
+    let root = doc.as_ref().as_mapping().context("missing root mapping")?;
+    let b = root.get("b").context("missing b")?.id();
+    doc.value_mut(b).set_u32(3);
+    assert_eq!(doc.to_string(), "a : 1\n'b'  : 3\n");
+    Ok(())
+}
+
+#[test]
+fn key_does_not_span_lines() {
+    let err = yaml::from_slice("a: 1\nb\nc: 2").unwrap_err();
+    assert_eq!(*err.kind(), yaml::ErrorKind::BadMappingSeparator);
+
+    let err = yaml::from_slice("a: 1\n\"b\"\nc: 2").unwrap_err();
+    assert_eq!(*err.kind(), yaml::ErrorKind::BadMappingSeparator);
+}
