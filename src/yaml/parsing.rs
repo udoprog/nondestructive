@@ -313,13 +313,22 @@ impl<'a> Parser<'a> {
             .insert(Raw::Null(raw::Null::Empty), prefix, parent)
     }
 
-    /// Read a double-quoted string.
-    fn single_quoted(&mut self) -> raw::String {
+    /// Error for a quoted string opened at `original` which reaches end of input.
+    fn unterminated_string(&self, original: usize) -> Error {
+        Error::new(original..self.input.len(), ErrorKind::UnterminatedString)
+    }
+
+    /// Read a single-quoted string.
+    fn single_quoted(&mut self) -> Result<raw::String> {
         let original = self.n;
         self.bump(1);
         let start = self.n;
 
         loop {
+            if self.is_eof() {
+                return Err(self.unterminated_string(original));
+            }
+
             match self.peek() {
                 [b'\'', b'\''] => {
                     return self.single_quoted_escaped(start, original);
@@ -334,17 +343,25 @@ impl<'a> Parser<'a> {
         }
 
         let string = self.data.insert_str(self.string(start));
-        self.bump(usize::from(!self.is_eof()));
+        self.bump(1);
         let original = self.data.insert_str(self.string(original));
 
-        raw::String::new(raw::RawStringKind::Original, string, original)
+        Ok(raw::String::new(
+            raw::RawStringKind::Original,
+            string,
+            original,
+        ))
     }
 
     /// Read a single-quoted escaped string.
-    fn single_quoted_escaped(&mut self, start: usize, original: usize) -> raw::String {
+    fn single_quoted_escaped(&mut self, start: usize, original: usize) -> Result<raw::String> {
         self.scratch.extend(self.string(start));
 
         loop {
+            if self.is_eof() {
+                return Err(self.unterminated_string(original));
+            }
+
             match self.peek() {
                 [b'\'', b'\''] => {
                     self.bump(2);
@@ -366,7 +383,11 @@ impl<'a> Parser<'a> {
 
         let original = self.data.insert_str(self.string(original));
 
-        raw::String::new(raw::RawStringKind::Original, string, original)
+        Ok(raw::String::new(
+            raw::RawStringKind::Original,
+            string,
+            original,
+        ))
     }
 
     /// Read a double-quoted string.
@@ -376,8 +397,12 @@ impl<'a> Parser<'a> {
         let start = self.n;
 
         loop {
+            if self.is_eof() {
+                return Err(self.unterminated_string(original));
+            }
+
             match self.peek1() {
-                b'"' | EOF => break,
+                b'"' => break,
                 b'\\' => {
                     return self.double_quoted_escaped(start, original);
                 }
@@ -388,7 +413,7 @@ impl<'a> Parser<'a> {
         }
 
         let string = self.data.insert_str(self.string(start));
-        self.bump(usize::from(!self.is_eof()));
+        self.bump(1);
         let original = self.data.insert_str(self.string(original));
 
         Ok(raw::String::new(
@@ -403,8 +428,12 @@ impl<'a> Parser<'a> {
         self.scratch.extend(self.string(start));
 
         loop {
+            if self.is_eof() {
+                return Err(self.unterminated_string(original));
+            }
+
             match self.peek1() {
-                b'"' | EOF => break,
+                b'"' => break,
                 b'\\' => {
                     let start = self.n;
                     self.bump(1);
@@ -911,7 +940,7 @@ impl<'a> Parser<'a> {
             }
             [b'\'', _] => {
                 let start = self.n;
-                let string = self.single_quoted();
+                let string = self.single_quoted()?;
 
                 if !s.inline && self.peek1() == b':' {
                     return self.mapping_or_nul(s, start, string);

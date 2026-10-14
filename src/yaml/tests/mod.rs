@@ -6,6 +6,7 @@ mod mapping;
 mod multiline;
 mod sequence;
 mod serde;
+mod unterminated;
 
 use alloc::string::ToString;
 

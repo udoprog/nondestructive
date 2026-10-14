@@ -47,6 +47,7 @@ impl core::error::Error for Error {}
 
 /// The kind of an [`Error`].
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum ErrorKind {
     /// Expect end of file.
     ///
@@ -164,6 +165,21 @@ pub enum ErrorKind {
     /// assert_eq!(&INPUT[error.span()], "\\ud800");
     /// ```
     BadUnicodeEscape,
+    /// A quoted string which is not closed before the end of input. The span
+    /// covers the string from its opening quote.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nondestructive::yaml;
+    ///
+    /// const INPUT: &str = "greeting: 'hello world";
+    ///
+    /// let error = yaml::from_slice(INPUT).unwrap_err();
+    /// assert_eq!(*error.kind(), yaml::ErrorKind::UnterminatedString);
+    /// assert_eq!(&INPUT[error.span()], "'hello world");
+    /// ```
+    UnterminatedString,
 }
 
 impl fmt::Display for ErrorKind {
@@ -176,6 +192,7 @@ impl fmt::Display for ErrorKind {
             ErrorKind::BadEscape => write!(f, "bad escape"),
             ErrorKind::BadHexEscape => write!(f, "bad hex escape"),
             ErrorKind::BadUnicodeEscape => write!(f, "bad unicode escape"),
+            ErrorKind::UnterminatedString => write!(f, "unterminated string"),
         }
     }
 }
