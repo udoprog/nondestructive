@@ -3,8 +3,8 @@ use serde::de::{self, Error as _, IntoDeserializer, MapAccess, SeqAccess, Visito
 use serde::Deserializer;
 
 use crate::yaml::raw;
+use crate::yaml::serde::number::Number;
 use crate::yaml::serde::Error;
-use crate::yaml::serde_hint::RawNumberHint;
 use crate::yaml::{mapping, sequence, Document, Mapping, Sequence, Value};
 
 impl<'de, 'a: 'de> IntoDeserializer<'de, Error> for &'a Document {
@@ -39,19 +39,28 @@ impl<'de> Deserializer<'de> for Value<'de> {
         match self.data.raw(self.id) {
             raw::Raw::Null(..) => visitor.visit_none(),
             raw::Raw::Boolean(bool) => visitor.visit_bool(bool.value),
-            raw::Raw::Number(raw) => match raw.hint {
-                RawNumberHint::Float32 => self.deserialize_f32(visitor),
-                RawNumberHint::Float64 => self.deserialize_f64(visitor),
-                RawNumberHint::Unsigned8 => self.deserialize_u8(visitor),
-                RawNumberHint::Unsigned16 => self.deserialize_u16(visitor),
-                RawNumberHint::Unsigned32 => self.deserialize_u32(visitor),
-                RawNumberHint::Unsigned64 => self.deserialize_u64(visitor),
-                RawNumberHint::Unsigned128 => self.deserialize_u128(visitor),
-                RawNumberHint::Signed8 => self.deserialize_i8(visitor),
-                RawNumberHint::Signed16 => self.deserialize_i16(visitor),
-                RawNumberHint::Signed32 => self.deserialize_i32(visitor),
-                RawNumberHint::Signed64 => self.deserialize_i64(visitor),
-                RawNumberHint::Signed128 => self.deserialize_i128(visitor),
+            raw::Raw::Number(raw) => match Number::parse(&self, raw.hint) {
+                Some(Number::F32(value)) => visitor.visit_f32(value),
+                Some(Number::F64(value)) => visitor.visit_f64(value),
+                Some(Number::U8(value)) => visitor.visit_u8(value),
+                Some(Number::U16(value)) => visitor.visit_u16(value),
+                Some(Number::U32(value)) => visitor.visit_u32(value),
+                Some(Number::U64(value)) => visitor.visit_u64(value),
+                Some(Number::U128(value)) => visitor.visit_u128(value),
+                Some(Number::I8(value)) => visitor.visit_i8(value),
+                Some(Number::I16(value)) => visitor.visit_i16(value),
+                Some(Number::I32(value)) => visitor.visit_i32(value),
+                Some(Number::I64(value)) => visitor.visit_i64(value),
+                Some(Number::I128(value)) => visitor.visit_i128(value),
+                None => {
+                    let string = self.data.str(raw.string);
+
+                    if let Ok(string) = string.to_str() {
+                        visitor.visit_borrowed_str(string)
+                    } else {
+                        visitor.visit_borrowed_bytes(string)
+                    }
+                }
             },
             raw::Raw::String(raw) => {
                 let string = self.data.str(raw.id);

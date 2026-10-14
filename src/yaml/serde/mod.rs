@@ -87,6 +87,7 @@
 
 mod de;
 mod error;
+mod number;
 mod ser;
 
 pub use self::error::Error;

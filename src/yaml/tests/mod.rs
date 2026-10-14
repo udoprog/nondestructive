@@ -5,6 +5,7 @@ mod escape;
 mod mapping;
 mod multiline;
 mod sequence;
+mod serde;
 
 use alloc::string::ToString;
 
