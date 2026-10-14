@@ -2,7 +2,6 @@ use core::fmt::{self, Write};
 
 use alloc::vec::Vec;
 
-#[cfg(feature = "std")]
 use std::io;
 
 use bstr::ByteSlice;
@@ -424,7 +423,6 @@ pub(crate) enum Raw {
     SequenceItem(SequenceItem),
 }
 
-#[cfg(feature = "std")]
 fn write_prefix<O>(data: &Data, o: &mut O, prefix: Option<Id>) -> io::Result<()>
 where
     O: ?Sized + io::Write,
@@ -493,7 +491,6 @@ impl Raw {
         Ok(())
     }
 
-    #[cfg(feature = "std")]
     pub(crate) fn write_to<O>(&self, data: &Data, o: &mut O, prefix: Option<Id>) -> io::Result<()>
     where
         O: ?Sized + io::Write,
@@ -605,7 +602,6 @@ impl Null {
         Ok(())
     }
 
-    #[cfg(feature = "std")]
     pub(crate) fn write_to<O>(&self, data: &Data, o: &mut O, prefix: Option<Id>) -> io::Result<()>
     where
         O: ?Sized + io::Write,
@@ -646,7 +642,6 @@ impl Boolean {
         write!(f, "{}", data.str(self.string))
     }
 
-    #[cfg(feature = "std")]
     #[inline]
     pub(crate) fn write_to<O>(&self, data: &Data, o: &mut O) -> io::Result<()>
     where
@@ -676,7 +671,6 @@ impl Number {
         write!(f, "{}", data.str(self.string))
     }
 
-    #[cfg(feature = "std")]
     #[inline]
     pub(crate) fn write_to<O>(&self, data: &Data, o: &mut O) -> io::Result<()>
     where
@@ -918,7 +912,6 @@ impl String {
         Ok(())
     }
 
-    #[cfg(feature = "std")]
     fn write_to<O>(&self, data: &Data, o: &mut O) -> io::Result<()>
     where
         O: ?Sized + io::Write,
@@ -1104,7 +1097,6 @@ impl Sequence {
         Ok(())
     }
 
-    #[cfg(feature = "std")]
     fn write_to<O>(&self, data: &Data, o: &mut O, prefix: Option<Id>) -> io::Result<()>
     where
         O: ?Sized + io::Write,
@@ -1164,7 +1156,6 @@ impl SequenceItem {
         Ok(())
     }
 
-    #[cfg(feature = "std")]
     fn write_to<O>(&self, data: &Data, o: &mut O) -> io::Result<()>
     where
         O: ?Sized + io::Write,
@@ -1256,7 +1247,6 @@ impl Mapping {
         Ok(())
     }
 
-    #[cfg(feature = "std")]
     fn write_to<O>(&self, data: &Data, o: &mut O, prefix: Option<Id>) -> io::Result<()>
     where
         O: ?Sized + io::Write,
@@ -1314,7 +1304,6 @@ impl MappingItem {
         Ok(())
     }
 
-    #[cfg(feature = "std")]
     fn write_to<O>(&self, data: &Data, o: &mut O) -> io::Result<()>
     where
         O: ?Sized + io::Write,

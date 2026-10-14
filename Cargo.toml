@@ -15,7 +15,7 @@ categories = ["encoding", "parser-implementations"]
 
 [features]
 default = ["std", "yaml"]
-yaml = []
+yaml = ["std"]
 serde = ["dep:serde", "bstr/serde"]
 serde-edits = ["std", "dep:serde", "bstr/serde", "serde?/derive", "slab/serde"]
 std = ["alloc", "bstr/std"]

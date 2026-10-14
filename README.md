@@ -16,6 +16,23 @@ See the corresponding module for detailed documentation on how to use:
 
 <br>
 
+## Features
+
+The crate is `no_std`; these features select what it builds:
+
+* `default`: enables `std` and `yaml`.
+* `std`: links the standard library. Implies `alloc`.
+* `alloc`: links the `alloc` crate.
+* `yaml`: the [YAML module][yaml]. Implies `std`.
+* `serde`: [`serde`] support in the YAML module: values can be serialized,
+  and documents and values deserialized. Only takes effect together with
+  `yaml`.
+* `serde-edits`: derives [`serde`] implementations for a document's internal
+  data, so a parsed document and its edits can be serialized and restored as
+  a whole. Implies `std`; only takes effect together with `yaml`.
+
+<br>
+
 ## Working with documents
 
 A document is deserialized into a large object from which all access and
@@ -180,4 +197,5 @@ assert_eq!(
 [`ValueMut::into_mapping_mut`]: https://docs.rs/nondestructive/latest/nondestructive/yaml/struct.ValueMut.html#method.into_mapping_mut
 [`ValueMut`]: https://docs.rs/nondestructive/latest/nondestructive/yaml/struct.ValueMut.html
 [Id]: https://docs.rs/nondestructive/latest/nondestructive/yaml/struct.Id.html
+[`serde`]: https://docs.rs/serde
 [yaml]: https://docs.rs/nondestructive/latest/nondestructive/yaml/index.html

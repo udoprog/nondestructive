@@ -25,11 +25,11 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        feature: [ "std", "yaml", "serde", "serde-edits", "alloc", "default" ]
+        feature: [ "std", "yaml", "serde", "serde-edits", "alloc", "default", "yaml,serde", "yaml,serde-edits" ]
     steps:
     - uses: actions/checkout@v4
     - uses: dtolnay/rust-toolchain@stable
-    - run: cargo check --workspace --lib --features ${{ matrix.feature }}
+    - run: cargo check --workspace --lib --no-default-features --features ${{ matrix.feature }}
 
   test:
     runs-on: ubuntu-latest
