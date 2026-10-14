@@ -12,13 +12,6 @@ type Result<T, E = Error> = core::result::Result<T, E>;
 
 const EOF: u8 = b'\0';
 
-/// Inline control characters which splits up data.
-macro_rules! ctl {
-    () => {
-        b',' | b':' | b']' | b'}' | EOF
-    };
-}
-
 /// Ascii whitespace matching.
 macro_rules! other_ws {
     ($($pat:pat_param)|*) => {
@@ -29,6 +22,13 @@ macro_rules! other_ws {
 macro_rules! ws {
     ($($pat:pat_param)|*) => {
         other_ws!(raw::NEWLINE $(| $pat)*)
+    };
+}
+
+/// Whitespace, a flow indicator or end of input.
+macro_rules! ws_or_flow {
+    () => {
+        ws!(b',' | b'[' | b']' | b'{' | b'}' | EOF)
     };
 }
 
@@ -309,6 +309,10 @@ impl<'a> Parser<'a> {
             return None;
         }
 
+        if s.inline && !self.is_flow_scalar_end() {
+            return None;
+        }
+
         let string = self.data.insert_str(self.string(start));
         Some(Raw::Number(raw::Number::new(string, hint)))
     }
@@ -576,13 +580,10 @@ impl<'a> Parser<'a> {
         self.bump(1);
 
         let mut items = Vec::new();
-        let mut last = false;
         let mut trailing = false;
         let mut item_prefix = self.ws();
 
         while !matches!(self.peek1(), b']' | EOF) {
-            trailing = false;
-
             let item_id = self.placeholder(item_prefix, Some(id));
             let value_prefix = self.ws();
             let (value, next_prefix) =
@@ -592,19 +593,15 @@ impl<'a> Parser<'a> {
 
             items.push(item_id);
 
-            if last {
-                item_prefix = next_prefix.unwrap_or_else(|| self.ws());
+            item_prefix = next_prefix.unwrap_or_else(|| self.ws());
+            trailing = matches!(self.peek1(), b',');
+
+            if !trailing {
                 break;
             }
 
-            if matches!(self.peek1(), b',') {
-                self.bump(1);
-                trailing = true;
-            } else {
-                last = true;
-            }
-
-            item_prefix = next_prefix.unwrap_or_else(|| self.ws());
+            self.bump(1);
+            item_prefix = self.ws();
         }
 
         if !matches!(self.peek1(), b']') {
@@ -637,14 +634,11 @@ impl<'a> Parser<'a> {
         self.bump(1);
 
         let mut items = Vec::new();
-        let mut last = false;
         let mut trailing = false;
         let mut start = self.n;
         let mut item_prefix = self.ws();
 
         while !matches!(self.peek1(), b'}' | EOF) {
-            trailing = false;
-
             let Some(key) = self.until_colon(self.n) else {
                 return Err(Error::new(start..self.n, ErrorKind::BadMappingSeparator));
             };
@@ -659,18 +653,13 @@ impl<'a> Parser<'a> {
             items.push(item_id);
 
             item_prefix = next_prefix.unwrap_or_else(|| self.ws());
+            trailing = matches!(self.peek1(), b',');
 
-            if last {
+            if !trailing {
                 break;
             }
 
-            if matches!(self.peek1(), b',') {
-                self.bump(1);
-                trailing = true;
-            } else {
-                last = true;
-            }
-
+            self.bump(1);
             start = self.n;
             item_prefix = self.ws();
         }
@@ -848,18 +837,52 @@ impl<'a> Parser<'a> {
         }
     }
 
-    /// Process a key up until `:`.
+    /// Process a flow mapping key up until its `:` separator.
+    ///
+    /// Returns `None` if the key ends at `,`, `}` or end of input instead.
     fn until_colon(&mut self, start: usize) -> Option<raw::String> {
-        while !matches!(self.peek1(), b':' | EOF) {
-            self.bump(1);
-        }
+        let quote = match self.input.get(start) {
+            Some(&q @ (b'"' | b'\'')) => Some(q),
+            _ => None,
+        };
 
-        if self.is_eof() {
-            return None;
+        loop {
+            match self.peek() {
+                [b',' | b'}' | EOF, _] => return None,
+                [b':', ws_or_flow!()] => break,
+                // JSON-like keys such as `{"a":1}`.
+                [b':', _]
+                    if self.n > start.wrapping_add(1)
+                        && quote.is_some()
+                        && self.input.get(self.n.wrapping_sub(1)).copied() == quote =>
+                {
+                    break;
+                }
+                _ => self.bump(1),
+            }
         }
 
         let key = self.data.insert_str(self.string(start));
         Some(raw::String::new(raw::RawStringKind::Bare, key, key))
+    }
+
+    /// Test if a flow scalar ends at the current position, optionally after
+    /// whitespace or a comment.
+    fn is_flow_scalar_end(&self) -> bool {
+        let mut n = self.n;
+
+        while let Some(ws!()) = self.input.get(n).copied() {
+            n = n.wrapping_add(1);
+        }
+
+        let at = |n: usize| self.input.get(n).copied().unwrap_or(EOF);
+
+        match at(n) {
+            b',' | b']' | b'}' | EOF => true,
+            b':' => matches!(at(n.wrapping_add(1)), ws_or_flow!()),
+            b'#' => n > self.n,
+            _ => false,
+        }
     }
 
     /// Process a block as a string.
@@ -987,10 +1010,14 @@ impl<'a> Parser<'a> {
                     }
 
                     if s.inline {
-                        // Seek until we find a control character, since we're
-                        // simply treating the current segment as a string.
-                        while !matches!(self.peek1(), ctl!()) {
-                            self.bump(1);
+                        // A `:` only ends a flow plain scalar when followed by
+                        // whitespace or a flow indicator, so `http://x` stays
+                        // whole.
+                        loop {
+                            match self.peek() {
+                                [b',' | b']' | b'}' | EOF, _] | [b':', ws_or_flow!()] => break,
+                                _ => self.bump(1),
+                            }
                         }
                     } else {
                         if let Some(key) = self.key_or_eol(start) {

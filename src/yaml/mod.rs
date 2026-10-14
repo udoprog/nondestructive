@@ -18,6 +18,9 @@
 //!   they are succeeded by a colon (`:`).
 //! * [Sequences][Sequence] can also be anything, everything after the `-` is
 //!   used as a value.
+//! * Every key in a flow mapping must be followed by a colon, so `{a, b: 1}` is
+//!   rejected, and flow sequences cannot contain single-pair mappings like
+//!   `[a: 1]`.
 //!
 //! This means that we will validly parse both spec and non-spec compliant YAML.
 //! They key here is that editing performed by this crate is non-destructive. So
