@@ -24,8 +24,7 @@
 //!   `a: &x 1` has the string value `"&x 1"` and `b: *x` the string `"*x"`.
 //! * Only one document is supported. A leading `---` and directives such as
 //!   `%YAML 1.2` are accepted, but a document end marker (`...`) is an error,
-//!   and so is a `---` after the root value, except after a block sequence,
-//!   where `---` is read as an item with the value `--`.
+//!   and so is a `---` after the root value.
 //! * Explicit `?` keys are not supported. They are an error in block
 //!   mappings, while in a flow mapping `{? a: 1}` has the key `"? a"`.
 //! * A plain scalar at the root must fit on a single line, so `one\ntwo` is

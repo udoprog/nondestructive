@@ -229,3 +229,42 @@ fn insert_out_of_bounds() {
     let mut root = doc.as_mut().into_sequence_mut().unwrap();
     root.insert_bool(2, true);
 }
+
+#[test]
+fn document_start_after_sequence_is_an_error() {
+    for input in ["- 1\n---\n- 2", "- 1\n---", "- 1\n--- \n", "- 1\n---\t- 2"] {
+        let err = yaml::from_slice(input).unwrap_err();
+        assert_eq!(*err.kind(), yaml::ErrorKind::ExpectedEof, "{input:?}");
+    }
+
+    // Same error as for a `---` after a mapping entry.
+    for input in [
+        "a:\n- 1\n---\n- 2",
+        "a:\n  - 1\n---\n  - 2",
+        "a: 1\n---\nb: 2",
+    ] {
+        let err = yaml::from_slice(input).unwrap_err();
+        assert_eq!(
+            *err.kind(),
+            yaml::ErrorKind::BadMappingSeparator,
+            "{input:?}"
+        );
+    }
+}
+
+#[test]
+fn dashes_in_items() -> Result<()> {
+    let input = "- ---x\n- --\n- ---\n";
+    let doc = yaml::from_slice(input)?;
+    assert_eq!(doc.to_string(), input);
+
+    let root = doc
+        .as_ref()
+        .as_sequence()
+        .context("missing root sequence")?;
+    assert_eq!(root.get(0).and_then(|v| v.as_str()), Some("---x"));
+    assert_eq!(root.get(1).and_then(|v| v.as_str()), Some("--"));
+    assert_eq!(root.get(2).and_then(|v| v.as_str()), Some("---"));
+
+    Ok(())
+}
