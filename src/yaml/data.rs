@@ -15,11 +15,113 @@ use twox_hash::xxh3::{Hash128, HasherExt};
 use crate::yaml::raw;
 
 /// The unique hash of a string.
+///
+/// Serializes as a lowercase hex string in human-readable formats, so that it
+/// can be used as a map key in formats like JSON, and as bytes otherwise.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[cfg_attr(feature = "serde-edits", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde-edits", serde(transparent))]
 #[repr(transparent)]
 pub(crate) struct StringId([u8; 16]);
+
+#[cfg(feature = "serde-edits")]
+impl Serialize for StringId {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        if serializer.is_human_readable() {
+            serializer.collect_str(&Hex(&self.0))
+        } else {
+            serializer.serialize_bytes(&self.0)
+        }
+    }
+}
+
+#[cfg(feature = "serde-edits")]
+impl<'de> Deserialize<'de> for StringId {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        use serde::de::{Error, SeqAccess, Unexpected, Visitor};
+
+        struct StringIdVisitor;
+
+        impl<'de> Visitor<'de> for StringIdVisitor {
+            type Value = StringId;
+
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("a string id as 32 hex digits or 16 bytes")
+            }
+
+            fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+            where
+                E: Error,
+            {
+                fn digit(b: u8) -> Option<u8> {
+                    match b {
+                        b'0'..=b'9' => Some(b - b'0'),
+                        b'a'..=b'f' => Some(b - b'a' + 10),
+                        b'A'..=b'F' => Some(b - b'A' + 10),
+                        _ => None,
+                    }
+                }
+
+                let invalid = || E::invalid_value(Unexpected::Str(v), &self);
+
+                if v.len() != 32 {
+                    return Err(invalid());
+                }
+
+                let mut out = [0u8; 16];
+
+                for (o, pair) in out.iter_mut().zip(v.as_bytes().chunks_exact(2)) {
+                    let (Some(hi), Some(lo)) = (digit(pair[0]), digit(pair[1])) else {
+                        return Err(invalid());
+                    };
+
+                    *o = (hi << 4) | lo;
+                }
+
+                Ok(StringId(out))
+            }
+
+            fn visit_bytes<E>(self, v: &[u8]) -> Result<Self::Value, E>
+            where
+                E: Error,
+            {
+                match <[u8; 16]>::try_from(v) {
+                    Ok(bytes) => Ok(StringId(bytes)),
+                    Err(..) => Err(E::invalid_length(v.len(), &self)),
+                }
+            }
+
+            fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+            where
+                A: SeqAccess<'de>,
+            {
+                let mut out = [0u8; 16];
+
+                for (n, o) in out.iter_mut().enumerate() {
+                    *o = seq
+                        .next_element()?
+                        .ok_or_else(|| A::Error::invalid_length(n, &self))?;
+                }
+
+                if seq.next_element::<serde::de::IgnoredAny>()?.is_some() {
+                    return Err(A::Error::invalid_length(17, &self));
+                }
+
+                Ok(StringId(out))
+            }
+        }
+
+        if deserializer.is_human_readable() {
+            deserializer.deserialize_str(StringIdVisitor)
+        } else {
+            deserializer.deserialize_bytes(StringIdVisitor)
+        }
+    }
+}
 
 impl fmt::Display for StringId {
     #[inline]
