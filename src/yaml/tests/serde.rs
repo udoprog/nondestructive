@@ -188,6 +188,52 @@ fn bool_keys() -> Result<()> {
     let doc = yaml::from_slice("true: a\nFalse: b\n")?;
     let map = BTreeMap::<bool, &str>::deserialize(doc.into_deserializer())?;
     assert_eq!(map, BTreeMap::from([(true, "a"), (false, "b")]));
+
+    let doc = yaml::from_slice("TRUE: a\n")?;
+    let map = BTreeMap::<bool, &str>::deserialize(doc.into_deserializer())?;
+    assert_eq!(map, BTreeMap::from([(true, "a")]));
+
+    let doc = yaml::from_slice("tRuE: a\n")?;
+    assert!(BTreeMap::<bool, &str>::deserialize(doc.into_deserializer()).is_err());
+    Ok(())
+}
+
+#[test]
+fn core_schema_keys() -> Result<()> {
+    let doc = yaml::from_slice("0x1F: a\n0o17: b\n+3: c\n")?;
+    let map = BTreeMap::<u32, &str>::deserialize(doc.into_deserializer())?;
+    assert_eq!(map, BTreeMap::from([(31, "a"), (15, "b"), (3, "c")]));
+    Ok(())
+}
+
+#[test]
+fn core_schema_values() -> Result<()> {
+    #[derive(Debug, Deserialize, PartialEq)]
+    struct Values<'a> {
+        hex: u32,
+        oct: u8,
+        plus: i32,
+        inf: f64,
+        neg_inf: f32,
+        nan: f64,
+        zero: &'a str,
+        mixed: &'a str,
+        null: Option<u32>,
+    }
+
+    let doc = yaml::from_slice(
+        "hex: 0x1F\noct: 0o17\nplus: +1\ninf: .inf\nneg_inf: -.Inf\nnan: .NaN\nzero: 007\nmixed: tRuE\nnull: NULL\n",
+    )?;
+    let values = Values::deserialize(doc.into_deserializer())?;
+    assert_eq!(values.hex, 31);
+    assert_eq!(values.oct, 15);
+    assert_eq!(values.plus, 1);
+    assert_eq!(values.inf, f64::INFINITY);
+    assert_eq!(values.neg_inf, f32::NEG_INFINITY);
+    assert!(values.nan.is_nan());
+    assert_eq!(values.zero, "007");
+    assert_eq!(values.mixed, "tRuE");
+    assert_eq!(values.null, None);
     Ok(())
 }
 

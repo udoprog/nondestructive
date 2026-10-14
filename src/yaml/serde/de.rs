@@ -451,9 +451,9 @@ impl<'de> KeyDeserializer<'de> {
     #[inline]
     fn parse<T>(&self) -> Option<T>
     where
-        T: lexical_core::FromLexical,
+        T: crate::yaml::number::FromYaml,
     {
-        lexical_core::parse(self.string).ok()
+        crate::yaml::number::parse(self.string)
     }
 }
 
@@ -494,9 +494,9 @@ impl<'de> Deserializer<'de> for KeyDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        if self.string.eq_ignore_ascii_case(b"true") {
+        if matches!(self.string.as_bytes(), b"true" | b"True" | b"TRUE") {
             visitor.visit_bool(true)
-        } else if self.string.eq_ignore_ascii_case(b"false") {
+        } else if matches!(self.string.as_bytes(), b"false" | b"False" | b"FALSE") {
             visitor.visit_bool(false)
         } else {
             self.deserialize_any(visitor)

@@ -25,6 +25,10 @@
 //! * Every key in a flow mapping must be followed by a colon, so `{a, b: 1}` is
 //!   rejected, and flow sequences cannot contain single-pair mappings like
 //!   `[a: 1]`.
+//! * Plain scalars resolve as in the YAML 1.2 core schema (`null`, `Null`,
+//!   `NULL` and `~`; `true`/`True`/`TRUE` and the same for `false`; decimal,
+//!   `0x` and `0o` integers, floats, `.inf` and `.nan`), except that, like
+//!   libyaml, a decimal integer with a leading zero such as `007` is a string.
 //!
 //! This means that we will validly parse both spec and non-spec compliant YAML.
 //! They key here is that editing performed by this crate is non-destructive. So

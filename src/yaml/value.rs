@@ -158,10 +158,7 @@ macro_rules! as_number {
         #[must_use]
         pub fn $name(&self) -> Option<$ty> {
             match self.data.raw(self.id) {
-                Raw::Number(raw) => {
-                    let string = self.data.str(raw.string);
-                    lexical_core::parse(string).ok()
-                }
+                Raw::Number(raw) => crate::yaml::number::parse(self.data.str(raw.string)),
                 _ => None,
             }
         }

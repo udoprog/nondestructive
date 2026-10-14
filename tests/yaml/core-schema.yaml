@@ -1,0 +1,35 @@
+keywords: [true, True, TRUE, false, False, FALSE, null, Null, NULL, ~]
+mixed-case:
+  - tRuE
+  - fALSE
+  - nUlL
+  - TrUe
+inf: .inf
+inf-mixed: .Inf
+inf-upper: .INF
+inf-plus: +.inf
+inf-minus: -.inf
+inf-minus-upper: -.INF
+inf-bad: .iNf
+nan: .nan
+nan-mixed: .NaN
+nan-upper: .NAN
+nan-signed: -.nan
+hex: 0x1F
+hex-lower: 0xff
+hex-empty: 0x
+hex-bad: 0x1G
+oct: 0o17
+oct-bad: 0o18
+plus: +1
+plus-float: +1.5
+plus-exp: +1e3
+plus-dot: +.5
+plus-twice: +-1
+leading-zero: 007
+leading-zero-neg: -007
+leading-zero-float: 007.5
+zero: 0
+zeros: 00
+underscore: 1_000
+flow: [.inf, -.inf, .nan, 0x1F, 0o17, +1, 007, tRuE, nUlL, NULL, True]

@@ -137,7 +137,12 @@ fn compare(trace: &mut Trace, a: &yaml::Value<'_>, b: &serde_yaml::Value) -> Res
                     bail!("{trace}: nondestructive is not a f64, but is a {a:?}");
                 };
 
-                ensure!((a - b).abs() < ERROR_MARGIN, "{trace}: {a} != {b}");
+                ensure!(
+                    (a.is_nan() && b.is_nan())
+                        || a.total_cmp(&b).is_eq()
+                        || (a - b).abs() < ERROR_MARGIN,
+                    "{trace}: {a} != {b}"
+                );
                 break 'ok;
             }
 

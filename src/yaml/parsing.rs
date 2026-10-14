@@ -4,8 +4,8 @@ use alloc::vec::Vec;
 
 use crate::yaml::data::{Data, Id, StringId};
 use crate::yaml::error::{Error, ErrorKind};
+use crate::yaml::number;
 use crate::yaml::raw::{self, Raw};
-use crate::yaml::serde_hint;
 use crate::yaml::Document;
 
 type Result<T, E = Error> = core::result::Result<T, E>;
@@ -293,52 +293,13 @@ impl<'a> Parser<'a> {
         true
     }
 
-    /// Consume a single number.
+    /// Consume a plain scalar that resolves to a number.
     fn number(&mut self, s: &State, start: usize) -> Option<Raw> {
-        let mut hint = serde_hint::U64;
-
-        if matches!(self.peek1(), b'-') {
-            hint = serde_hint::I64;
+        while matches!(self.peek1(), b'0'..=b'9' | b'a'..=b'z' | b'A'..=b'Z' | b'.' | b'+' | b'-') {
             self.bump(1);
         }
 
-        let mut wants_dot = true;
-        let mut wants_e = true;
-        let mut has_number = false;
-        let mut has_exponent = true;
-
-        loop {
-            match self.peek1() {
-                b'.' if wants_dot => {
-                    hint = serde_hint::F64;
-                    wants_dot = false;
-                }
-                b'e' | b'E' if has_number && wants_e => {
-                    hint = serde_hint::F64;
-                    wants_dot = false;
-                    wants_e = false;
-                    has_exponent = false;
-
-                    if matches!(self.peek::<2>(), [_, b'-' | b'+']) {
-                        self.bump(1);
-                    }
-                }
-                b'0'..=b'9' => {
-                    has_number = true;
-                    has_exponent = true;
-                }
-                _ => {
-                    break;
-                }
-            }
-
-            self.bump(1);
-        }
-
-        // A mantissa digit and, after `e`, an exponent digit are required.
-        if !has_number || !has_exponent {
-            return None;
-        }
+        let hint = number::resolve(self.string(start))?;
 
         if s.tabular && !self.is_eol() {
             return None;
@@ -1400,11 +1361,11 @@ impl<'a> Parser<'a> {
                     (
                         if string == b"~" {
                             Raw::Null(raw::Null::Tilde)
-                        } else if string.eq_ignore_ascii_case(b"null") {
+                        } else if matches!(string, b"null" | b"Null" | b"NULL") {
                             Raw::Null(raw::Null::Keyword(self.data.insert_str(string)))
-                        } else if string.eq_ignore_ascii_case(b"true") {
+                        } else if matches!(string, b"true" | b"True" | b"TRUE") {
                             Raw::Boolean(raw::Boolean::new(true, self.data.insert_str(string)))
-                        } else if string.eq_ignore_ascii_case(b"false") {
+                        } else if matches!(string, b"false" | b"False" | b"FALSE") {
                             Raw::Boolean(raw::Boolean::new(false, self.data.insert_str(string)))
                         } else {
                             let string = self.data.insert_str(string);

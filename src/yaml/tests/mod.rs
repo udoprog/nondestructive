@@ -8,6 +8,7 @@ mod flow;
 mod mapping;
 mod multiline;
 mod null;
+mod number;
 mod sequence;
 mod serde;
 mod unterminated;
