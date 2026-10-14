@@ -70,3 +70,30 @@ fn single_quotes() -> Result<()> {
     test!("'It''s a party!'", "It's a party!");
     Ok(())
 }
+
+#[test]
+fn quoted_folding() -> Result<()> {
+    test!("\"one\n  two\"", "one two");
+    test!("\"one  \n\n  two\"", "one\ntwo");
+    test!("\"a\\t\n  b\"", "a\t b");
+    test!("'one\n  two'", "one two");
+    test!("'it''s\n\n\n  x'", "it's\n\nx");
+    test!("'a\r\n  b'", "a b");
+    Ok(())
+}
+
+#[test]
+fn escaped_line_break() -> Result<()> {
+    test!("\"one \\\n  two\"", "one two");
+    test!("\"one\\\n  two\"", "onetwo");
+    test!("\"a\\\n\n  b\"", "a\nb");
+    Ok(())
+}
+
+#[test]
+fn quoted_folding_roundtrip() -> Result<()> {
+    let input = "a: \"one \\\n  two\"\nb: 'x\n\n  y'\nc: \"p\r\n  q\"\n";
+    let doc = yaml::from_slice(input)?;
+    assert_eq!(doc.to_string(), input);
+    Ok(())
+}

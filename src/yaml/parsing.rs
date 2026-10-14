@@ -348,7 +348,7 @@ impl<'a> Parser<'a> {
             }
 
             match self.peek() {
-                [b'\'', b'\''] => {
+                [b'\'', b'\''] | [raw::NEWLINE | b'\r', _] => {
                     return self.single_quoted_escaped(start, original);
                 }
                 [b'\'', _] => {
@@ -378,6 +378,11 @@ impl<'a> Parser<'a> {
         loop {
             if self.is_eof() {
                 return Err(self.unterminated_string(original));
+            }
+
+            if self.line_break_len() > 0 {
+                self.fold(0);
+                continue;
             }
 
             match self.peek() {
@@ -421,7 +426,7 @@ impl<'a> Parser<'a> {
 
             match self.peek1() {
                 b'"' => break,
-                b'\\' => {
+                b'\\' | raw::NEWLINE | b'\r' => {
                     return self.double_quoted_escaped(start, original);
                 }
                 _ => {
@@ -444,10 +449,17 @@ impl<'a> Parser<'a> {
     /// Parse a double quoted string.
     fn double_quoted_escaped(&mut self, start: usize, original: usize) -> Result<raw::String> {
         self.scratch.extend(self.string(start));
+        // Whitespace produced by escapes is content and must survive folding.
+        let mut protected = 0;
 
         loop {
             if self.is_eof() {
                 return Err(self.unterminated_string(original));
+            }
+
+            if self.line_break_len() > 0 {
+                self.fold(protected);
+                continue;
             }
 
             match self.peek1() {
@@ -456,6 +468,7 @@ impl<'a> Parser<'a> {
                     let start = self.n;
                     self.bump(1);
                     self.unescape(start)?;
+                    protected = self.scratch.len();
                 }
                 b => {
                     self.scratch.push(b);
@@ -477,8 +490,64 @@ impl<'a> Parser<'a> {
         ))
     }
 
+    /// Length of the line break at the cursor, or 0 if there is none.
+    fn line_break_len(&self) -> usize {
+        match self.peek() {
+            [raw::NEWLINE, _] => 1,
+            [b'\r', raw::NEWLINE] => 2,
+            _ => 0,
+        }
+    }
+
+    /// Skip the line break at the cursor and any empty lines after it, along
+    /// with the leading whitespace of the following line. Returns the number
+    /// of line breaks skipped.
+    fn skip_line_breaks(&mut self) -> usize {
+        let mut count = 0usize;
+
+        loop {
+            let len = self.line_break_len();
+
+            if len == 0 {
+                return count;
+            }
+
+            self.bump(len);
+            count = count.wrapping_add(1);
+
+            while matches!(self.peek1(), b' ' | b'\t') {
+                self.bump(1);
+            }
+        }
+    }
+
+    /// Fold a line break inside a quoted scalar into the scratch buffer.
+    ///
+    /// Trailing whitespace before the break is dropped, except the first
+    /// `protected` bytes of scratch. A single break becomes a space and each
+    /// further empty line a newline.
+    fn fold(&mut self, protected: usize) {
+        while self.scratch.len() > protected && matches!(self.scratch.last(), Some(b' ' | b'\t')) {
+            self.scratch.pop();
+        }
+
+        match self.skip_line_breaks() {
+            1 => self.scratch.push(b' '),
+            n => self
+                .scratch
+                .extend(iter::repeat(raw::NEWLINE).take(n.saturating_sub(1))),
+        }
+    }
+
     /// Unescape into the scratch buffer.
     fn unescape(&mut self, start: usize) -> Result<()> {
+        if self.line_break_len() > 0 {
+            let n = self.skip_line_breaks();
+            self.scratch
+                .extend(iter::repeat(raw::NEWLINE).take(n.saturating_sub(1)));
+            return Ok(());
+        }
+
         match self.peek1() {
             b'n' => {
                 self.scratch.push(raw::NEWLINE);

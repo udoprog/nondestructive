@@ -1,0 +1,12 @@
+a: "one
+  two"
+b: "one   
+
+  two  
+
+
+  three"
+c: "tab\t
+  kept"
+d: "
+  leading"
