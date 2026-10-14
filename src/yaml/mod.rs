@@ -15,7 +15,23 @@
 //! * We support any form of indentation, not just spaces.
 //! * Text after a block scalar header (`|` or `>`) on the same line is taken
 //!   as its first line.
-//! * Neither input nor output is not required to be UTF-8.
+//! * Input is not required to be UTF-8. [`Document::write_to`] reproduces
+//!   the bytes exactly, but [`Display`][std::fmt::Display] replaces invalid
+//!   UTF-8 with `U+FFFD`, so `to_string()` is lossy for such documents (and
+//!   fails the `nondestructive_write_to_eq` assertion).
+//! * Anchors (`&a`), aliases (`*a`) and tags (`!!str`, `!foo`) are not
+//!   supported. They are read as part of the plain scalar they precede, so
+//!   `a: &x 1` has the string value `"&x 1"` and `b: *x` the string `"*x"`.
+//! * Only one document is supported. A leading `---` and directives such as
+//!   `%YAML 1.2` are accepted, but a document end marker (`...`) is an error,
+//!   and so is a `---` after the root value, except after a block sequence,
+//!   where `---` is read as an item with the value `--`.
+//! * Explicit `?` keys are not supported. They are an error in block
+//!   mappings, while in a flow mapping `{? a: 1}` has the key `"? a"`.
+//! * A plain scalar at the root must fit on a single line, so `one\ntwo` is
+//!   an error. Multi-line plain scalars work as mapping values and sequence
+//!   items.
+//! * Duplicate keys in a mapping are not rejected.
 //! * Plain keys in [Mappings][Mapping] can be anything on a single line, the
 //!   only requirement is that they are succeeded by a colon (`:`) followed by
 //!   whitespace. Quoted keys may be followed directly by a colon in block
@@ -31,7 +47,7 @@
 //!   libyaml, a decimal integer with a leading zero such as `007` is a string.
 //!
 //! This means that we will validly parse both spec and non-spec compliant YAML.
-//! They key here is that editing performed by this crate is non-destructive. So
+//! The key here is that editing performed by this crate is non-destructive. So
 //! if the source is spec compliant YAML, then we will produce spec compliant
 //! YAML. If the source is **not** spec compliant YAML we will produce similarly
 //! non-spec compliant YAML.
