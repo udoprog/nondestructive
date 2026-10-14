@@ -1,0 +1,5 @@
+a: [a , b ]
+b: {k: v , l: w }
+c: [x # comment
+  , y]
+d: [1 , 2 ]

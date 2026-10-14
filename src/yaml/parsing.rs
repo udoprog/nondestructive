@@ -219,6 +219,29 @@ impl<'a> Parser<'a> {
         }
     }
 
+    /// Test if the cursor follows a space or tab, so that a `#` there starts
+    /// a comment.
+    fn follows_ws(&self) -> bool {
+        matches!(
+            self.input.get(self.n.wrapping_sub(1)),
+            Some(&(raw::SPACE | b'\t'))
+        )
+    }
+
+    /// Advance to the end of a plain scalar's line: a line break, end of
+    /// input or the `#` of a comment. Returns `true` at a comment.
+    fn plain_line_end(&mut self) -> bool {
+        loop {
+            self.find2(b'#', raw::NEWLINE);
+
+            match self.peek1() {
+                b'#' if self.follows_ws() => return true,
+                b'#' => self.bump(1),
+                _ => return false,
+            }
+        }
+    }
+
     /// Consume whitespace.
     fn ws_nl(&mut self) -> (StringId, u32) {
         let start = self.n;
@@ -245,7 +268,8 @@ impl<'a> Parser<'a> {
         self.ws_nl().0
     }
 
-    /// Test if current position contains nothing but whitespace until we reach a line end.
+    /// Test if current position contains nothing but whitespace until we
+    /// reach a line end or a comment.
     fn is_eol(&self) -> bool {
         let mut n = self.n;
 
@@ -253,6 +277,9 @@ impl<'a> Parser<'a> {
             match b {
                 raw::NEWLINE => {
                     return true;
+                }
+                b'#' => {
+                    return n > self.n;
                 }
                 other_ws!() => {
                     n = n.wrapping_add(1);
@@ -974,14 +1001,20 @@ impl<'a> Parser<'a> {
     /// Process a plain block key up until a `:` followed by whitespace or end
     /// of input.
     ///
-    /// Returns `None` with the cursor at the end of the line if the line has no
-    /// such `:`.
+    /// Returns `None` with the cursor at the end of the line or at the `#` of a
+    /// comment if the line has no such `:` before either.
     fn key_or_eol(&mut self, start: usize) -> Option<raw::String> {
         loop {
-            self.find2(b':', raw::NEWLINE);
+            let input = self.input.get(self.n..).unwrap_or_default();
+
+            match memchr::memchr3(b':', b'#', raw::NEWLINE, input) {
+                Some(n) => self.bump(n),
+                None => self.n = self.input.len(),
+            }
 
             match self.peek() {
                 [raw::NEWLINE | EOF, _] => return None,
+                [b'#', _] if self.follows_ws() => return None,
                 [b':', ws!(EOF)] => break,
                 _ => self.bump(1),
             }
@@ -1300,6 +1333,7 @@ impl<'a> Parser<'a> {
                         loop {
                             match self.peek() {
                                 [b',' | b']' | b'}' | EOF, _] | [b':', ws_or_flow!()] => break,
+                                [b'#', _] if self.follows_ws() => break,
                                 _ => self.bump(1),
                             }
                         }
@@ -1308,9 +1342,8 @@ impl<'a> Parser<'a> {
                             return self.mapping_or_nul(s, start, key);
                         }
 
-                        // key_or_eol consumed up until end of line.
-                        // Check for plain multi-line scalar continuation
-                        // lines indented deeper than the parent mapping.
+                        // Continuation lines indented deeper than the parent
+                        // extend the scalar; a comment ends it.
                         if let Some(parent_indent) = s.parent_indent {
                             loop {
                                 if self.peek1() != raw::NEWLINE {
@@ -1322,17 +1355,21 @@ impl<'a> Parser<'a> {
                                     self.bump(1);
                                 }
                                 if self.is_eof()
-                                    || self.peek1() == raw::NEWLINE
+                                    || matches!(self.peek1(), raw::NEWLINE | b'#')
                                     || self.indent() <= parent_indent
                                 {
                                     self.n = saved;
                                     break;
                                 }
-                                self.find(raw::NEWLINE);
+                                if self.plain_line_end() {
+                                    break;
+                                }
                             }
                         }
                     }
 
+                    // Trailing whitespace is left to the following whitespace.
+                    self.n = start.wrapping_add(trim_end(self.string(start)).len());
                     let string = self.string(start);
 
                     if memchr::memchr(raw::NEWLINE, string).is_some() {
@@ -1401,10 +1438,12 @@ impl<'a> Parser<'a> {
             _ => self.key_or_eol(start),
         };
 
-        match key {
-            Some(key) => Ok(Some(key)),
-            None => Err(Error::new(start..self.n, ErrorKind::BadMappingSeparator)),
+        if let Some(key) = key {
+            return Ok(Some(key));
         }
+
+        let end = start.wrapping_add(trim_end(self.string(start)).len());
+        Err(Error::new(start..end, ErrorKind::BadMappingSeparator))
     }
 }
 
@@ -1423,11 +1462,11 @@ const fn trim(bytes: &[u8]) -> &[u8] {
     out
 }
 
-/// Trim trailing spaces and tabs.
+/// Trim trailing ascii whitespace.
 const fn trim_end(bytes: &[u8]) -> &[u8] {
     let mut out = bytes;
 
-    while let [rest @ .., other_ws!()] = out {
+    while let [rest @ .., ws!()] = out {
         out = rest;
     }
 

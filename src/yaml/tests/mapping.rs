@@ -246,3 +246,23 @@ fn remove_first() -> Result<()> {
     assert_eq!(remove("{\n  a: 1,\n  b: 2,\n}", &["a"])?, "{\n  b: 2,\n}");
     Ok(())
 }
+
+#[test]
+fn replace_value_keeps_trailing_comment() -> Result<()> {
+    let mut doc = yaml::from_slice("a: hello # comment\r\nb: [x , y ]\n")?;
+
+    let root = doc.as_ref().as_mapping().context("missing root")?;
+    assert_eq!(root.get("a").and_then(|v| v.as_str()), Some("hello"));
+
+    let mut root = doc.as_mut().into_mapping_mut().context("missing root")?;
+    root.get_mut("a").context("missing a")?.set_string("world");
+
+    let mut b = root
+        .get_mut("b")
+        .and_then(yaml::ValueMut::into_sequence_mut)
+        .context("missing b")?;
+    b.get_mut(0).context("missing b[0]")?.set_u32(1);
+
+    assert_eq!(doc.to_string(), "a: world # comment\r\nb: [1 , y ]\n");
+    Ok(())
+}

@@ -1,0 +1,12 @@
+a: 1 # comment
+b: hello # comment
+c: true	# tab comment
+d: b#c
+e: -2.5 #x
+f:
+  - hello # comment
+  - 2 # c
+  - ~ # null
+g: multi
+  line # trailing
+h: x # a: b

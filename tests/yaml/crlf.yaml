@@ -1,0 +1,9 @@
+a: hello
+b: 2
+c:
+  - x
+  - y # c
+  - 3.5
+d: multi
+  line
+e: "q"

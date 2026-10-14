@@ -106,7 +106,7 @@ pub enum ErrorKind {
     ///
     /// let error = yaml::from_slice(INPUT).unwrap_err();
     /// assert_eq!(*error.kind(), yaml::ErrorKind::BadMappingSeparator);
-    /// assert_eq!(&INPUT[error.span()], "age # end");
+    /// assert_eq!(&INPUT[error.span()], "age");
     /// ```
     BadMappingSeparator,
     /// Bad a mapping terminator.
