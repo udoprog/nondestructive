@@ -200,6 +200,8 @@ pub(crate) struct Entry {
 pub(crate) struct Data {
     strings: HashMap<StringId, Box<[u8]>>,
     slab: slab::Slab<Entry>,
+    /// Whitespace and comments after the root value, empty if unset.
+    suffix: Option<StringId>,
 }
 
 impl Data {
@@ -230,6 +232,21 @@ impl Data {
         }
 
         id
+    }
+
+    /// The text following the root value.
+    #[inline]
+    pub(crate) fn suffix(&self) -> &BStr {
+        match self.suffix {
+            Some(id) => self.str(id),
+            None => BStr::new(""),
+        }
+    }
+
+    /// Set the text following the root value.
+    #[inline]
+    pub(crate) fn set_suffix(&mut self, suffix: StringId) {
+        self.suffix = Some(suffix);
     }
 
     #[inline]

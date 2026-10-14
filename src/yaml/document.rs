@@ -38,7 +38,6 @@ use crate::yaml::{Value, ValueMut};
 #[derive(Clone)]
 #[cfg_attr(feature = "serde-edits", derive(Serialize, Deserialize))]
 pub struct Document {
-    suffix: StringId,
     pub(crate) root: Id,
     pub(crate) data: Data,
 }
@@ -64,13 +63,15 @@ impl Document {
         let prefix = data.insert_str(b"");
         let root = data.insert(Raw::Null(Null::Empty), prefix, None);
         let suffix = data.insert_str([NEWLINE]);
+        data.set_suffix(suffix);
 
-        Self { suffix, root, data }
+        Self { root, data }
     }
 
     /// Construct a new document.
-    pub(crate) fn from_parsed(suffix: StringId, root: Id, data: Data) -> Self {
-        Self { suffix, root, data }
+    pub(crate) fn from_parsed(suffix: StringId, root: Id, mut data: Data) -> Self {
+        data.set_suffix(suffix);
+        Self { root, data }
     }
 
     /// Get the document as a [`Value`].
@@ -303,7 +304,7 @@ impl Document {
         self.data
             .raw(self.root)
             .write_to(&self.data, &mut output, None)?;
-        output.write_all(self.data.str(self.suffix))?;
+        output.write_all(self.data.suffix())?;
         Ok(())
     }
 
@@ -313,7 +314,7 @@ impl Document {
 
         self.data.prefix(self.root).fmt(f)?;
         self.data.raw(self.root).display(&self.data, f, None)?;
-        self.data.str(self.suffix).fmt(f)?;
+        self.data.suffix().fmt(f)?;
         Ok(())
     }
 }
@@ -362,7 +363,7 @@ impl fmt::Display for Document {
 impl fmt::Debug for Document {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Document")
-            .field("suffix", &self.suffix)
+            .field("suffix", &self.data.suffix())
             .field("root", &self.root)
             .finish_non_exhaustive()
     }

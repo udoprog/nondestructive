@@ -966,7 +966,8 @@ impl<'a> SequenceMut<'a> {
         I::Item: AsRef<str>,
     {
         let value = raw::new_block(self.data, self.id, iter, block);
-        self.inner_push(Separator::Auto, value);
+        let id = self.inner_push(Separator::Auto, value);
+        raw::settle_block(self.data, id);
     }
 
     /// Insert a value as a literal or folded block at `index`, shifting later
@@ -1013,7 +1014,8 @@ impl<'a> SequenceMut<'a> {
         I::Item: AsRef<str>,
     {
         let value = raw::new_block(self.data, self.id, iter, block);
-        self.inner_insert(index, Separator::Auto, value);
+        let id = self.inner_insert(index, Separator::Auto, value);
+        raw::settle_block(self.data, id);
     }
 
     /// Push a bool.

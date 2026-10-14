@@ -721,7 +721,8 @@ impl<'a> MappingMut<'a> {
         I::Item: AsRef<str>,
     {
         let value = raw::new_block(self.data, self.id, iter, block);
-        self.inner_insert(key.as_ref(), Separator::Auto, value);
+        let id = self.inner_insert(key.as_ref(), Separator::Auto, value);
+        raw::settle_block(self.data, id);
     }
 
     /// Insert a bool.

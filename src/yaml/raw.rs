@@ -170,6 +170,110 @@ where
     build_block(data, &line, indent, parent, iter, block)
 }
 
+/// Fit the block built at `id` by [`new_block`] or [`new_value_block`] to the
+/// text that follows it now that it is placed.
+///
+/// A block reads its final line break from the following text, so one is
+/// added to the document suffix when the block ends the document without one.
+/// A keeping block also takes the empty lines that follow it into its value.
+pub(crate) fn settle_block(data: &mut Data, id: Id) {
+    let Raw::String(string) = data.raw(id) else {
+        return;
+    };
+
+    let original = string.original;
+    let mut value = data.str(string.id).to_vec();
+
+    let keep = data
+        .str(original)
+        .iter()
+        .take_while(|&&b| b != NEWLINE)
+        .any(|&b| b == b'+');
+
+    let (mut following, end) = following(data, id);
+
+    if end {
+        if following.is_empty()
+            && value.last() == Some(&NEWLINE)
+            && data.suffix().first() != Some(&NEWLINE)
+        {
+            let mut suffix = Vec::new();
+            suffix.push(NEWLINE);
+            suffix.extend_from_slice(data.suffix());
+            let suffix = data.insert_str(suffix);
+            data.set_suffix(suffix);
+        }
+
+        following.extend_from_slice(data.suffix());
+    }
+
+    if !keep {
+        return;
+    }
+
+    let Some(rest) = following.strip_prefix(&[NEWLINE]) else {
+        return;
+    };
+
+    // Each following line of only spaces is an empty line of the block.
+    let empty = rest
+        .split_inclusive(|&b| b == NEWLINE)
+        .take_while(|line| {
+            line.split_last()
+                .is_some_and(|(&last, line)| last == NEWLINE && line.iter().all(|&b| b == SPACE))
+        })
+        .count();
+
+    if empty > 0 {
+        value.resize(value.len().wrapping_add(empty), NEWLINE);
+        let value = data.insert_str(value);
+        data.replace(
+            id,
+            Raw::String(self::String::new(RawStringKind::Original, value, original)),
+        );
+    }
+}
+
+/// The text between the value `id` and the next item of an enclosing
+/// collection, and whether the document suffix follows that text instead.
+fn following(data: &Data, mut id: Id) -> (Vec<u8>, bool) {
+    let mut text = Vec::new();
+
+    while let Some(item) = data.layout(id).parent {
+        let separator = match data.raw(item) {
+            Raw::MappingItem(item) => item.separator_prefix,
+            Raw::SequenceItem(item) => item.separator_prefix,
+            _ => return (text, false),
+        };
+
+        text.extend_from_slice(data.str(separator));
+
+        let Some(container) = data.layout(item).parent else {
+            return (text, false);
+        };
+
+        let items = match data.raw(container) {
+            Raw::Mapping(raw) => &raw.items,
+            Raw::Sequence(raw) => &raw.items,
+            _ => return (text, false),
+        };
+
+        let next = items
+            .iter()
+            .position(|&i| i == item)
+            .and_then(|n| items.get(n.wrapping_add(1)));
+
+        if let Some(&next) = next {
+            text.extend_from_slice(data.prefix(next));
+            return (text, false);
+        }
+
+        id = container;
+    }
+
+    (text, true)
+}
+
 /// The indentation of a block mapping or sequence.
 fn container_indent(data: &Data, id: Id) -> Option<usize> {
     match data.raw(id) {

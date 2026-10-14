@@ -630,6 +630,7 @@ impl<'a> ValueMut<'a> {
     {
         let value = raw::new_value_block(self.data, self.id, iter, block);
         self.data.replace(self.id, value);
+        raw::settle_block(self.data, self.id);
     }
 
     /// Set the value as a boolean.

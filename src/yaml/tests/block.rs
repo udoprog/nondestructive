@@ -74,6 +74,11 @@ fn push(doc: &mut yaml::Document, lines: &[&str], block: Block) {
     root.push_block(lines.iter().copied(), block);
 }
 
+fn insert_seq(doc: &mut yaml::Document, lines: &[&str], block: Block) {
+    let mut root = doc.as_mut().into_sequence_mut().expect("sequence");
+    root.insert_block(1, lines.iter().copied(), block);
+}
+
 fn push_nested(doc: &mut yaml::Document, lines: &[&str], block: Block) {
     let mut seq = get_mut(doc.as_mut(), &[Key("a"), Key("b")])
         .and_then(yaml::ValueMut::into_sequence_mut)
@@ -141,6 +146,76 @@ const POSITIONS: &[Position] = &[
         edit: set_inner_item,
         path: &[Index(0), Index(0)],
     },
+    Position {
+        input: "k: v",
+        edit: insert,
+        path: &[Key("b")],
+    },
+    Position {
+        input: "a:\n  k: v",
+        edit: insert,
+        path: &[Key("b")],
+    },
+    Position {
+        input: "- v",
+        edit: push,
+        path: &[Index(1)],
+    },
+    Position {
+        input: "a:\n  b:\n    - k",
+        edit: push_nested,
+        path: &[Key("a"), Key("b"), Index(1)],
+    },
+    Position {
+        input: "a:\n    k: v",
+        edit: set_nested,
+        path: &[Key("a"), Key("k")],
+    },
+    Position {
+        input: "v",
+        edit: set_root,
+        path: &[],
+    },
+    Position {
+        input: "- - v",
+        edit: set_inner_item,
+        path: &[Index(0), Index(0)],
+    },
+    Position {
+        input: "k: v\n\n",
+        edit: insert,
+        path: &[Key("b")],
+    },
+    Position {
+        input: "b: v\n\nz: 1\n",
+        edit: insert,
+        path: &[Key("b")],
+    },
+    Position {
+        input: "a:\n    k: v\n\nz: 1\n",
+        edit: set_nested,
+        path: &[Key("a"), Key("k")],
+    },
+    Position {
+        input: "a:\n    k: v\n  \n\n# comment\n\nz: 1\n",
+        edit: set_nested,
+        path: &[Key("a"), Key("k")],
+    },
+    Position {
+        input: "a:\n  k:\n    - x\n\n  z: 1\n",
+        edit: set_nested,
+        path: &[Key("a"), Key("k")],
+    },
+    Position {
+        input: "- one\n\n- two\n",
+        edit: insert_seq,
+        path: &[Index(1)],
+    },
+    Position {
+        input: "- - v\n\n- w\n",
+        edit: set_inner_item,
+        path: &[Index(0), Index(0)],
+    },
 ];
 
 const LINES: &[&[&str]] = &[
@@ -202,7 +277,8 @@ fn built_blocks_reparse_to_their_value() -> Result<()> {
                     "reparse disagrees for {context}"
                 );
 
-                let has_trailing_ws = lines.iter().any(|l| l.ends_with([' ', '\t']));
+                let has_trailing_ws = lines.iter().any(|l| l.ends_with([' ', '\t']))
+                    || position.input.lines().any(|l| l.ends_with(' '));
 
                 if !has_trailing_ws {
                     assert!(
@@ -280,5 +356,35 @@ fn empty_block() -> Result<()> {
     let b = doc.as_ref().as_mapping().and_then(|m| m.get("b"));
     assert_eq!(b.and_then(|v| v.as_str()), Some(""));
 
+    Ok(())
+}
+
+#[test]
+fn block_at_end_without_newline_gets_one() -> Result<()> {
+    let mut doc = yaml::from_slice("k: v")?;
+    insert(&mut doc, &["x"], Block::Literal(Chomp::Clip));
+    assert_eq!(doc.to_string(), "k: v\nb: |\n  x\n");
+
+    let b = doc.as_ref().as_mapping().and_then(|m| m.get("b"));
+    assert_eq!(b.and_then(|v| v.as_str()), Some("x\n"));
+
+    let mut doc = yaml::from_slice("k: v")?;
+    insert(&mut doc, &["x"], Block::Literal(Chomp::Strip));
+    assert_eq!(doc.to_string(), "k: v\nb: |-\n  x");
+    Ok(())
+}
+
+#[test]
+fn keep_takes_following_empty_lines() -> Result<()> {
+    let input = "a:\n    k: v\n\n  \n# comment\n\nz: 1\n";
+    let mut doc = yaml::from_slice(input)?;
+    set_nested(&mut doc, &["x"], Block::Literal(Chomp::Keep));
+
+    let output = doc.to_string();
+    assert_eq!(output, "a:\n    k: |+\n      x\n\n  \n# comment\n\nz: 1\n");
+    assert_eq!(get(&doc, &[Key("a"), Key("k")]).as_deref(), Some("x\n\n\n"));
+
+    let z = doc.as_ref().as_mapping().and_then(|m| m.get("z"));
+    assert_eq!(z.and_then(|v| v.as_u32()), Some(1));
     Ok(())
 }
