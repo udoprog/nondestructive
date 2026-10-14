@@ -137,6 +137,17 @@ impl<'de> Deserializer<'de> for Value<'de> {
     }
 
     #[inline]
+    fn deserialize_i128<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
+        match self.as_i128() {
+            Some(value) => visitor.visit_i128(value),
+            None => self.deserialize_any(visitor),
+        }
+    }
+
+    #[inline]
     fn deserialize_u8<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: Visitor<'de>,
@@ -176,6 +187,17 @@ impl<'de> Deserializer<'de> for Value<'de> {
     {
         match self.as_u64() {
             Some(value) => visitor.visit_u64(value),
+            None => self.deserialize_any(visitor),
+        }
+    }
+
+    #[inline]
+    fn deserialize_u128<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
+        match self.as_u128() {
+            Some(value) => visitor.visit_u128(value),
             None => self.deserialize_any(visitor),
         }
     }
@@ -273,7 +295,10 @@ impl<'de> Deserializer<'de> for Value<'de> {
     where
         V: Visitor<'de>,
     {
-        self.deserialize_any(visitor)
+        match self.data.raw(self.id) {
+            raw::Raw::Null(..) => visitor.visit_unit(),
+            _ => self.deserialize_any(visitor),
+        }
     }
 
     #[inline]
@@ -285,7 +310,7 @@ impl<'de> Deserializer<'de> for Value<'de> {
     where
         V: Visitor<'de>,
     {
-        self.deserialize_any(visitor)
+        self.deserialize_unit(visitor)
     }
 
     #[inline]
@@ -297,7 +322,7 @@ impl<'de> Deserializer<'de> for Value<'de> {
     where
         V: Visitor<'de>,
     {
-        self.deserialize_any(visitor)
+        visitor.visit_newtype_struct(self)
     }
 
     #[inline]
