@@ -827,3 +827,23 @@ impl<'a> ValueMut<'a> {
         SequenceMut::new(self.data, self.id)
     }
 }
+
+/// Formats the same as the immutable view of the value.
+///
+/// # Examples
+///
+/// ```
+/// use anyhow::Context;
+/// use nondestructive::yaml;
+///
+/// let mut doc = yaml::from_slice("42")?;
+/// let mut root = doc.as_mut();
+/// assert_eq!(format!("{root:?}"), format!("{:?}", root.as_ref()));
+/// # Ok::<_, anyhow::Error>(())
+/// ```
+impl core::fmt::Debug for ValueMut<'_> {
+    #[inline]
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        core::fmt::Debug::fmt(&self.as_ref(), f)
+    }
+}

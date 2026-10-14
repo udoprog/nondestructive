@@ -411,6 +411,13 @@ impl Data {
         self.drop_kind(removed);
     }
 
+    /// Set the prefix of a value.
+    pub(crate) fn set_prefix(&mut self, id: Id, prefix: StringId) {
+        if let Some(value) = self.slab.get_mut(id.get()) {
+            value.layout.prefix = prefix;
+        }
+    }
+
     /// Replace with indentation.
     pub(crate) fn replace_with(&mut self, id: Id, prefix: StringId, raw: raw::Raw) {
         let Some(value) = self.slab.get_mut(id.get()) else {

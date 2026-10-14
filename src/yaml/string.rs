@@ -29,6 +29,20 @@ use crate::yaml::raw;
 /// assert_eq!(a, "Hello\n World");
 /// # Ok::<_, anyhow::Error>(())
 /// ```
+///
+/// [`String`] is [`Copy`], since it only borrows from the document:
+///
+/// ```
+/// use anyhow::Context;
+/// use nondestructive::yaml;
+///
+/// let doc = yaml::from_slice("hello")?;
+/// let a = doc.as_ref().into_any().into_string().context("expected string")?;
+/// let b = a;
+/// assert_eq!(a.as_raw(), b.as_raw());
+/// # Ok::<_, anyhow::Error>(())
+/// ```
+#[derive(Clone, Copy)]
 pub struct String<'a> {
     data: &'a Data,
     raw: &'a raw::String,

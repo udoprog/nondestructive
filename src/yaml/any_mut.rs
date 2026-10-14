@@ -4,6 +4,18 @@ use crate::yaml::{Id, MappingMut, SequenceMut, ValueMut};
 /// [`ValueMut`].
 ///
 /// See [`ValueMut::into_any_mut`][crate::yaml::ValueMut::into_any_mut].
+///
+/// # Examples
+///
+/// ```
+/// use nondestructive::yaml;
+///
+/// let mut doc = yaml::from_slice("[1, 2]")?;
+/// let any = doc.as_mut().into_any_mut();
+/// assert_eq!(format!("{any:?}"), "Sequence([Value(1), Value(2)])");
+/// # Ok::<_, anyhow::Error>(())
+/// ```
+#[derive(Debug)]
 #[non_exhaustive]
 pub enum AnyMut<'a> {
     /// The type is a scalar type.

@@ -135,6 +135,19 @@ pub enum Null {
 ///
 /// # Ok::<_, anyhow::Error>(())
 /// ```
+///
+/// [`Value`] is [`Copy`], since it only borrows from the document:
+///
+/// ```
+/// use nondestructive::yaml;
+///
+/// let doc = yaml::from_slice("42")?;
+/// let a = doc.as_ref();
+/// let b = a;
+/// assert_eq!(a.as_u32(), b.as_u32());
+/// # Ok::<_, anyhow::Error>(())
+/// ```
+#[derive(Clone, Copy)]
 pub struct Value<'a> {
     pub(crate) data: &'a Data,
     pub(crate) id: Id,
@@ -534,10 +547,17 @@ impl<'a> Value<'a> {
     /// let doc = doc.as_ref();
     ///
     /// assert!(matches!(doc.as_number(), Some(..)));
+    ///
+    /// // The number borrows from the document, not from the value.
+    /// fn number(value: yaml::Value<'_>) -> Option<yaml::Number<'_>> {
+    ///     value.as_number()
+    /// }
+    ///
+    /// assert_eq!(number(doc).and_then(|n| n.as_u32()), Some(42));
     /// # Ok::<_, anyhow::Error>(())
     /// ```
     #[must_use]
-    pub fn as_number(&self) -> Option<Number<'_>> {
+    pub fn as_number(&self) -> Option<Number<'a>> {
         match self.data.raw(self.id) {
             Raw::Number(raw) => Some(Number::new(self.data, raw)),
             _ => None,

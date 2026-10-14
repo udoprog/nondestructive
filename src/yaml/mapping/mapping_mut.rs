@@ -392,6 +392,29 @@ impl<'a> MappingMut<'a> {
         None
     }
 
+    /// Test if the mapping contains the given key.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use anyhow::Context;
+    /// use nondestructive::yaml;
+    ///
+    /// let mut doc = yaml::from_slice("{one: 1}")?;
+    ///
+    /// let mut root = doc.as_mut().into_mapping_mut().context("missing root mapping")?;
+    /// assert!(!root.contains_key("two"));
+    ///
+    /// root.insert_u32("two", 2);
+    /// assert!(root.contains_key("one"));
+    /// assert!(root.contains_key("two"));
+    /// # Ok::<_, anyhow::Error>(())
+    /// ```
+    #[must_use]
+    pub fn contains_key(&self, key: &str) -> bool {
+        self.as_ref().contains_key(key)
+    }
+
     /// Remove the given value from the mapping, returning a boolean indicating if
     /// it existed in the mapping or not.
     ///
@@ -746,4 +769,25 @@ impl<'a> MappingMut<'a> {
     insert_number!(insert_i64, i64, "64-bit signed integer", -42, I64);
     insert_number!(insert_u128, u128, "128-bit unsigned integer", 42, U128);
     insert_number!(insert_i128, i128, "128-bit signed integer", -42, I128);
+}
+
+/// Formats the same as the immutable view of the mapping.
+///
+/// # Examples
+///
+/// ```
+/// use anyhow::Context;
+/// use nondestructive::yaml;
+///
+/// let mut doc = yaml::from_slice("{one: 1}")?;
+/// let mut root = doc.as_mut();
+/// let root = root.as_mapping_mut().context("missing root mapping")?;
+/// assert_eq!(format!("{root:?}"), "{\"one\": Value( 1)}");
+/// # Ok::<_, anyhow::Error>(())
+/// ```
+impl core::fmt::Debug for MappingMut<'_> {
+    #[inline]
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        core::fmt::Debug::fmt(&self.as_ref(), f)
+    }
 }

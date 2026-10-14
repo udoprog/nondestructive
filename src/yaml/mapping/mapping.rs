@@ -70,6 +70,20 @@ use crate::yaml::Value;
 /// );
 /// # Ok::<_, anyhow::Error>(())
 /// ```
+///
+/// [`Mapping`] is [`Copy`], since it only borrows from the document:
+///
+/// ```
+/// use anyhow::Context;
+/// use nondestructive::yaml;
+///
+/// let doc = yaml::from_slice("{one: 1}")?;
+/// let a = doc.as_ref().as_mapping().context("missing root mapping")?;
+/// let b = a;
+/// assert_eq!(a.get("one").and_then(|v| v.as_u32()), b.get("one").and_then(|v| v.as_u32()));
+/// # Ok::<_, anyhow::Error>(())
+/// ```
+#[derive(Clone, Copy)]
 pub struct Mapping<'a> {
     data: &'a Data,
     pub(crate) id: Id,
@@ -202,6 +216,33 @@ impl<'a> Mapping<'a> {
         }
 
         None
+    }
+
+    /// Test if the mapping contains the given key.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use anyhow::Context;
+    /// use nondestructive::yaml;
+    ///
+    /// let doc = yaml::from_slice(
+    ///     r"
+    ///     one: 1
+    ///     two:
+    ///     ",
+    /// )?;
+    ///
+    /// let root = doc.as_ref().as_mapping().context("missing root mapping")?;
+    ///
+    /// assert!(root.contains_key("one"));
+    /// assert!(root.contains_key("two"));
+    /// assert!(!root.contains_key("three"));
+    /// # Ok::<_, anyhow::Error>(())
+    /// ```
+    #[must_use]
+    pub fn contains_key(&self, key: &str) -> bool {
+        self.get(key).is_some()
     }
 
     /// Returns an iterator over the [Mapping].

@@ -103,6 +103,20 @@ use crate::yaml::Value;
 /// );
 /// # Ok::<_, anyhow::Error>(())
 /// ```
+///
+/// [`Sequence`] is [`Copy`], since it only borrows from the document:
+///
+/// ```
+/// use anyhow::Context;
+/// use nondestructive::yaml;
+///
+/// let doc = yaml::from_slice("[1, 2]")?;
+/// let a = doc.as_ref().as_sequence().context("missing root sequence")?;
+/// let b = a;
+/// assert_eq!(a.len(), b.len());
+/// # Ok::<_, anyhow::Error>(())
+/// ```
+#[derive(Clone, Copy)]
 pub struct Sequence<'a> {
     data: &'a Data,
     pub(crate) id: Id,
@@ -216,11 +230,18 @@ impl<'a> Sequence<'a> {
     /// assert_eq!(root.get(0).and_then(|v| v.as_str()), Some("one"));
     /// assert_eq!(root.get(1).and_then(|v| v.as_str()), Some("two"));
     /// assert_eq!(root.get(2).and_then(|v| v.as_str()), Some("three"));
+    ///
+    /// // The value borrows from the document, not from the sequence.
+    /// fn get_value(sequence: yaml::Sequence<'_>) -> Option<yaml::Value<'_>> {
+    ///     sequence.get(0)
+    /// }
+    ///
+    /// assert!(get_value(root).is_some());
     /// # Ok::<_, anyhow::Error>(())
     /// ```
     #[must_use]
     #[inline]
-    pub fn get(&self, index: usize) -> Option<Value<'_>> {
+    pub fn get(&self, index: usize) -> Option<Value<'a>> {
         let item = self.data.sequence(self.id).items.get(index)?;
         let item = self.data.sequence_item(*item);
         Some(Value::new(self.data, item.value))
@@ -245,11 +266,18 @@ impl<'a> Sequence<'a> {
     /// let root = doc.as_ref().as_sequence().context("missing root sequence")?;
     ///
     /// assert_eq!(root.first().and_then(|v| v.as_str()), Some("one"));
+    ///
+    /// // The value borrows from the document, not from the sequence.
+    /// fn first_value(sequence: yaml::Sequence<'_>) -> Option<yaml::Value<'_>> {
+    ///     sequence.first()
+    /// }
+    ///
+    /// assert!(first_value(root).is_some());
     /// # Ok::<_, anyhow::Error>(())
     /// ```
     #[must_use]
     #[inline]
-    pub fn first(&self) -> Option<Value<'_>> {
+    pub fn first(&self) -> Option<Value<'a>> {
         let item = self.data.sequence(self.id).items.first()?;
         let item = self.data.sequence_item(*item);
         Some(Value::new(self.data, item.value))
@@ -274,11 +302,18 @@ impl<'a> Sequence<'a> {
     /// let root = doc.as_ref().as_sequence().context("missing root sequence")?;
     ///
     /// assert_eq!(root.last().and_then(|v| v.as_str()), Some("three"));
+    ///
+    /// // The value borrows from the document, not from the sequence.
+    /// fn last_value(sequence: yaml::Sequence<'_>) -> Option<yaml::Value<'_>> {
+    ///     sequence.last()
+    /// }
+    ///
+    /// assert!(last_value(root).is_some());
     /// # Ok::<_, anyhow::Error>(())
     /// ```
     #[must_use]
     #[inline]
-    pub fn last(&self) -> Option<Value<'_>> {
+    pub fn last(&self) -> Option<Value<'a>> {
         let item = self.data.sequence(self.id).items.last()?;
         let item = self.data.sequence_item(*item);
         Some(Value::new(self.data, item.value))

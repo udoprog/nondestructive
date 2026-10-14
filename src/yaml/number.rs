@@ -198,6 +198,20 @@ macro_rules! as_number {
 /// assert_eq!(a.as_u32(), Some(42));
 /// # Ok::<_, anyhow::Error>(())
 /// ```
+///
+/// [`Number`] is [`Copy`], since it only borrows from the document:
+///
+/// ```
+/// use anyhow::Context;
+/// use nondestructive::yaml;
+///
+/// let doc = yaml::from_slice("42")?;
+/// let a = doc.as_ref().as_number().context("expected a number")?;
+/// let b = a;
+/// assert_eq!(a.as_raw(), b.as_raw());
+/// # Ok::<_, anyhow::Error>(())
+/// ```
+#[derive(Clone, Copy)]
 pub struct Number<'a> {
     data: &'a Data,
     raw: &'a raw::Number,
