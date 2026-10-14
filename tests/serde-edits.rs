@@ -29,7 +29,7 @@ fn snapshot_after_edit() -> Result<()> {
     doc.as_mut()
         .into_mapping_mut()
         .expect("mapping")
-        .insert_str("d", "new value");
+        .insert_string("d", "new value");
     let expected = doc.to_string();
 
     let json = serde_json::to_string(&doc)?;

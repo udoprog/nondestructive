@@ -266,3 +266,38 @@ fn replace_value_keeps_trailing_comment() -> Result<()> {
     assert_eq!(doc.to_string(), "a: world # comment\r\nb: [1 , y ]\n");
     Ok(())
 }
+
+#[test]
+fn non_utf8_key_lookup() -> Result<()> {
+    const KEY: &[u8] = b"k\xff";
+
+    let mut doc = yaml::from_slice("one: 1")?;
+    let mut root = doc
+        .as_mut()
+        .into_mapping_mut()
+        .context("missing root mapping")?;
+    root.insert_u32(KEY, 2);
+
+    assert!(root.contains_key(KEY));
+    assert_eq!(root.get_mut(KEY).and_then(|v| v.as_ref().as_u32()), Some(2));
+
+    let mapping = doc.as_ref().as_mapping().context("missing root mapping")?;
+    assert_eq!(mapping.get(KEY).and_then(|v| v.as_u32()), Some(2));
+    assert_eq!(mapping.get("one").and_then(|v| v.as_u32()), Some(1));
+
+    let root = doc
+        .as_mut()
+        .into_mapping_mut()
+        .context("missing root mapping")?;
+    let value = root.get_into_mut(KEY).context("missing key")?;
+    assert_eq!(value.as_ref().as_u32(), Some(2));
+
+    let mut root = doc
+        .as_mut()
+        .into_mapping_mut()
+        .context("missing root mapping")?;
+    assert!(root.remove(KEY));
+    assert!(!root.contains_key(KEY));
+    assert_eq!(doc.to_string(), "one: 1");
+    Ok(())
+}

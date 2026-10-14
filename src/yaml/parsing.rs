@@ -95,7 +95,7 @@ enum Chomp {
 
 /// A YAML parser.
 #[derive(Clone)]
-pub struct Parser<'a> {
+pub(crate) struct Parser<'a> {
     scratch: Vec<u8>,
     data: Data,
     input: &'a [u8],

@@ -154,7 +154,7 @@ fn round_trip(string: &str) -> Result<String> {
     let mut doc = yaml::from_slice("k: v")?;
     let mut mapping = doc.as_mut().into_mapping_mut().context("mapping")?;
     mapping.remove("k");
-    mapping.insert_str("k", string);
+    mapping.insert_string("k", string);
     outputs.push(doc.to_string());
 
     let mut doc = yaml::from_slice("- v")?;

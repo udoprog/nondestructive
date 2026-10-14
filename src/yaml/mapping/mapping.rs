@@ -206,7 +206,12 @@ impl<'a> Mapping<'a> {
     /// # Ok::<_, anyhow::Error>(())
     /// ```
     #[must_use]
-    pub fn get(&self, key: &str) -> Option<Value<'a>> {
+    pub fn get<K>(&self, key: K) -> Option<Value<'a>>
+    where
+        K: AsRef<[u8]>,
+    {
+        let key = key.as_ref();
+
         for item in &self.data.mapping(self.id).items {
             let item = self.data.mapping_item(*item);
 
@@ -241,7 +246,10 @@ impl<'a> Mapping<'a> {
     /// # Ok::<_, anyhow::Error>(())
     /// ```
     #[must_use]
-    pub fn contains_key(&self, key: &str) -> bool {
+    pub fn contains_key<K>(&self, key: K) -> bool
+    where
+        K: AsRef<[u8]>,
+    {
         self.get(key).is_some()
     }
 

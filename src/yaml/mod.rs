@@ -83,7 +83,7 @@ mod tests;
 
 #[macro_use]
 mod parsing;
-pub use self::parsing::Parser;
+pub(crate) use self::parsing::Parser;
 
 mod any;
 pub use self::any::Any;

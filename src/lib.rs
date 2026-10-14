@@ -63,7 +63,7 @@
 //!
 //! // Mutation through the document:
 //! let mut mapping = doc.as_mut().into_mapping_mut().context("missing root mapping")?;
-//! mapping.insert_str("greeting2", "Hello Rust!");
+//! mapping.insert_string("greeting2", "Hello Rust!");
 //!
 //! assert_eq!(
 //!     doc.to_string(),
@@ -90,8 +90,8 @@
 //!    |                   ^^^^^^^^^^^^                                                  - temporary value is freed at the end of this statement
 //!    |                   |
 //!    |                   creates a temporary value which is freed while still in use
-//! 21 | mapping.insert_str("greeting2", "Hello Rust!");
-//!    | ---------------------------------------------- borrow later used here
+//! 21 | mapping.insert_string("greeting2", "Hello Rust!");
+//!    | ------------------------------------------------- borrow later used here
 //!    |
 //! help: consider using a `let` binding to create a longer lived value
 //!    |

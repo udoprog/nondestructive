@@ -333,7 +333,12 @@ impl<'a> MappingMut<'a> {
     /// );
     /// # Ok::<_, anyhow::Error>(())
     /// ```
-    pub fn get_mut(&mut self, key: &str) -> Option<ValueMut<'_>> {
+    pub fn get_mut<K>(&mut self, key: K) -> Option<ValueMut<'_>>
+    where
+        K: AsRef<[u8]>,
+    {
+        let key = key.as_ref();
+
         for item in &self.data.mapping(self.id).items {
             let item = self.data.mapping_item(*item);
 
@@ -381,7 +386,12 @@ impl<'a> MappingMut<'a> {
     /// # Ok::<_, anyhow::Error>(())
     /// ```
     #[must_use]
-    pub fn get_into_mut(self, key: &str) -> Option<ValueMut<'a>> {
+    pub fn get_into_mut<K>(self, key: K) -> Option<ValueMut<'a>>
+    where
+        K: AsRef<[u8]>,
+    {
+        let key = key.as_ref();
+
         for item in &self.data.mapping(self.id).items {
             let item = self.data.mapping_item(*item);
 
@@ -412,7 +422,10 @@ impl<'a> MappingMut<'a> {
     /// # Ok::<_, anyhow::Error>(())
     /// ```
     #[must_use]
-    pub fn contains_key(&self, key: &str) -> bool {
+    pub fn contains_key<K>(&self, key: K) -> bool
+    where
+        K: AsRef<[u8]>,
+    {
         self.as_ref().contains_key(key)
     }
 
@@ -452,7 +465,12 @@ impl<'a> MappingMut<'a> {
     /// );
     /// # Ok::<_, anyhow::Error>(())
     /// ```
-    pub fn remove(&mut self, key: &str) -> bool {
+    pub fn remove<K>(&mut self, key: K) -> bool
+    where
+        K: AsRef<[u8]>,
+    {
+        let key = key.as_ref();
+
         let mut index = None;
 
         for (i, item) in self.data.mapping(self.id).items.iter().enumerate() {
@@ -571,7 +589,7 @@ impl<'a> MappingMut<'a> {
     /// )?;
     ///
     /// let mut value = doc.as_mut().into_mapping_mut().context("not a mapping")?;
-    /// value.insert_str("string2", "hello");
+    /// value.insert_string("string2", "hello");
     ///
     /// assert_eq! (
     ///     doc.to_string(),
@@ -582,7 +600,7 @@ impl<'a> MappingMut<'a> {
     /// );
     /// # Ok::<_, anyhow::Error>(())
     /// ```
-    pub fn insert_str<K, S>(&mut self, key: K, string: S)
+    pub fn insert_string<K, S>(&mut self, key: K, string: S)
     where
         K: AsRef<[u8]>,
         S: AsRef<str>,

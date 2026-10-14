@@ -17,8 +17,8 @@ fn push_mapping() -> Result<()> {
     mapping.insert_u32("four", 4);
     let mut mapping2 = mapping.insert("five", yaml::Separator::Auto).make_mapping();
 
-    mapping2.insert_str("six", "six");
-    mapping2.insert_str("seven", "seven");
+    mapping2.insert_string("six", "six");
+    mapping2.insert_string("seven", "seven");
 
     assert_eq!(
         doc.to_string(),
