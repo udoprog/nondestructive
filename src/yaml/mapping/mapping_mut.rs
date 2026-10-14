@@ -168,7 +168,15 @@ impl<'a> MappingMut<'a> {
 
         let key = raw::String::new(raw::RawStringKind::Bare, key, key);
 
-        let item_prefix = if self.data.mapping(self.id).items.last().is_some() {
+        let mapping = self.data.mapping(self.id);
+
+        let item_prefix = if let raw::MappingKind::Inline { suffix, .. } = mapping.kind {
+            let (first, last) = (
+                mapping.items.first().copied(),
+                mapping.items.last().copied(),
+            );
+            self.data.flow_item_prefix(first, last, suffix)
+        } else if mapping.items.last().is_some() {
             self.make_prefix()
         } else {
             self.data.insert_str("")

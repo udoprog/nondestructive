@@ -155,3 +155,64 @@ fn edit_after_whitespace_before_separator() -> Result<()> {
     assert_eq!(doc.to_string(), "{a: 1 , b: y ,}");
     Ok(())
 }
+
+#[test]
+fn flow_insert_and_push_separators() -> Result<()> {
+    fn push(input: &str, expected: &str) -> Result<()> {
+        let mut doc = yaml::from_slice(input)?;
+        doc.as_mut()
+            .into_sequence_mut()
+            .context("missing root sequence")?
+            .push_u32(3);
+        assert_eq!(doc.to_string(), expected, "push into {input:?}");
+        yaml::from_slice(expected)?;
+        Ok(())
+    }
+
+    fn insert(input: &str, expected: &str) -> Result<()> {
+        let mut doc = yaml::from_slice(input)?;
+        doc.as_mut()
+            .into_mapping_mut()
+            .context("missing root mapping")?
+            .insert_u32("b", 2);
+        assert_eq!(doc.to_string(), expected, "insert into {input:?}");
+        yaml::from_slice(expected)?;
+        Ok(())
+    }
+
+    push("[1, 2]", "[1, 2, 3]")?;
+    push("[1,2]", "[1,2,3]")?;
+    push("[1]", "[1, 3]")?;
+    push("[]", "[3]")?;
+    push("[ ]", "[ 3 ]")?;
+    push("[ 1, 2 ]", "[ 1, 2, 3 ]")?;
+    push("[1, 2,]", "[1, 2, 3,]")?;
+    push("[\n  1,\n  2\n]", "[\n  1,\n  2,\n  3\n]")?;
+    push("[\n  1,\n  # c\n  2\n]", "[\n  1,\n  # c\n  2,\n  3\n]")?;
+    push("[\r\n  1,\r\n  2\r\n]", "[\r\n  1,\r\n  2,\r\n  3\r\n]")?;
+
+    insert("{a: 1}", "{a: 1, b: 2}")?;
+    insert("{}", "{b: 2}")?;
+    insert("{ a: 1 }", "{ a: 1, b: 2 }")?;
+    insert("{\n  a: 1,\n  c: 3\n}", "{\n  a: 1,\n  c: 3,\n  b: 2\n}")?;
+
+    let mut doc = yaml::from_slice("x: [1, 2]\ny: {a: 1}\n")?;
+    let mut root = doc.as_mut().into_mapping_mut().context("missing root")?;
+    root.get_mut("x")
+        .and_then(yaml::ValueMut::into_sequence_mut)
+        .context("missing x")?
+        .push_u32(3);
+    root.get_mut("y")
+        .and_then(yaml::ValueMut::into_mapping_mut)
+        .context("missing y")?
+        .insert_u32("b", 2);
+    assert_eq!(doc.to_string(), "x: [1, 2, 3]\ny: {a: 1, b: 2}\n");
+
+    let mut doc = yaml::from_slice("- 1\n")?;
+    doc.as_mut()
+        .into_sequence_mut()
+        .context("missing root sequence")?
+        .push_u32(2);
+    assert_eq!(doc.to_string(), "- 1\n- 2\n");
+    Ok(())
+}

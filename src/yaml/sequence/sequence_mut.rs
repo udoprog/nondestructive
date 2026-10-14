@@ -38,6 +38,51 @@ impl Data {
         let raw = mem::replace(self.raw_mut(next), Raw::Null(raw::Null::Empty));
         self.replace_with(next, prefix, raw);
     }
+
+    /// Prefix for an item appended to a flow collection whose first and last
+    /// items are `first` and `last`, with the given inner suffix (the whitespace before the closing bracket).
+    ///
+    /// Copies the separator after the last `,`, keeping only the final line
+    /// break and indentation of a multi-line one so that comments are not
+    /// duplicated.
+    pub(crate) fn flow_item_prefix(
+        &mut self,
+        first: Option<Id>,
+        last: Option<Id>,
+        suffix: StringId,
+    ) -> StringId {
+        let last = match (first, last) {
+            (Some(first), Some(last)) if first == last && self.prefix(last).is_empty() => {
+                return self.insert_str(" ");
+            }
+            (_, Some(last)) => self.layout(last).prefix,
+            _ => {
+                let blank = self.str(suffix).iter().all(|&b| matches!(b, b' ' | b'\t'));
+
+                return if blank { suffix } else { self.insert_str("") };
+            }
+        };
+
+        let prefix = self.str(last);
+
+        let Some(n) = prefix.iter().rposition(|&b| b == b'\n') else {
+            return last;
+        };
+
+        let start = if n > 0 && prefix[n - 1] == b'\r' {
+            n - 1
+        } else {
+            n
+        };
+
+        let indent = prefix[n + 1..]
+            .iter()
+            .take_while(|&&b| matches!(b, b' ' | b'\t'))
+            .count();
+
+        let prefix = prefix[start..n + 1 + indent].to_vec();
+        self.insert_str(prefix)
+    }
 }
 
 /// Mutator for a sequence.
@@ -139,10 +184,18 @@ impl<'a> SequenceMut<'a> {
 
     /// Push a value on the sequence.
     fn inner_push(&mut self, separator: Separator, value: Raw) -> Id {
-        let item_prefix = if self.data.sequence(self.id).items.last().is_some() {
-            self.make_prefix()
+        let sequence = self.data.sequence(self.id);
+
+        let (item_prefix, flow) = if let raw::SequenceKind::Inline { suffix, .. } = sequence.kind {
+            let (first, last) = (
+                sequence.items.first().copied(),
+                sequence.items.last().copied(),
+            );
+            (self.data.flow_item_prefix(first, last, suffix), true)
+        } else if sequence.items.last().is_some() {
+            (self.make_prefix(), false)
         } else {
-            self.data.insert_str("")
+            (self.data.insert_str(""), false)
         };
 
         let item_id = self
@@ -156,6 +209,7 @@ impl<'a> SequenceMut<'a> {
                         .layout(self.data.sequence_item(*last).value)
                         .prefix
                 }
+                None if flow => self.data.insert_str(""),
                 None => self.data.insert_str(" "),
             },
             Separator::Custom(separator) => self.data.insert_str(separator),
