@@ -567,11 +567,19 @@ impl<'a> MappingMut<'a> {
         self.inner_insert(key.as_ref(), Separator::Auto, string);
     }
 
-    /// Insert a value as a literal block.
+    /// Insert a value as a literal or folded block.
     ///
     /// This takes an iterator, which will be used to construct the block. The
     /// underlying value type produced is in fact a string, and can be read
     /// through methods such as [`Value::as_str`][crate::yaml::Value::as_str].
+    ///
+    /// Each item is one line of the block, and an item containing line breaks
+    /// becomes several lines. The value is what a YAML parser reads from the
+    /// written block: folded lines are joined by spaces, and trailing empty
+    /// lines are dropped unless the block uses
+    /// [`Chomp::Keep`][crate::yaml::Chomp::Keep]. If the first non-empty line
+    /// starts with whitespace, an indentation indicator such as `|2` is written
+    /// so that the whitespace stays part of the value.
     ///
     /// # Examples
     ///
@@ -674,6 +682,12 @@ impl<'a> MappingMut<'a> {
     ///       baz
     ///     "
     /// );
+    ///
+    /// let mut doc = yaml::from_slice("key: value\n")?;
+    /// let mut mapping = doc.as_mut().into_mapping_mut().context("missing mapping")?;
+    /// mapping.insert_block("block", ["  indented\nnext", ""], yaml::Block::Literal(yaml::Chomp::Clip));
+    /// assert_eq!(mapping.as_ref().get("block").and_then(|v| v.as_str()), Some("  indented\nnext\n"));
+    /// assert_eq!(doc.to_string(), "key: value\nblock: |2\n    indented\n  next\n\n");
     /// # Ok::<_, anyhow::Error>(())
     /// ```
     pub fn insert_block<K, I>(&mut self, key: K, iter: I, block: Block)

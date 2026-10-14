@@ -494,11 +494,19 @@ impl<'a> ValueMut<'a> {
         self.data.replace(self.id, value);
     }
 
-    /// Set the value as a literal block.
+    /// Set the value as a literal or folded block.
     ///
     /// This takes an iterator, which will be used to construct the block. The
     /// underlying value type produced is in fact a string, and can be read
     /// through methods such as [`Value::as_str`].
+    ///
+    /// Each item is one line of the block, and an item containing line breaks
+    /// becomes several lines. The value is what a YAML parser reads from the
+    /// written block: folded lines are joined by spaces, and trailing empty
+    /// lines are dropped unless the block uses
+    /// [`Chomp::Keep`][crate::yaml::Chomp::Keep]. If the first non-empty line
+    /// starts with whitespace, an indentation indicator such as `|2` is written
+    /// so that the whitespace stays part of the value.
     ///
     /// # Examples
     ///
@@ -596,7 +604,7 @@ impl<'a> ValueMut<'a> {
         I: IntoIterator,
         I::Item: AsRef<str>,
     {
-        let value = raw::new_block(self.data, self.id, iter, block);
+        let value = raw::new_value_block(self.data, self.id, iter, block);
         self.data.replace(self.id, value);
     }
 

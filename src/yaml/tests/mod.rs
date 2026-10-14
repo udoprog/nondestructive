@@ -1,6 +1,7 @@
 #![cfg(feature = "alloc")]
 
 mod actions;
+mod block;
 mod escape;
 mod float_output;
 mod flow;

@@ -6,7 +6,7 @@ use alloc::vec::Vec;
 #[cfg(feature = "std")]
 use std::io;
 
-use bstr::{BStr, ByteSlice};
+use bstr::ByteSlice;
 #[cfg(feature = "serde-edits")]
 use serde::{Deserialize, Serialize};
 
@@ -132,52 +132,156 @@ where
     Raw::String(String::new(kind, string, string))
 }
 
-/// Construct a block with the given configuration.
+/// Construct a block to be inserted as an item of the mapping or sequence `id`.
 pub(crate) fn new_block<I>(data: &mut Data, id: Id, iter: I, block: Block) -> Raw
 where
     I: IntoIterator,
     I::Item: AsRef<str>,
 {
-    let (indent, prefix) = match data.raw(id) {
-        Raw::Mapping(raw) => (raw.indent.wrapping_add(2), BStr::new(b"")),
-        Raw::Sequence(raw) => (raw.indent.wrapping_add(2), BStr::new(b"")),
-        _ => {
-            let prefix = data.str(data.layout(id).prefix);
+    let parent = container_indent(data, id);
+    let indent = parent.map_or(2, |p| p.wrapping_add(2));
+    build_block(data, &[], indent, parent, iter, block)
+}
 
-            let n = prefix.rfind([NEWLINE]).map_or(0, |i| i.wrapping_add(1));
+/// Construct a block to replace the value `id`.
+pub(crate) fn new_value_block<I>(data: &mut Data, id: Id, iter: I, block: Block) -> Raw
+where
+    I: IntoIterator,
+    I::Item: AsRef<str>,
+{
+    let parent = data
+        .layout(id)
+        .parent
+        .and_then(|item| data.layout(item).parent)
+        .and_then(|container| container_indent(data, container));
 
-            (2, &prefix[n..])
+    let prefix = data.str(data.layout(id).prefix);
+
+    // A value on a line of its own is indented relative to that line, otherwise
+    // relative to the container it belongs to.
+    let (line, indent) = match prefix.rfind([NEWLINE]) {
+        Some(n) => {
+            let line = prefix.get(n.wrapping_add(1)..).unwrap_or_default().to_vec();
+            let indent = line.len().wrapping_add(2);
+            (line, indent)
         }
+        None => (Vec::new(), parent.map_or(2, |p| p.wrapping_add(2))),
     };
+
+    build_block(data, &line, indent, parent, iter, block)
+}
+
+/// The indentation of a block mapping or sequence.
+fn container_indent(data: &Data, id: Id) -> Option<usize> {
+    match data.raw(id) {
+        Raw::Mapping(raw) => Some(raw.indent),
+        Raw::Sequence(raw) => Some(raw.indent),
+        _ => None,
+    }
+}
+
+/// Build a block whose content lines start with `line` followed by spaces up
+/// to `indent` columns, nested in a collection indented by `parent`.
+///
+/// The value is what parsing the block gives when a line break follows it.
+fn build_block<I>(
+    data: &mut Data,
+    line: &[u8],
+    mut indent: usize,
+    parent: Option<usize>,
+    iter: I,
+    block: Block,
+) -> Raw
+where
+    I: IntoIterator,
+    I::Item: AsRef<str>,
+{
+    let mut parts = Vec::new();
+
+    for part in iter {
+        parts.extend(part.as_ref().split('\n').map(|s| s.as_bytes().to_vec()));
+    }
+
+    let (mark, folded, chomp) = match block {
+        Block::Literal(chomp) => (b'|', false, chomp),
+        Block::Folded(chomp) => (b'>', true, chomp),
+    };
+
+    let is_spaced = |part: &[u8]| matches!(part.first(), Some(b' ' | b'\t'));
+
+    // Leading whitespace on the first content line would be taken as
+    // indentation, so state the indentation explicitly instead.
+    let explicit = parts
+        .iter()
+        .find(|part| !part.is_empty())
+        .is_some_and(|part| is_spaced(part));
+
+    // The indentation indicator counts from the parent collection.
+    let anchor = parent.unwrap_or(0);
+    let mut line = line;
+
+    if explicit && !(1..=9).contains(&indent.wrapping_sub(anchor)) {
+        line = &[];
+        indent = anchor.wrapping_add(2);
+    }
+
+    let digit = explicit
+        .then(|| u8::try_from(indent.wrapping_sub(anchor)).ok())
+        .flatten()
+        .map(|d| b'0'.wrapping_add(d));
 
     let mut original = Vec::new();
-    let mut out = Vec::new();
-
-    let (mark, join, chomp) = match block {
-        Block::Literal(chomp) => (b'|', b'\n', chomp),
-        Block::Folded(chomp) => (b'>', b' ', chomp),
-    };
-
     original.push(mark);
+    original.extend(digit);
     original.extend(chomp.as_byte());
 
-    let mut it = iter.into_iter().peekable();
+    let mut out = Vec::new();
+    // Line breaks pending since the last content line.
+    let mut breaks = 0usize;
+    // Whether the last content line was more indented, if there was one.
+    let mut spaced = None;
 
-    while let Some(part) = it.next() {
+    for part in &parts {
         original.push(NEWLINE);
-        original.extend_from_slice(prefix.as_bytes());
-        original.resize(original.len() + indent, SPACE);
-        original.extend(part.as_ref().as_bytes());
-        out.extend(part.as_ref().as_bytes());
 
-        if it.peek().is_some() {
-            out.push(join);
+        if part.is_empty() {
+            breaks = breaks.wrapping_add(1);
+            continue;
         }
+
+        original.extend_from_slice(line);
+        original.resize(
+            original
+                .len()
+                .wrapping_add(indent.saturating_sub(line.len())),
+            SPACE,
+        );
+        original.extend_from_slice(part);
+
+        let is_spaced = is_spaced(part);
+
+        if folded && spaced == Some(false) && !is_spaced {
+            if breaks == 1 {
+                out.push(SPACE);
+            } else {
+                out.resize(out.len().wrapping_add(breaks.saturating_sub(1)), NEWLINE);
+            }
+        } else {
+            out.resize(out.len().wrapping_add(breaks), NEWLINE);
+        }
+
+        out.extend_from_slice(part);
+        spaced = Some(is_spaced);
+        breaks = 1;
     }
 
-    if let Chomp::Clip | Chomp::Keep = chomp {
-        out.push(NEWLINE);
-    }
+    let trailing = match chomp {
+        Chomp::Clip if spaced.is_some() => breaks.min(1),
+        Chomp::Strip | Chomp::Clip => 0,
+        Chomp::Keep => breaks,
+    };
+
+    out.resize(out.len().wrapping_add(trailing), NEWLINE);
 
     let original = data.insert_str(&original);
     let string = data.insert_str(out);
@@ -191,7 +295,6 @@ pub(crate) struct Layout {
     /// Reference to the indentation just preceeding the current value.
     pub(crate) prefix: StringId,
     /// Reference to the parent of a value.
-    #[allow(unused)]
     pub(crate) parent: Option<Id>,
 }
 

@@ -535,11 +535,19 @@ impl<'a> SequenceMut<'a> {
         self.inner_push(Separator::Auto, string);
     }
 
-    /// Push a value as a literal block.
+    /// Push a value as a literal or folded block.
     ///
     /// This takes an iterator, which will be used to construct the block. The
     /// underlying value type produced is in fact a string, and can be read
     /// through methods such as [`Value::as_str`][crate::yaml::Value::as_str].
+    ///
+    /// Each item is one line of the block, and an item containing line breaks
+    /// becomes several lines. The value is what a YAML parser reads from the
+    /// written block: folded lines are joined by spaces, and trailing empty
+    /// lines are dropped unless the block uses
+    /// [`Chomp::Keep`][crate::yaml::Chomp::Keep]. If the first non-empty line
+    /// starts with whitespace, an indentation indicator such as `|2` is written
+    /// so that the whitespace stays part of the value.
     ///
     /// # Examples
     ///
