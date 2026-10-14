@@ -1,0 +1,9 @@
+a: |
+  x
+    
+  y
+b: | # comment
+  z
+# trailing
+c: |
+  w

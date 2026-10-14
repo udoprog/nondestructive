@@ -206,7 +206,7 @@ fn string_spaces() -> Result<()> {
         doc.as_ref()
             .as_mapping()
             .and_then(|m| m.get("first")?.as_str()),
-        Some("foo bar baz\n")
+        Some("foo\nbar baz\n")
     );
 
     assert_eq!(
@@ -287,5 +287,14 @@ fn empty_block_in_sequence() -> Result<()> {
     assert_eq!(seq.get(0).and_then(|v| v.as_str()), Some(""));
     assert_eq!(seq.get(1).and_then(|v| v.as_str()), Some("b"));
     assert_eq!(seq.len(), 2);
+    Ok(())
+}
+
+#[test]
+fn block_tab_indentation() -> Result<()> {
+    let doc = round_trip("a: |\n\tfoo\n\t  bar\nb: 1\n")?;
+    let root = doc.as_ref().as_mapping().context("missing root mapping")?;
+    assert_eq!(root.get("a").and_then(|v| v.as_str()), Some("foo\n  bar\n"));
+    assert_eq!(root.get("b").and_then(|v| v.as_u32()), Some(1));
     Ok(())
 }

@@ -1,4 +1,4 @@
-use core::array;
+use core::{array, iter, mem};
 
 use alloc::vec::Vec;
 
@@ -83,6 +83,14 @@ impl State {
             ..self
         }
     }
+}
+
+/// Block scalar chomping.
+#[derive(Clone, Copy)]
+enum Chomp {
+    Strip,
+    Clip,
+    Keep,
 }
 
 /// A YAML parser.
@@ -885,84 +893,180 @@ impl<'a> Parser<'a> {
         }
     }
 
-    /// Process a block as a string.
+    /// Process a block scalar starting at its `|` or `>` indicator.
     ///
-    /// Content lines must be indented deeper than `parent_indent`.
-    fn block(
-        &mut self,
-        n: usize,
-        join: u8,
-        folded: bool,
-        chomp: bool,
-        clip: bool,
-        parent_indent: Option<usize>,
-    ) -> (Raw, Option<StringId>) {
+    /// Content lines must be indented deeper than `parent_indent`. As an
+    /// extension, text after the header is taken as the first line, joined to
+    /// the body by a single line break (or space when folded).
+    fn block(&mut self, parent_indent: Option<usize>) -> (Raw, Option<StringId>) {
         let start = self.n;
-        self.bump(n);
+        let folded = self.peek1() == b'>';
+        self.bump(1);
+
+        let mut chomp = None;
+        let mut explicit = None;
+
+        loop {
+            match self.peek1() {
+                b'-' if chomp.is_none() => chomp = Some(Chomp::Strip),
+                b'+' if chomp.is_none() => chomp = Some(Chomp::Keep),
+                b @ b'1'..=b'9' if explicit.is_none() => explicit = Some(usize::from(b - b'0')),
+                _ => break,
+            }
+
+            self.bump(1);
+        }
+
+        let chomp = chomp.unwrap_or(Chomp::Clip);
         let prefix = self.data.insert_str(self.string(start));
 
         let start = self.n;
-        let mut end = self.n;
-        let mut content = false;
-        let (mut ws, mut nl) = self.ws_nl();
+        let mut end = start;
+        // Pending line breaks since the last content line.
+        let mut breaks = 0usize;
+        // Whether the last content line was more indented, if there was one.
+        let mut spaced = None;
+        let mut header = false;
 
-        if nl == 0 {
-            self.find(raw::NEWLINE);
-            let out = trim(self.input.get(start..self.n).unwrap_or_default());
-            self.scratch.extend_from_slice(out);
-            content = true;
-            end = self.n;
-            (ws, nl) = self.ws_nl();
+        while matches!(self.peek1(), other_ws!()) {
+            self.bump(1);
         }
 
-        let indent = self.indent();
-        let deeper = !self.is_eof() && parent_indent.map_or(true, |p| indent > p);
-
-        if deeper && content {
-            self.scratch.push(join);
-        }
-
-        content |= deeper;
-
-        while deeper && !self.is_eof() {
-            let s = self.n;
-            self.find(raw::NEWLINE);
-            let out = trim(self.input.get(s..self.n).unwrap_or_default());
-            self.scratch.extend_from_slice(out);
-
-            end = self.n;
-            (ws, nl) = self.ws_nl();
-
-            if self.indent() < indent {
-                break;
-            }
-
-            for _ in 0..if folded { 1 } else { nl } {
-                self.scratch.push(join);
+        match self.peek1() {
+            b'#' => self.find(raw::NEWLINE),
+            raw::NEWLINE | EOF => {}
+            _ => {
+                let s = self.n;
+                self.find(raw::NEWLINE);
+                self.scratch.extend_from_slice(trim(self.string(s)));
+                end = self.n;
+                header = true;
+                spaced = Some(false);
             }
         }
 
-        if content {
-            for _ in 0..if chomp { nl } else { Default::default() } {
-                self.scratch.push(raw::NEWLINE);
+        if self.peek1() == raw::NEWLINE {
+            self.bump(1);
+            breaks = usize::from(header);
+        }
 
-                if clip {
+        let min = parent_indent.map_or(0, |p| p.wrapping_add(1));
+
+        let indent = match explicit {
+            Some(d) => parent_indent.map_or(d, |p| p.wrapping_add(d)),
+            None => self.detect_block_indent(),
+        }
+        .max(min);
+
+        while !self.is_eof() {
+            let line = self.n;
+
+            while self.n.wrapping_sub(line) < indent && matches!(self.peek1(), raw::SPACE | b'\t') {
+                self.bump(1);
+            }
+
+            let text_start = self.n;
+            let shallow = text_start.wrapping_sub(line) < indent;
+            self.find(raw::NEWLINE);
+            let text = self.string(text_start);
+            let text = text.strip_suffix(b"\r").unwrap_or(text);
+
+            if text.is_empty() || shallow {
+                if !text.iter().all(|&b| matches!(b, other_ws!())) {
                     break;
                 }
+
+                if self.peek1() == raw::NEWLINE {
+                    self.bump(1);
+                    breaks = breaks.wrapping_add(1);
+                }
+
+                continue;
+            }
+
+            let is_spaced = matches!(text.first(), Some(b' ' | b'\t'));
+
+            match spaced {
+                Some(_) if mem::take(&mut header) => {
+                    self.scratch
+                        .push(if folded { raw::SPACE } else { raw::NEWLINE });
+                }
+                Some(false) if folded && !is_spaced => {
+                    if breaks == 1 {
+                        self.scratch.push(raw::SPACE);
+                    } else {
+                        let n = breaks.saturating_sub(1);
+                        self.scratch.extend(iter::repeat(raw::NEWLINE).take(n));
+                    }
+                }
+                _ => {
+                    self.scratch.extend(iter::repeat(raw::NEWLINE).take(breaks));
+                }
+            }
+
+            self.scratch.extend_from_slice(text);
+            end = self.n;
+            spaced = Some(is_spaced);
+            breaks = 0;
+
+            if self.peek1() == raw::NEWLINE {
+                self.bump(1);
+                breaks = 1;
             }
         }
+
+        let trailing = match chomp {
+            Chomp::Clip if spaced.is_some() => breaks.min(1),
+            Chomp::Strip | Chomp::Clip => 0,
+            Chomp::Keep => breaks,
+        };
+
+        self.scratch
+            .extend(iter::repeat(raw::NEWLINE).take(trailing));
 
         let string = self.data.insert_str(&self.scratch);
         self.scratch.clear();
 
-        let out = self.input.get(start..end).unwrap_or_default();
-        let original = self.data.insert_str(out);
+        let original = self
+            .data
+            .insert_str(self.input.get(start..end).unwrap_or_default());
+
+        self.n = end;
+        let ws = self.ws();
 
         let kind = raw::RawStringKind::Multiline { prefix };
         (
             Raw::String(raw::String::new(kind, string, original)),
             Some(ws),
         )
+    }
+
+    /// Detect the content indentation of a block scalar from the line at the
+    /// cursor: that of the first non-empty line, or of a deeper preceding
+    /// empty line.
+    fn detect_block_indent(&self) -> usize {
+        let mut max = 0;
+
+        for line in self
+            .input
+            .get(self.n..)
+            .unwrap_or_default()
+            .split(|&b| b == raw::NEWLINE)
+        {
+            let spaces = line
+                .iter()
+                .take_while(|&&b| matches!(b, raw::SPACE | b'\t'))
+                .count();
+            let rest = line.get(spaces..).unwrap_or_default();
+
+            if !rest.iter().all(|&b| matches!(b, other_ws!())) {
+                return max.max(spaces);
+            }
+
+            max = max.max(spaces);
+        }
+
+        max
     }
 
     /// Consume a single value.
@@ -993,14 +1097,7 @@ impl<'a> Parser<'a> {
             }
             [b'[', _] => return Ok((self.inline_sequence(s)?, None)),
             [b'{', _] => return Ok((self.inline_mapping(s)?, None)),
-            [a @ (b'>' | b'|'), b] => self.block(
-                matches!(b, b'-' | b'+').then_some(2).unwrap_or(1),
-                if a == b'>' { raw::SPACE } else { raw::NEWLINE },
-                a == b'>',
-                b != b'-',
-                b == b'-',
-                s.parent_indent,
-            ),
+            [b'>' | b'|', _] => self.block(s.parent_indent),
             _ => {
                 'default: {
                     let start = self.n;

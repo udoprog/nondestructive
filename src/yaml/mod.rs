@@ -13,6 +13,8 @@
 //!
 //! In particular:
 //! * We support any form of indentation, not just spaces.
+//! * Text after a block scalar header (`|` or `>`) on the same line is taken
+//!   as its first line.
 //! * Neither input nor output is not required to be UTF-8.
 //! * Keys in [Mappings][Mapping] can be anything, the only requirement is that
 //!   they are succeeded by a colon (`:`).

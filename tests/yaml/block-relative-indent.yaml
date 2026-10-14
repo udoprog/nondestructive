@@ -1,0 +1,8 @@
+a: |
+  one
+    indented  
+  three
+b: >
+  one
+    indented
+  three
