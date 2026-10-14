@@ -300,7 +300,9 @@ impl Document {
         O: io::Write,
     {
         output.write_all(self.data.prefix(self.root))?;
-        self.data.raw(self.root).write_to(&self.data, &mut output)?;
+        self.data
+            .raw(self.root)
+            .write_to(&self.data, &mut output, None)?;
         output.write_all(self.data.str(self.suffix))?;
         Ok(())
     }

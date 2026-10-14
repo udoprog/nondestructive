@@ -218,6 +218,18 @@ pub(crate) enum Raw {
     SequenceItem(SequenceItem),
 }
 
+#[cfg(feature = "std")]
+fn write_prefix<O>(data: &Data, o: &mut O, prefix: Option<Id>) -> io::Result<()>
+where
+    O: ?Sized + io::Write,
+{
+    if let Some(id) = prefix {
+        o.write_all(data.prefix(id))?;
+    }
+
+    Ok(())
+}
+
 impl Raw {
     pub(crate) fn display(
         &self,
@@ -276,33 +288,38 @@ impl Raw {
     }
 
     #[cfg(feature = "std")]
-    pub(crate) fn write_to<O>(&self, data: &Data, o: &mut O) -> io::Result<()>
+    pub(crate) fn write_to<O>(&self, data: &Data, o: &mut O, prefix: Option<Id>) -> io::Result<()>
     where
         O: ?Sized + io::Write,
     {
         match self {
             Raw::Null(raw) => {
-                raw.write_to(data, o)?;
+                raw.write_to(data, o, prefix)?;
+            }
+            Raw::Mapping(raw) => {
+                raw.write_to(data, o, prefix)?;
+            }
+            Raw::Sequence(raw) => {
+                raw.write_to(data, o, prefix)?;
             }
             Raw::Boolean(raw) => {
+                write_prefix(data, o, prefix)?;
                 raw.write_to(data, o)?;
             }
             Raw::Number(raw) => {
+                write_prefix(data, o, prefix)?;
                 raw.write_to(data, o)?;
             }
             Raw::String(raw) => {
-                raw.write_to(data, o)?;
-            }
-            Raw::Mapping(raw) => {
+                write_prefix(data, o, prefix)?;
                 raw.write_to(data, o)?;
             }
             Raw::MappingItem(raw) => {
-                raw.write_to(data, o)?;
-            }
-            Raw::Sequence(raw) => {
+                write_prefix(data, o, prefix)?;
                 raw.write_to(data, o)?;
             }
             Raw::SequenceItem(raw) => {
+                write_prefix(data, o, prefix)?;
                 raw.write_to(data, o)?;
             }
         }
@@ -383,15 +400,17 @@ impl Null {
     }
 
     #[cfg(feature = "std")]
-    pub(crate) fn write_to<O>(&self, data: &Data, o: &mut O) -> io::Result<()>
+    pub(crate) fn write_to<O>(&self, data: &Data, o: &mut O, prefix: Option<Id>) -> io::Result<()>
     where
         O: ?Sized + io::Write,
     {
         match self {
             Null::Keyword(string) => {
+                write_prefix(data, o, prefix)?;
                 o.write_all(data.str(*string))?;
             }
             Null::Tilde => {
+                write_prefix(data, o, prefix)?;
                 write!(o, "~")?;
             }
             Null::Empty => {
@@ -807,10 +826,14 @@ impl Sequence {
     }
 
     #[cfg(feature = "std")]
-    fn write_to<O>(&self, data: &Data, o: &mut O) -> io::Result<()>
+    fn write_to<O>(&self, data: &Data, o: &mut O, prefix: Option<Id>) -> io::Result<()>
     where
         O: ?Sized + io::Write,
     {
+        if matches!(self.kind, SequenceKind::Inline { .. }) || !self.items.is_empty() {
+            write_prefix(data, o, prefix)?;
+        }
+
         if let SequenceKind::Inline { .. } = &self.kind {
             write!(o, "[")?;
         }
@@ -864,8 +887,7 @@ impl SequenceItem {
     where
         O: ?Sized + io::Write,
     {
-        o.write_all(data.prefix(self.value))?;
-        data.raw(self.value).write_to(data, o)?;
+        data.raw(self.value).write_to(data, o, Some(self.value))?;
         Ok(())
     }
 }
@@ -952,10 +974,14 @@ impl Mapping {
     }
 
     #[cfg(feature = "std")]
-    fn write_to<O>(&self, data: &Data, o: &mut O) -> io::Result<()>
+    fn write_to<O>(&self, data: &Data, o: &mut O, prefix: Option<Id>) -> io::Result<()>
     where
         O: ?Sized + io::Write,
     {
+        if matches!(self.kind, MappingKind::Inline { .. }) || !self.items.is_empty() {
+            write_prefix(data, o, prefix)?;
+        }
+
         if let MappingKind::Inline { .. } = &self.kind {
             write!(o, "{{")?;
         }
@@ -1009,8 +1035,7 @@ impl MappingItem {
     {
         self.key.write_to(data, o)?;
         write!(o, ":")?;
-        o.write_all(data.prefix(self.value))?;
-        data.raw(self.value).write_to(data, o)?;
+        data.raw(self.value).write_to(data, o, Some(self.value))?;
         Ok(())
     }
 }

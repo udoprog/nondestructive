@@ -103,3 +103,35 @@ fn test_sequences() -> Result<()> {
     assert_eq!(root.get(3).and_then(|v| v.as_str()), Some("six"));
     Ok(())
 }
+
+#[cfg(feature = "std")]
+#[test]
+fn write_to_empty_block_containers() -> Result<()> {
+    fn write_to(doc: &yaml::Document) -> Result<alloc::string::String> {
+        let mut out = alloc::vec::Vec::new();
+        doc.write_to(&mut out)?;
+        Ok(alloc::string::String::from_utf8(out)?)
+    }
+
+    let mut doc = yaml::from_slice("a:\nb:\nc:")?;
+    let root = doc.as_ref().as_mapping().context("missing root mapping")?;
+    let a = root.get("a").context("missing a")?.id();
+    let b = root.get("b").context("missing b")?.id();
+    let _ = doc.value_mut(a).make_mapping();
+    let _ = doc.value_mut(b).make_sequence();
+    assert_eq!(doc.to_string(), "a:\nb:\nc:");
+    assert_eq!(write_to(&doc)?, doc.to_string());
+
+    let mut doc = yaml::from_slice("- ~\n- ~\n- c")?;
+    let root = doc
+        .as_ref()
+        .as_sequence()
+        .context("missing root sequence")?;
+    let first = root.get(0).context("missing first")?.id();
+    let second = root.get(1).context("missing second")?.id();
+    let _ = doc.value_mut(first).make_mapping();
+    let _ = doc.value_mut(second).make_sequence();
+    assert_eq!(doc.to_string(), "-\n-\n- c");
+    assert_eq!(write_to(&doc)?, doc.to_string());
+    Ok(())
+}
