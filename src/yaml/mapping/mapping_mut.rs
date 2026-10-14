@@ -54,7 +54,7 @@ pub struct MappingMut<'a> {
 
 macro_rules! insert_float {
     ($name:ident, $ty:ty, $string:literal, $lit:literal, $hint:ident) => {
-        #[doc = concat!("Set the value as a ", $string, ".")]
+        #[doc = concat!("Insert the value as a ", $string, ".")]
         ///
         /// # Examples
         ///
@@ -96,7 +96,7 @@ macro_rules! insert_float {
 
 macro_rules! insert_number {
     ($name:ident, $ty:ty, $string:literal, $lit:literal, $hint:ident) => {
-        #[doc = concat!("Set the value as a ", $string, ".")]
+        #[doc = concat!("Insert the value as a ", $string, ".")]
         ///
         /// # Examples
         ///
@@ -393,7 +393,7 @@ impl<'a> MappingMut<'a> {
     }
 
     /// Remove the given value from the mapping, returning a boolean indicating if
-    /// it existed in the sequence or not.
+    /// it existed in the mapping or not.
     ///
     /// # Examples
     ///
@@ -593,10 +593,10 @@ impl<'a> MappingMut<'a> {
     ///     "
     /// )?;
     ///
-    /// let mut sequence = doc.as_mut().make_mapping();
-    /// sequence.clear();
-    /// sequence.insert_block("key", ["foo", "bar", "baz"], yaml::Block::Literal(yaml::Chomp::Clip));
-    /// assert_eq!(sequence.as_ref().get("key").and_then(|v| v.as_str()), Some("foo\nbar\nbaz\n"));
+    /// let mut mapping = doc.as_mut().make_mapping();
+    /// mapping.clear();
+    /// mapping.insert_block("key", ["foo", "bar", "baz"], yaml::Block::Literal(yaml::Chomp::Clip));
+    /// assert_eq!(mapping.as_ref().get("key").and_then(|v| v.as_str()), Some("foo\nbar\nbaz\n"));
     ///
     /// assert_eq!(
     ///     doc.to_string(),
@@ -608,10 +608,10 @@ impl<'a> MappingMut<'a> {
     ///     "
     /// );
     ///
-    /// let mut sequence = doc.as_mut().make_mapping();
-    /// sequence.clear();
-    /// sequence.insert_block("key", ["foo", "bar", "baz"], yaml::Block::Literal(yaml::Chomp::Keep));
-    /// assert_eq!(sequence.as_ref().get("key").and_then(|v| v.as_str()), Some("foo\nbar\nbaz\n"));
+    /// let mut mapping = doc.as_mut().make_mapping();
+    /// mapping.clear();
+    /// mapping.insert_block("key", ["foo", "bar", "baz"], yaml::Block::Literal(yaml::Chomp::Keep));
+    /// assert_eq!(mapping.as_ref().get("key").and_then(|v| v.as_str()), Some("foo\nbar\nbaz\n"));
     ///
     /// assert_eq!(
     ///     doc.to_string(),
@@ -623,10 +623,10 @@ impl<'a> MappingMut<'a> {
     ///     "
     /// );
     ///
-    /// let mut sequence = doc.as_mut().make_mapping();
-    /// sequence.clear();
-    /// sequence.insert_block("key", ["foo", "bar", "baz"], yaml::Block::Literal(yaml::Chomp::Strip));
-    /// assert_eq!(sequence.as_ref().get("key").and_then(|v| v.as_str()), Some("foo\nbar\nbaz"));
+    /// let mut mapping = doc.as_mut().make_mapping();
+    /// mapping.clear();
+    /// mapping.insert_block("key", ["foo", "bar", "baz"], yaml::Block::Literal(yaml::Chomp::Strip));
+    /// assert_eq!(mapping.as_ref().get("key").and_then(|v| v.as_str()), Some("foo\nbar\nbaz"));
     ///
     /// assert_eq!(
     ///     doc.to_string(),
@@ -638,10 +638,10 @@ impl<'a> MappingMut<'a> {
     ///     "
     /// );
     ///
-    /// let mut sequence = doc.as_mut().make_mapping();
-    /// sequence.clear();
-    /// sequence.insert_block("key", ["foo", "bar", "baz"], yaml::Block::Folded(yaml::Chomp::Clip));
-    /// assert_eq!(sequence.as_ref().get("key").and_then(|v| v.as_str()), Some("foo bar baz\n"));
+    /// let mut mapping = doc.as_mut().make_mapping();
+    /// mapping.clear();
+    /// mapping.insert_block("key", ["foo", "bar", "baz"], yaml::Block::Folded(yaml::Chomp::Clip));
+    /// assert_eq!(mapping.as_ref().get("key").and_then(|v| v.as_str()), Some("foo bar baz\n"));
     ///
     /// assert_eq!(
     ///     doc.to_string(),
@@ -653,10 +653,10 @@ impl<'a> MappingMut<'a> {
     ///     "
     /// );
     ///
-    /// let mut sequence = doc.as_mut().make_mapping();
-    /// sequence.clear();
-    /// sequence.insert_block("key", ["foo", "bar", "baz"], yaml::Block::Folded(yaml::Chomp::Keep));
-    /// assert_eq!(sequence.as_ref().get("key").and_then(|v| v.as_str()), Some("foo bar baz\n"));
+    /// let mut mapping = doc.as_mut().make_mapping();
+    /// mapping.clear();
+    /// mapping.insert_block("key", ["foo", "bar", "baz"], yaml::Block::Folded(yaml::Chomp::Keep));
+    /// assert_eq!(mapping.as_ref().get("key").and_then(|v| v.as_str()), Some("foo bar baz\n"));
     ///
     /// assert_eq!(
     ///     doc.to_string(),
@@ -668,10 +668,10 @@ impl<'a> MappingMut<'a> {
     ///     "
     /// );
     ///
-    /// let mut sequence = doc.as_mut().make_mapping();
-    /// sequence.clear();
-    /// sequence.insert_block("key", ["foo", "bar", "baz"], yaml::Block::Folded(yaml::Chomp::Strip));
-    /// assert_eq!(sequence.as_ref().get("key").and_then(|v| v.as_str()), Some("foo bar baz"));
+    /// let mut mapping = doc.as_mut().make_mapping();
+    /// mapping.clear();
+    /// mapping.insert_block("key", ["foo", "bar", "baz"], yaml::Block::Folded(yaml::Chomp::Strip));
+    /// assert_eq!(mapping.as_ref().get("key").and_then(|v| v.as_str()), Some("foo bar baz"));
     ///
     /// assert_eq!(
     ///     doc.to_string(),

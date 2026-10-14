@@ -95,7 +95,7 @@ impl<'a> Any<'a> {
         }
     }
 
-    /// Coerce [`Any`] into a string.
+    /// Coerce [`Any`] into a number.
     ///
     /// # Examples
     ///
