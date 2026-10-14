@@ -414,18 +414,45 @@ impl<'de> Deserializer<'de> for Value<'de> {
     }
 }
 
-struct BStrDeserializer<'de> {
+/// Deserializer for mapping keys, which are stored as text and only parsed
+/// into numbers or booleans when the visitor asks for one.
+struct KeyDeserializer<'de> {
     string: &'de BStr,
 }
 
-impl<'de> BStrDeserializer<'de> {
+impl<'de> KeyDeserializer<'de> {
     #[inline]
     fn new(string: &'de BStr) -> Self {
         Self { string }
     }
+
+    #[inline]
+    fn parse<T>(&self) -> Option<T>
+    where
+        T: lexical_core::FromLexical,
+    {
+        lexical_core::parse(self.string).ok()
+    }
 }
 
-impl<'de> Deserializer<'de> for BStrDeserializer<'de> {
+macro_rules! deserialize_key_number {
+    ($($method:ident, $visit:ident, $ty:ty;)*) => {
+        $(
+            #[inline]
+            fn $method<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+            where
+                V: Visitor<'de>,
+            {
+                match self.parse::<$ty>() {
+                    Some(value) => visitor.$visit(value),
+                    None => self.deserialize_any(visitor),
+                }
+            }
+        )*
+    };
+}
+
+impl<'de> Deserializer<'de> for KeyDeserializer<'de> {
     type Error = Error;
 
     #[inline]
@@ -433,7 +460,11 @@ impl<'de> Deserializer<'de> for BStrDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        visitor.visit_bytes(self.string)
+        if let Ok(string) = self.string.to_str() {
+            visitor.visit_borrowed_str(string)
+        } else {
+            visitor.visit_borrowed_bytes(self.string)
+        }
     }
 
     #[inline]
@@ -441,111 +472,28 @@ impl<'de> Deserializer<'de> for BStrDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        self.deserialize_any(visitor)
+        if self.string.eq_ignore_ascii_case(b"true") {
+            visitor.visit_bool(true)
+        } else if self.string.eq_ignore_ascii_case(b"false") {
+            visitor.visit_bool(false)
+        } else {
+            self.deserialize_any(visitor)
+        }
     }
 
-    #[inline]
-    fn deserialize_i8<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: Visitor<'de>,
-    {
-        self.deserialize_any(visitor)
-    }
-
-    #[inline]
-    fn deserialize_i16<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: Visitor<'de>,
-    {
-        self.deserialize_any(visitor)
-    }
-
-    #[inline]
-    fn deserialize_i32<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: Visitor<'de>,
-    {
-        self.deserialize_any(visitor)
-    }
-
-    #[inline]
-    fn deserialize_i64<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: Visitor<'de>,
-    {
-        self.deserialize_any(visitor)
-    }
-
-    #[inline]
-    fn deserialize_u8<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: Visitor<'de>,
-    {
-        self.deserialize_any(visitor)
-    }
-
-    #[inline]
-    fn deserialize_u16<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: Visitor<'de>,
-    {
-        self.deserialize_any(visitor)
-    }
-
-    #[inline]
-    fn deserialize_u32<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: Visitor<'de>,
-    {
-        self.deserialize_any(visitor)
-    }
-
-    #[inline]
-    fn deserialize_u64<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: Visitor<'de>,
-    {
-        self.deserialize_any(visitor)
-    }
-
-    #[inline]
-    fn deserialize_f32<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: Visitor<'de>,
-    {
-        self.deserialize_any(visitor)
-    }
-
-    #[inline]
-    fn deserialize_f64<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: Visitor<'de>,
-    {
-        self.deserialize_any(visitor)
-    }
-
-    #[inline]
-    fn deserialize_char<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: Visitor<'de>,
-    {
-        self.deserialize_any(visitor)
-    }
-
-    #[inline]
-    fn deserialize_str<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: Visitor<'de>,
-    {
-        self.deserialize_any(visitor)
-    }
-
-    #[inline]
-    fn deserialize_string<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: Visitor<'de>,
-    {
-        self.deserialize_any(visitor)
+    deserialize_key_number! {
+        deserialize_i8, visit_i8, i8;
+        deserialize_i16, visit_i16, i16;
+        deserialize_i32, visit_i32, i32;
+        deserialize_i64, visit_i64, i64;
+        deserialize_i128, visit_i128, i128;
+        deserialize_u8, visit_u8, u8;
+        deserialize_u16, visit_u16, u16;
+        deserialize_u32, visit_u32, u32;
+        deserialize_u64, visit_u64, u64;
+        deserialize_u128, visit_u128, u128;
+        deserialize_f32, visit_f32, f32;
+        deserialize_f64, visit_f64, f64;
     }
 
     #[inline]
@@ -553,7 +501,7 @@ impl<'de> Deserializer<'de> for BStrDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        self.deserialize_any(visitor)
+        visitor.visit_borrowed_bytes(self.string)
     }
 
     #[inline]
@@ -561,35 +509,7 @@ impl<'de> Deserializer<'de> for BStrDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        self.deserialize_any(visitor)
-    }
-
-    #[inline]
-    fn deserialize_option<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: Visitor<'de>,
-    {
-        self.deserialize_any(visitor)
-    }
-
-    #[inline]
-    fn deserialize_unit<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: Visitor<'de>,
-    {
-        self.deserialize_any(visitor)
-    }
-
-    #[inline]
-    fn deserialize_unit_struct<V>(
-        self,
-        _: &'static str,
-        visitor: V,
-    ) -> Result<V::Value, Self::Error>
-    where
-        V: Visitor<'de>,
-    {
-        self.deserialize_any(visitor)
+        visitor.visit_borrowed_bytes(self.string)
     }
 
     #[inline]
@@ -601,86 +521,12 @@ impl<'de> Deserializer<'de> for BStrDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        self.deserialize_any(visitor)
+        visitor.visit_newtype_struct(self)
     }
 
-    #[inline]
-    fn deserialize_seq<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: Visitor<'de>,
-    {
-        self.deserialize_any(visitor)
-    }
-
-    #[inline]
-    fn deserialize_tuple<V>(self, _: usize, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: Visitor<'de>,
-    {
-        self.deserialize_any(visitor)
-    }
-
-    #[inline]
-    fn deserialize_tuple_struct<V>(
-        self,
-        _: &'static str,
-        _: usize,
-        visitor: V,
-    ) -> Result<V::Value, Self::Error>
-    where
-        V: Visitor<'de>,
-    {
-        self.deserialize_any(visitor)
-    }
-
-    #[inline]
-    fn deserialize_map<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: Visitor<'de>,
-    {
-        self.deserialize_any(visitor)
-    }
-
-    #[inline]
-    fn deserialize_struct<V>(
-        self,
-        _: &'static str,
-        _: &'static [&'static str],
-        visitor: V,
-    ) -> Result<V::Value, Self::Error>
-    where
-        V: Visitor<'de>,
-    {
-        self.deserialize_any(visitor)
-    }
-
-    #[inline]
-    fn deserialize_enum<V>(
-        self,
-        _: &'static str,
-        _: &'static [&'static str],
-        visitor: V,
-    ) -> Result<V::Value, Self::Error>
-    where
-        V: Visitor<'de>,
-    {
-        self.deserialize_any(visitor)
-    }
-
-    #[inline]
-    fn deserialize_identifier<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: Visitor<'de>,
-    {
-        self.deserialize_any(visitor)
-    }
-
-    #[inline]
-    fn deserialize_ignored_any<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: Visitor<'de>,
-    {
-        self.deserialize_any(visitor)
+    serde::forward_to_deserialize_any! {
+        char str string option unit unit_struct seq tuple tuple_struct map
+        struct enum identifier ignored_any
     }
 }
 
@@ -709,7 +555,7 @@ impl<'de> MapAccess<'de> for MappingIter<'de> {
         };
 
         self.value = Some(value);
-        Ok(Some(seed.deserialize(BStrDeserializer::new(key))?))
+        Ok(Some(seed.deserialize(KeyDeserializer::new(key))?))
     }
 
     #[inline]

@@ -1,5 +1,8 @@
 #![cfg(feature = "serde")]
 
+use std::collections::{BTreeMap, HashMap};
+use std::string::String;
+
 use anyhow::Result;
 use serde::de::{IgnoredAny, IntoDeserializer};
 use serde::Deserialize;
@@ -140,5 +143,75 @@ fn set_u128_deserialize_any() -> Result<()> {
         serde::Deserializer::deserialize_any(doc.as_ref(), Any)?,
         u128::MAX
     );
+    Ok(())
+}
+
+#[test]
+fn borrowed_str_keys() -> Result<()> {
+    let doc = yaml::from_slice("a: 1\nb: 2\n")?;
+    let map = HashMap::<&str, u32>::deserialize(doc.into_deserializer())?;
+    assert_eq!(map, HashMap::from([("a", 1), ("b", 2)]));
+    let map = HashMap::<String, u32>::deserialize(doc.into_deserializer())?;
+    assert_eq!(map, HashMap::from([("a".into(), 1), ("b".into(), 2)]));
+    Ok(())
+}
+
+#[test]
+fn integer_keys() -> Result<()> {
+    #[derive(Debug, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
+    struct Id(u128);
+
+    let doc = yaml::from_slice("1: a\n2: b\n")?;
+    let map = BTreeMap::<u32, String>::deserialize(doc.into_deserializer())?;
+    assert_eq!(map, BTreeMap::from([(1, "a".into()), (2, "b".into())]));
+
+    let doc = yaml::from_slice("-1: a\n")?;
+    let map = BTreeMap::<i64, &str>::deserialize(doc.into_deserializer())?;
+    assert_eq!(map, BTreeMap::from([(-1, "a")]));
+
+    let doc = yaml::from_slice("340282366920938463463374607431768211455: a\n")?;
+    let map = BTreeMap::<u128, &str>::deserialize(doc.into_deserializer())?;
+    assert_eq!(map, BTreeMap::from([(u128::MAX, "a")]));
+    assert!(BTreeMap::<u64, &str>::deserialize(doc.into_deserializer()).is_err());
+
+    let doc = yaml::from_slice("7: a\n")?;
+    let map = BTreeMap::<Id, &str>::deserialize(doc.into_deserializer())?;
+    assert_eq!(map, BTreeMap::from([(Id(7), "a")]));
+
+    let doc = yaml::from_slice("x: a\n")?;
+    assert!(BTreeMap::<u32, &str>::deserialize(doc.into_deserializer()).is_err());
+    Ok(())
+}
+
+#[test]
+fn bool_keys() -> Result<()> {
+    let doc = yaml::from_slice("true: a\nFalse: b\n")?;
+    let map = BTreeMap::<bool, &str>::deserialize(doc.into_deserializer())?;
+    assert_eq!(map, BTreeMap::from([(true, "a"), (false, "b")]));
+    Ok(())
+}
+
+#[test]
+fn struct_field_keys() -> Result<()> {
+    #[derive(Debug, Deserialize, PartialEq)]
+    struct Fields<'a> {
+        name: &'a str,
+        #[serde(rename = "1")]
+        one: u32,
+    }
+
+    let doc = yaml::from_slice("name: x\n1: 2\nignored: [1, 2]\n")?;
+    assert_eq!(
+        Fields::deserialize(doc.into_deserializer())?,
+        Fields { name: "x", one: 2 }
+    );
+    Ok(())
+}
+
+#[test]
+fn non_utf8_keys() -> Result<()> {
+    let doc = yaml::from_slice(b"\xff: a\n")?;
+    let map = BTreeMap::<&[u8], &str>::deserialize(doc.into_deserializer())?;
+    assert_eq!(map, BTreeMap::from([(&b"\xff"[..], "a")]));
     Ok(())
 }
