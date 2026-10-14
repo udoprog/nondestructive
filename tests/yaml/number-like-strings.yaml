@@ -1,0 +1,10 @@
+dot: .
+dash-dot: -.
+e: 1e
+e-minus: 1e-
+e-plus: 1E+
+trailing-dot: 1.
+exp-minus: 1e-5
+exp-plus: 2.5E+3
+neg-exp: -1e3
+flow: [., 1e, 1e-, -., 1e-5, 1.]

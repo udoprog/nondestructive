@@ -270,7 +270,7 @@ impl<'a> Parser<'a> {
         let mut wants_dot = true;
         let mut wants_e = true;
         let mut has_number = false;
-        let mut any = false;
+        let mut has_exponent = true;
 
         loop {
             match self.peek1() {
@@ -282,20 +282,26 @@ impl<'a> Parser<'a> {
                     hint = serde_hint::F64;
                     wants_dot = false;
                     wants_e = false;
+                    has_exponent = false;
+
+                    if matches!(self.peek::<2>(), [_, b'-' | b'+']) {
+                        self.bump(1);
+                    }
                 }
                 b'0'..=b'9' => {
                     has_number = true;
+                    has_exponent = true;
                 }
                 _ => {
                     break;
                 }
             }
 
-            any = true;
             self.bump(1);
         }
 
-        if !any {
+        // A mantissa digit and, after `e`, an exponent digit are required.
+        if !has_number || !has_exponent {
             return None;
         }
 
