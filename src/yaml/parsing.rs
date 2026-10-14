@@ -1361,11 +1361,11 @@ impl<'a> Parser<'a> {
                     (
                         if string == b"~" {
                             Raw::Null(raw::Null::Tilde)
-                        } else if matches!(string, b"null" | b"Null" | b"NULL") {
+                        } else if raw::NULL.contains(&string) {
                             Raw::Null(raw::Null::Keyword(self.data.insert_str(string)))
-                        } else if matches!(string, b"true" | b"True" | b"TRUE") {
+                        } else if raw::TRUE.contains(&string) {
                             Raw::Boolean(raw::Boolean::new(true, self.data.insert_str(string)))
-                        } else if matches!(string, b"false" | b"False" | b"FALSE") {
+                        } else if raw::FALSE.contains(&string) {
                             Raw::Boolean(raw::Boolean::new(false, self.data.insert_str(string)))
                         } else {
                             let string = self.data.insert_str(string);

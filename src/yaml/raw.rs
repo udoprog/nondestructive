@@ -1,5 +1,4 @@
 use core::fmt::{self, Write};
-use core::mem;
 
 use alloc::vec::Vec;
 
@@ -603,36 +602,95 @@ pub(crate) enum RawStringKind {
 
 impl RawStringKind {
     /// Detect the appropriate kind to use for the given string.
+    ///
+    /// A string is written [`Bare`] when [`is_plain_safe`] holds, and quoted
+    /// otherwise. [`Double`] is used whenever the string needs escaping or
+    /// contains a `'`, [`Single`] for anything else.
+    ///
+    /// [`Bare`]: RawStringKind::Bare
+    /// [`Single`]: RawStringKind::Single
+    /// [`Double`]: RawStringKind::Double
     pub(crate) fn detect(string: &str) -> RawStringKind {
-        if matches!(string, "true" | "false" | "null") {
-            return RawStringKind::Single;
+        if string.chars().any(|c| needs_escape(c) || c == '\'') {
+            RawStringKind::Double
+        } else if is_plain_safe(string) {
+            RawStringKind::Bare
+        } else {
+            RawStringKind::Single
         }
-
-        let mut kind = RawStringKind::Bare;
-        let mut first = true;
-
-        for c in string.chars() {
-            let first = mem::take(&mut first);
-
-            match c {
-                '0'..='9' if first => {
-                    kind = RawStringKind::Single;
-                }
-                '\'' => {
-                    return RawStringKind::Double;
-                }
-                ':' => {
-                    kind = RawStringKind::Single;
-                }
-                b if b.is_control() => {
-                    return RawStringKind::Double;
-                }
-                _ => {}
-            }
-        }
-
-        kind
     }
+}
+
+/// The plain spellings of null under the YAML 1.2 core schema.
+pub(crate) const NULL: [&[u8]; 4] = [b"~", b"null", b"Null", b"NULL"];
+/// The plain spellings of `true` under the YAML 1.2 core schema.
+pub(crate) const TRUE: [&[u8]; 3] = [b"true", b"True", b"TRUE"];
+/// The plain spellings of `false` under the YAML 1.2 core schema.
+pub(crate) const FALSE: [&[u8]; 3] = [b"false", b"False", b"FALSE"];
+
+/// Whether a character can only be written escaped in a double-quoted string.
+fn needs_escape(c: char) -> bool {
+    c.is_control() || matches!(c, '\u{2028}' | '\u{2029}' | '\u{feff}')
+}
+
+/// Whether `string` can be written as a plain scalar in any block or flow
+/// context and read back as the same string, both by this crate and by
+/// libyaml.
+///
+/// This excludes strings that would resolve to null, a boolean or a number,
+/// are empty or have surrounding whitespace, start with an indicator or a
+/// document marker, contain a flow indicator, `": "` or `" #"`, end with `:`,
+/// or contain a character that needs escaping.
+pub(crate) fn is_plain_safe(string: &str) -> bool {
+    let bytes = string.as_bytes();
+
+    let (Some(&first), Some(&last)) = (bytes.first(), bytes.last()) else {
+        return false;
+    };
+
+    if matches!(first, b' ' | b'?' | b':' | b'#' | b'&' | b'*' | b'!' | b'|')
+        || matches!(first, b'>' | b'\'' | b'"' | b'%' | b'@' | b'`')
+        || matches!(last, b' ' | b':')
+        || matches!(bytes, [b'-', b' ', ..] | [b'-'])
+        || bytes.starts_with(b"---")
+        || bytes.starts_with(b"...")
+    {
+        return false;
+    }
+
+    if bytes
+        .iter()
+        .any(|b| matches!(b, b',' | b'[' | b']' | b'{' | b'}'))
+        || string.contains(": ")
+        || string.contains(" #")
+        || string.chars().any(needs_escape)
+    {
+        return false;
+    }
+
+    !resolves_as_non_string(bytes)
+}
+
+/// Whether a plain scalar would resolve to something other than a string.
+///
+/// Anything that starts like a number (an optional sign followed by a digit,
+/// or by `.` and a digit) is treated as one, which covers the forms libyaml
+/// reads as numbers beyond the core schema, such as `0b101` and `+0x1f`.
+fn resolves_as_non_string(bytes: &[u8]) -> bool {
+    if NULL.contains(&bytes) || TRUE.contains(&bytes) || FALSE.contains(&bytes) {
+        return true;
+    }
+
+    if crate::yaml::number::resolve(bytes).is_some() {
+        return true;
+    }
+
+    let unsigned = match bytes {
+        [b'+' | b'-', rest @ ..] => rest,
+        _ => bytes,
+    };
+
+    matches!(unsigned, [b'0'..=b'9', ..] | [b'.', b'0'..=b'9', ..])
 }
 
 /// A YAML string.
@@ -698,8 +756,9 @@ impl String {
                     '\u{A0}' => "\\_",
                     '\u{2028}' => "\\L",
                     '\u{2029}' => "\\P",
-                    c if c.is_ascii_control() => {
-                        write!(f, "{}\\x{:02x}", &string[start..index], c as u8)?;
+                    '\u{feff}' => "\\uFEFF",
+                    c if c.is_control() => {
+                        write!(f, "{}\\x{:02x}", &string[start..index], u32::from(c))?;
                         start = end;
                         continue;
                     }
@@ -797,9 +856,10 @@ impl String {
                     '\u{A0}' => b"\\_",
                     '\u{2028}' => b"\\L",
                     '\u{2029}' => b"\\P",
-                    c if c.is_ascii_control() => {
+                    '\u{feff}' => b"\\uFEFF",
+                    c if c.is_control() => {
                         o.write_all(&string[s..index])?;
-                        write!(o, "\\x{:02x}", c as u8)?;
+                        write!(o, "\\x{:02x}", u32::from(c))?;
                         s = end;
                         continue;
                     }

@@ -424,10 +424,22 @@ impl<'a> ValueMut<'a> {
     /// used.
     ///
     /// The heuristic used is:
-    /// * [`StringKind::Single`] will be used if the leading digit is numeric.
-    /// * [`StringKind::Double`] will be used if either a single `'` is
-    ///   encounted, or a non-graphical component that requires escaping.
-    /// * Otherwise, [`StringKind::Bare`] is used.
+    /// * [`StringKind::Double`] is used if the string contains a `'`, or a
+    ///   character that requires escaping, such as a control character, a
+    ///   newline, a tab, a byte order mark or a Unicode line separator.
+    /// * [`StringKind::Single`] is used if the string could not be read back
+    ///   as the same string when written bare. That is when it:
+    ///   * is empty, or starts or ends with a space,
+    ///   * would be read as null, a boolean or a number, such as `~`, `null`,
+    ///     `True`, `-1`, `.5`, `1e3`, `0x1F`, `.inf` or `.nan`, or starts like
+    ///     one with an optional sign followed by a digit or by `.` and a
+    ///     digit, such as `1st` or `007`,
+    ///   * starts with an indicator: one of ``? : # & * ! | > ' " % @ ` ``,
+    ///     `-` followed by a space or nothing, `---` or `...`,
+    ///   * contains a flow indicator (one of `, [ ] { }`), `": "` or `" #"`, or
+    ///     ends with `:`.
+    /// * Otherwise, [`StringKind::Bare`] is used. A `:` or `#` that is not
+    ///   covered above, such as in `a:b`, `rust@1.65` or `a#b`, is left bare.
     ///
     /// # Examples
     ///
@@ -457,6 +469,18 @@ impl<'a> ValueMut<'a> {
     ///
     /// doc.as_mut().set_string("rust@1.65");
     /// assert_eq!(doc.to_string(), "  rust@1.65");
+    ///
+    /// doc.as_mut().set_string("True");
+    /// assert_eq!(doc.to_string(), "  'True'");
+    ///
+    /// doc.as_mut().set_string("a: b");
+    /// assert_eq!(doc.to_string(), "  'a: b'");
+    ///
+    /// doc.as_mut().set_string("");
+    /// assert_eq!(doc.to_string(), "  ''");
+    ///
+    /// doc.as_mut().set_string("It's");
+    /// assert_eq!(doc.to_string(), "  \"It's\"");
     /// # Ok::<_, anyhow::Error>(())
     /// ```
     #[inline]

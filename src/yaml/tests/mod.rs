@@ -11,6 +11,7 @@ mod null;
 mod number;
 mod sequence;
 mod serde;
+mod set_string;
 mod unterminated;
 
 use alloc::string::ToString;
