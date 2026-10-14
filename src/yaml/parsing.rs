@@ -818,8 +818,7 @@ impl<'a> Parser<'a> {
             let ws = ws.unwrap_or_else(|| self.ws());
             previous_ws = Some(ws);
 
-            if self.indent() != indent || !matches!(self.peek1(), b'-') || self.is_document_start()
-            {
+            if self.indent() != indent || !matches!(self.peek(), [b'-', ws!(EOF)]) {
                 break;
             }
         }
@@ -834,12 +833,6 @@ impl<'a> Parser<'a> {
         );
 
         Ok((mapping_id, previous_ws))
-    }
-
-    /// Test if the cursor is at a `---` document start marker, which only
-    /// counts at the start of a line.
-    fn is_document_start(&self) -> bool {
-        self.indent() == 0 && matches!(self.peek(), [b'-', b'-', b'-', ws!(EOF)])
     }
 
     /// Parse a raw mapping.

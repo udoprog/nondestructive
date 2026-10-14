@@ -268,3 +268,33 @@ fn dashes_in_items() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn dash_without_space_ends_sequence() {
+    for input in ["- 1\n-x", "- - 1\n  ---", "a:\n  - 1\n  ---"] {
+        let err = yaml::from_slice(input).unwrap_err();
+        assert_eq!(*err.kind(), yaml::ErrorKind::ExpectedEof, "{input:?}");
+    }
+}
+
+#[test]
+fn dash_without_space_as_value() -> Result<()> {
+    let input = "- -x\n- - -y\n";
+    let doc = yaml::from_slice(input)?;
+    assert_eq!(doc.to_string(), input);
+
+    let root = doc
+        .as_ref()
+        .as_sequence()
+        .context("missing root sequence")?;
+    assert_eq!(root.get(0).and_then(|v| v.as_str()), Some("-x"));
+    let inner = root
+        .get(1)
+        .and_then(|v| v.as_sequence())
+        .context("missing inner sequence")?;
+    assert_eq!(inner.get(0).and_then(|v| v.as_str()), Some("-y"));
+
+    let doc = yaml::from_slice("-x")?;
+    assert_eq!(doc.as_ref().as_str(), Some("-x"));
+    Ok(())
+}
