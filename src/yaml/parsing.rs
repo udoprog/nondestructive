@@ -806,12 +806,17 @@ impl<'a> Parser<'a> {
             self.bump(1);
 
             let value_prefix = self.ws();
-            let (value, ws) = self.value(
-                &State::new(value_prefix)
-                    .with_parent(item_id)
-                    .with_tabular()
-                    .with_parent_indent(indent),
-            )?;
+
+            let (value, ws) = if self.is_empty_value(value_prefix, indent, true) {
+                self.empty_value(value_prefix, item_id)
+            } else {
+                self.value(
+                    &State::new(value_prefix)
+                        .with_parent(item_id)
+                        .with_tabular()
+                        .with_parent_indent(indent),
+                )?
+            };
 
             self.data.replace(
                 item_id,
@@ -864,8 +869,9 @@ impl<'a> Parser<'a> {
         // indentation means that we've encountered a nul value and need to rewind parsing.
         if matches!(s.parent_indent, Some(i) if i >= indent) {
             self.n = start;
+            let separator = self.data.insert_str(" ");
             self.data
-                .replace_with(mapping_id, empty, Raw::Null(raw::Null::Empty));
+                .replace_with(mapping_id, separator, Raw::Null(raw::Null::Empty));
             return Ok((mapping_id, Some(s.prefix)));
         }
 
@@ -881,12 +887,17 @@ impl<'a> Parser<'a> {
             self.bump(1);
 
             let value_prefix = self.ws();
-            let (value, ws) = self.value(
-                &State::new(value_prefix)
-                    .with_parent(item_id)
-                    .with_tabular()
-                    .with_parent_indent(indent),
-            )?;
+
+            let (value, ws) = if self.is_empty_value(value_prefix, indent, false) {
+                self.empty_value(value_prefix, item_id)
+            } else {
+                self.value(
+                    &State::new(value_prefix)
+                        .with_parent(item_id)
+                        .with_tabular()
+                        .with_parent_indent(indent),
+                )?
+            };
 
             self.data.replace(
                 item_id,
@@ -919,6 +930,33 @@ impl<'a> Parser<'a> {
         );
 
         Ok((mapping_id, previous_ws))
+    }
+
+    /// Test if the value of a block collection entry at `indent`, preceded by
+    /// `prefix`, is empty: it ends at end of input or at a line which belongs
+    /// to a sibling or an ancestor. A mapping value may be a sequence at the
+    /// same indentation as its key.
+    fn is_empty_value(&self, prefix: StringId, indent: usize, sequence: bool) -> bool {
+        if self.is_eof() {
+            return true;
+        }
+
+        if memchr::memchr(raw::NEWLINE, self.data.str(prefix)).is_none() {
+            return false;
+        }
+
+        let current = self.indent();
+        current < indent
+            || current == indent && (sequence || !matches!(self.peek(), [b'-', ws!(EOF)]))
+    }
+
+    /// Construct an empty value. Its prefix is handed back as trailing
+    /// whitespace, since an empty value outputs nothing; the value instead gets
+    /// the separator a later edit prints before it.
+    fn empty_value(&mut self, prefix: StringId, parent: Id) -> (Id, Option<StringId>) {
+        let separator = self.data.insert_str(" ");
+        let id = self.placeholder(separator, Some(parent));
+        (id, Some(prefix))
     }
 
     /// Count indentation up until the current cursor.
@@ -1216,7 +1254,8 @@ impl<'a> Parser<'a> {
     /// Consume a single value.
     fn value(&mut self, s: &State) -> Result<(Id, Option<StringId>)> {
         let (raw, ws) = match self.peek() {
-            [b'-', ws!()] if !s.inline => {
+            [EOF, _] if !s.inline && self.is_eof() => (Raw::Null(raw::Null::Empty), None),
+            [b'-', ws!(EOF)] if !s.inline => {
                 return self.sequence(s);
             }
             [b'"', _] => {

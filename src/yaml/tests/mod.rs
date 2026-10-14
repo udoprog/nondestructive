@@ -5,6 +5,7 @@ mod escape;
 mod flow;
 mod mapping;
 mod multiline;
+mod null;
 mod sequence;
 mod serde;
 mod unterminated;
