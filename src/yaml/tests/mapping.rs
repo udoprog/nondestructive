@@ -143,6 +143,10 @@ fn mapping_nth_back() -> Result<()> {
         Some(b"c".as_slice())
     );
     assert_eq!(
+        map.iter().nth(1).map(|(k, _)| k.as_ref()),
+        Some(b"b".as_slice())
+    );
+    assert_eq!(
         map.iter().rev().nth(1).map(|(k, _)| k.as_ref()),
         Some(b"b".as_slice())
     );

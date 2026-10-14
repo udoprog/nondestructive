@@ -84,6 +84,7 @@ fn sequence_nth_back() -> Result<()> {
     let seq = doc.as_ref().as_sequence().context("missing sequence")?;
 
     assert_eq!(seq.iter().nth_back(0).and_then(|v| v.as_u32()), Some(3));
+    assert_eq!(seq.iter().nth(1).and_then(|v| v.as_u32()), Some(2));
     assert_eq!(seq.iter().rev().nth(1).and_then(|v| v.as_u32()), Some(2));
 
     let mut it = seq.iter();
