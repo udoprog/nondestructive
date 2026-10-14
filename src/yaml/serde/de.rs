@@ -1,5 +1,8 @@
 use bstr::{BStr, ByteSlice};
-use serde::de::{self, Error as _, IntoDeserializer, MapAccess, SeqAccess, Visitor};
+use serde::de::{
+    self, EnumAccess, Error as _, IntoDeserializer, MapAccess, SeqAccess, Unexpected,
+    VariantAccess, Visitor,
+};
 use serde::Deserializer;
 
 use crate::yaml::raw;
@@ -394,7 +397,26 @@ impl<'de> Deserializer<'de> for Value<'de> {
     where
         V: Visitor<'de>,
     {
-        self.deserialize_any(visitor)
+        match self.data.raw(self.id) {
+            raw::Raw::String(raw) => visitor.visit_enum(UnitVariant {
+                string: self.data.str(raw.id),
+            }),
+            raw::Raw::Mapping(..) => {
+                let mut iter = Mapping::new(self.data, self.id).into_iter();
+
+                match (iter.next(), iter.next()) {
+                    (Some((variant, value)), None) => visitor.visit_enum(VariantValue {
+                        variant: KeyDeserializer::new(variant),
+                        value,
+                    }),
+                    _ => Err(Error::invalid_length(
+                        Mapping::new(self.data, self.id).len(),
+                        &"a mapping with a single entry",
+                    )),
+                }
+            }
+            _ => self.deserialize_any(visitor),
+        }
     }
 
     #[inline]
@@ -524,9 +546,142 @@ impl<'de> Deserializer<'de> for KeyDeserializer<'de> {
         visitor.visit_newtype_struct(self)
     }
 
+    #[inline]
+    fn deserialize_enum<V>(
+        self,
+        _: &'static str,
+        _: &'static [&'static str],
+        visitor: V,
+    ) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
+        visitor.visit_enum(UnitVariant {
+            string: self.string,
+        })
+    }
+
     serde::forward_to_deserialize_any! {
         char str string option unit unit_struct seq tuple tuple_struct map
-        struct enum identifier ignored_any
+        struct identifier ignored_any
+    }
+}
+
+/// Enum given as a bare scalar, which can only name a unit variant.
+struct UnitVariant<'de> {
+    string: &'de BStr,
+}
+
+impl<'de> EnumAccess<'de> for UnitVariant<'de> {
+    type Error = Error;
+    type Variant = Self;
+
+    #[inline]
+    fn variant_seed<V>(self, seed: V) -> Result<(V::Value, Self::Variant), Self::Error>
+    where
+        V: de::DeserializeSeed<'de>,
+    {
+        let variant = seed.deserialize(KeyDeserializer::new(self.string))?;
+        Ok((variant, self))
+    }
+}
+
+impl<'de> VariantAccess<'de> for UnitVariant<'de> {
+    type Error = Error;
+
+    #[inline]
+    fn unit_variant(self) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    #[inline]
+    fn newtype_variant_seed<T>(self, _: T) -> Result<T::Value, Self::Error>
+    where
+        T: de::DeserializeSeed<'de>,
+    {
+        Err(Error::invalid_type(
+            Unexpected::UnitVariant,
+            &"newtype variant",
+        ))
+    }
+
+    #[inline]
+    fn tuple_variant<V>(self, _: usize, _: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
+        Err(Error::invalid_type(
+            Unexpected::UnitVariant,
+            &"tuple variant",
+        ))
+    }
+
+    #[inline]
+    fn struct_variant<V>(self, _: &'static [&'static str], _: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
+        Err(Error::invalid_type(
+            Unexpected::UnitVariant,
+            &"struct variant",
+        ))
+    }
+}
+
+/// Enum given as a single-entry mapping from variant name to its content.
+struct VariantValue<'de> {
+    variant: KeyDeserializer<'de>,
+    value: Value<'de>,
+}
+
+impl<'de> EnumAccess<'de> for VariantValue<'de> {
+    type Error = Error;
+    type Variant = Value<'de>;
+
+    #[inline]
+    fn variant_seed<V>(self, seed: V) -> Result<(V::Value, Self::Variant), Self::Error>
+    where
+        V: de::DeserializeSeed<'de>,
+    {
+        let variant = seed.deserialize(self.variant)?;
+        Ok((variant, self.value))
+    }
+}
+
+impl<'de> VariantAccess<'de> for Value<'de> {
+    type Error = Error;
+
+    #[inline]
+    fn unit_variant(self) -> Result<(), Self::Error> {
+        de::Deserialize::deserialize(self)
+    }
+
+    #[inline]
+    fn newtype_variant_seed<T>(self, seed: T) -> Result<T::Value, Self::Error>
+    where
+        T: de::DeserializeSeed<'de>,
+    {
+        seed.deserialize(self)
+    }
+
+    #[inline]
+    fn tuple_variant<V>(self, len: usize, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
+        self.deserialize_tuple(len, visitor)
+    }
+
+    #[inline]
+    fn struct_variant<V>(
+        self,
+        fields: &'static [&'static str],
+        visitor: V,
+    ) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
+        self.deserialize_struct("", fields, visitor)
     }
 }
 

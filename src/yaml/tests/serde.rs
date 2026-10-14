@@ -215,3 +215,100 @@ fn non_utf8_keys() -> Result<()> {
     assert_eq!(map, BTreeMap::from([(&b"\xff"[..], "a")]));
     Ok(())
 }
+
+#[derive(Debug, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
+enum Shape<'a> {
+    Empty,
+    Named(&'a str),
+    Point(i32, i32),
+    Circle { r: u32 },
+}
+
+#[test]
+fn enum_variants() -> Result<()> {
+    for (source, expected) in [
+        ("Empty\n", Shape::Empty),
+        ("Empty: ~\n", Shape::Empty),
+        ("Named: x\n", Shape::Named("x")),
+        ("Point: [1, -2]\n", Shape::Point(1, -2)),
+        ("Point:\n- 1\n- -2\n", Shape::Point(1, -2)),
+        ("Circle: {r: 2}\n", Shape::Circle { r: 2 }),
+        ("Circle:\n  r: 2\n", Shape::Circle { r: 2 }),
+    ] {
+        let doc = yaml::from_slice(source)?;
+        assert_eq!(Shape::deserialize(doc.into_deserializer())?, expected);
+    }
+
+    Ok(())
+}
+
+#[test]
+fn enum_field() -> Result<()> {
+    #[derive(Debug, Deserialize, PartialEq)]
+    enum Color {
+        Red,
+        Green,
+    }
+
+    #[derive(Debug, Deserialize, PartialEq)]
+    struct C<'a> {
+        color: Color,
+        #[serde(borrow)]
+        shape: Shape<'a>,
+    }
+
+    let doc = yaml::from_slice("color: Green\nshape:\n  Circle: {r: 2}\n")?;
+    assert_eq!(
+        C::deserialize(doc.into_deserializer())?,
+        C {
+            color: Color::Green,
+            shape: Shape::Circle { r: 2 }
+        }
+    );
+
+    let doc = yaml::from_slice("color: Red\nshape: Empty\n")?;
+    assert_eq!(
+        C::deserialize(doc.into_deserializer())?,
+        C {
+            color: Color::Red,
+            shape: Shape::Empty
+        }
+    );
+    Ok(())
+}
+
+#[test]
+fn enum_keys() -> Result<()> {
+    let doc = yaml::from_slice("Empty: 1\n")?;
+    let map = BTreeMap::<Shape, u32>::deserialize(doc.into_deserializer())?;
+    assert_eq!(map, BTreeMap::from([(Shape::Empty, 1)]));
+
+    let doc = yaml::from_slice("Named: 1\n")?;
+    assert!(BTreeMap::<Shape, u32>::deserialize(doc.into_deserializer()).is_err());
+    Ok(())
+}
+
+#[test]
+fn enum_errors() -> Result<()> {
+    for source in [
+        "Unknown\n",
+        "Named\n",
+        "Empty: 1\n",
+        "Named: [1]\n",
+        "Point: [1]\n",
+        "Circle: 2\n",
+        "{}\n",
+        "Empty: ~\nNamed: x\n",
+        "[Empty]\n",
+        "1\n",
+        "~\n",
+    ] {
+        let doc = yaml::from_slice(source)?;
+        assert!(
+            Shape::deserialize(doc.into_deserializer()).is_err(),
+            "{source:?}"
+        );
+    }
+
+    Ok(())
+}
