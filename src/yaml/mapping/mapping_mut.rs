@@ -200,8 +200,15 @@ impl<'a> MappingMut<'a> {
 
         let value = self.data.insert(value, value_prefix, Some(item_id));
 
-        self.data
-            .replace(item_id, Raw::MappingItem(raw::MappingItem { key, value }));
+        let separator_prefix = self.data.insert_str("");
+        self.data.replace(
+            item_id,
+            Raw::MappingItem(raw::MappingItem {
+                key,
+                value,
+                separator_prefix,
+            }),
+        );
 
         self.data.mapping_mut(self.id).items.push(item_id);
         value

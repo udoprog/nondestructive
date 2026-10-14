@@ -874,11 +874,14 @@ impl Sequence {
 #[cfg_attr(feature = "serde-edits", derive(Serialize, Deserialize))]
 pub(crate) struct SequenceItem {
     pub(crate) value: Id,
+    /// Whitespace and comments between the value and a following flow `,`.
+    pub(crate) separator_prefix: StringId,
 }
 
 impl SequenceItem {
     fn display(&self, data: &Data, f: &mut fmt::Formatter) -> fmt::Result {
         data.raw(self.value).display(data, f, Some(self.value))?;
+        write!(f, "{}", data.str(self.separator_prefix))?;
         Ok(())
     }
 
@@ -888,6 +891,7 @@ impl SequenceItem {
         O: ?Sized + io::Write,
     {
         data.raw(self.value).write_to(data, o, Some(self.value))?;
+        o.write_all(data.str(self.separator_prefix))?;
         Ok(())
     }
 }
@@ -1018,6 +1022,8 @@ impl Mapping {
 pub(crate) struct MappingItem {
     pub(crate) key: String,
     pub(crate) value: Id,
+    /// Whitespace and comments between the value and a following flow `,`.
+    pub(crate) separator_prefix: StringId,
 }
 
 impl MappingItem {
@@ -1025,6 +1031,7 @@ impl MappingItem {
         self.key.display(data, f)?;
         write!(f, ":")?;
         data.raw(self.value).display(data, f, Some(self.value))?;
+        write!(f, "{}", data.str(self.separator_prefix))?;
         Ok(())
     }
 
@@ -1036,6 +1043,7 @@ impl MappingItem {
         self.key.write_to(data, o)?;
         write!(o, ":")?;
         data.raw(self.value).write_to(data, o, Some(self.value))?;
+        o.write_all(data.str(self.separator_prefix))?;
         Ok(())
     }
 }

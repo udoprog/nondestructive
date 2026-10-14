@@ -77,7 +77,7 @@ fn key_without_colon_is_an_error() {
 /// byte-for-byte.
 #[test]
 fn flow_round_trip() {
-    const ALPHABET: &[u8] = b"{}[],: a1\"";
+    const ALPHABET: &[u8] = b"{}[],: a1\"#\n";
     const MAX: u32 = 5;
 
     let mut input = Vec::new();
@@ -95,12 +95,6 @@ fn flow_round_trip() {
 
                 input.push(close);
 
-                // Whitespace between a non-plain value and `,` has no slot
-                // in the raw model and is not preserved.
-                if input.windows(2).any(|w| w == b" ,") {
-                    continue;
-                }
-
                 let Ok(doc) = yaml::from_slice(&input) else {
                     continue;
                 };
@@ -114,4 +108,50 @@ fn flow_round_trip() {
             }
         }
     }
+}
+
+#[test]
+fn whitespace_before_separator() -> Result<()> {
+    for input in [
+        "[1 ,]",
+        "[1\n, 2]",
+        "{a: \"x\" , b: 1}",
+        "[{} # c\n, b]",
+        "['a'\t,\n  [b] ,{c: d}  , e ]",
+        "{a: [1] # c\n , b: {} ,}",
+    ] {
+        let doc = yaml::from_slice(input)?;
+        assert_eq!(doc.to_string(), input);
+
+        let mut out = Vec::new();
+        doc.write_to(&mut out)?;
+        assert_eq!(out, input.as_bytes());
+    }
+
+    let doc = yaml::from_slice("{a: \"x\" , b: 1 }")?;
+    let root = doc.as_ref().as_mapping().context("missing root mapping")?;
+    assert_eq!(root.get("a").and_then(|v| v.as_str()), Some("x"));
+    assert_eq!(root.get("b").and_then(|v| v.as_u32()), Some(1));
+    Ok(())
+}
+
+#[test]
+fn edit_after_whitespace_before_separator() -> Result<()> {
+    let mut doc = yaml::from_slice("[1 , 'a' # c\n, 3]")?;
+    let mut root = doc
+        .as_mut()
+        .into_sequence_mut()
+        .context("missing root sequence")?;
+    root.get_mut(0).context("missing item")?.set_u32(2);
+    assert!(root.remove(2));
+    assert_eq!(doc.to_string(), "[2 , 'a' # c\n]");
+
+    let mut doc = yaml::from_slice("{a: 1 , b: 'x' ,}")?;
+    let mut root = doc
+        .as_mut()
+        .into_mapping_mut()
+        .context("missing root mapping")?;
+    root.get_mut("b").context("missing b")?.set_string("y");
+    assert_eq!(doc.to_string(), "{a: 1 , b: y ,}");
+    Ok(())
 }

@@ -129,8 +129,14 @@ impl<'a> SequenceMut<'a> {
 
         let value = self.data.insert(value, value_prefix, Some(item_id));
 
-        self.data
-            .replace(item_id, Raw::SequenceItem(raw::SequenceItem { value }));
+        let separator_prefix = self.data.insert_str("");
+        self.data.replace(
+            item_id,
+            Raw::SequenceItem(raw::SequenceItem {
+                value,
+                separator_prefix,
+            }),
+        );
         self.data.sequence_mut(self.id).items.push(item_id);
         value
     }

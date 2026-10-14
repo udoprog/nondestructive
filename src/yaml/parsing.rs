@@ -666,12 +666,25 @@ impl<'a> Parser<'a> {
             let (value, next_prefix) =
                 self.value(&State::new(value_prefix).with_parent(item_id).with_inline())?;
 
-            self.data.replace(item_id, raw::SequenceItem { value });
-
             items.push(item_id);
 
-            item_prefix = next_prefix.unwrap_or_else(|| self.ws());
+            let ws = next_prefix.unwrap_or_else(|| self.ws());
             trailing = matches!(self.peek1(), b',');
+
+            let separator_prefix = if trailing {
+                ws
+            } else {
+                item_prefix = ws;
+                self.data.insert_str("")
+            };
+
+            self.data.replace(
+                item_id,
+                raw::SequenceItem {
+                    value,
+                    separator_prefix,
+                },
+            );
 
             if !trailing {
                 break;
@@ -726,11 +739,26 @@ impl<'a> Parser<'a> {
             let (value, next_prefix) =
                 self.value(&State::new(value_prefix).with_parent(item_id).with_inline())?;
 
-            self.data.replace(item_id, raw::MappingItem { key, value });
             items.push(item_id);
 
-            item_prefix = next_prefix.unwrap_or_else(|| self.ws());
+            let ws = next_prefix.unwrap_or_else(|| self.ws());
             trailing = matches!(self.peek1(), b',');
+
+            let separator_prefix = if trailing {
+                ws
+            } else {
+                item_prefix = ws;
+                self.data.insert_str("")
+            };
+
+            self.data.replace(
+                item_id,
+                raw::MappingItem {
+                    key,
+                    value,
+                    separator_prefix,
+                },
+            );
 
             if !trailing {
                 break;
@@ -785,7 +813,13 @@ impl<'a> Parser<'a> {
                     .with_parent_indent(indent),
             )?;
 
-            self.data.replace(item_id, raw::SequenceItem { value });
+            self.data.replace(
+                item_id,
+                raw::SequenceItem {
+                    value,
+                    separator_prefix: empty,
+                },
+            );
             items.push(item_id);
 
             let ws = ws.unwrap_or_else(|| self.ws());
@@ -854,7 +888,14 @@ impl<'a> Parser<'a> {
                     .with_parent_indent(indent),
             )?;
 
-            self.data.replace(item_id, raw::MappingItem { key, value });
+            self.data.replace(
+                item_id,
+                raw::MappingItem {
+                    key,
+                    value,
+                    separator_prefix: empty,
+                },
+            );
             items.push(item_id);
 
             let ws = ws.unwrap_or_else(|| self.ws());
