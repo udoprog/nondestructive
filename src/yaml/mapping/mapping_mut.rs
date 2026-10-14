@@ -85,7 +85,9 @@ macro_rules! insert_float {
             K: AsRef<[u8]>,
         {
             let mut buffer = ryu::Buffer::new();
-            let number = self.data.insert_str(buffer.format(value));
+            let number = self
+                .data
+                .insert_str(crate::yaml::value_mut::format_float(&mut buffer, value));
             let value = Raw::Number(raw::Number::new(number, crate::yaml::serde_hint::$hint));
             self.inner_insert(key.as_ref(), Separator::Auto, value);
         }

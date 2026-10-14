@@ -2,6 +2,7 @@
 
 mod actions;
 mod escape;
+mod float_output;
 mod flow;
 mod mapping;
 mod multiline;

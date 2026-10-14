@@ -121,7 +121,9 @@ macro_rules! push_float {
         /// ```
         pub fn $name(&mut self, value: $ty) {
             let mut buffer = ryu::Buffer::new();
-            let number = self.data.insert_str(buffer.format(value));
+            let number = self
+                .data
+                .insert_str(crate::yaml::value_mut::format_float(&mut buffer, value));
             let value = Raw::Number(raw::Number::new(number, crate::yaml::serde_hint::$hint));
             self.inner_push(Separator::Auto, value);
         }

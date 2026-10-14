@@ -335,10 +335,30 @@ macro_rules! set_float {
         /// ```
         pub fn $name(&mut self, value: $ty) {
             let mut buffer = ryu::Buffer::new();
-            let string = self.data.insert_str(buffer.format(value));
+            let string = self.data.insert_str(format_float(&mut buffer, value));
             self.data.replace(self.id, Raw::Number(raw::Number::new(string, crate::yaml::serde_hint::$hint)));
         }
     };
+}
+
+/// Format a float, spelling non-finite values the way YAML does.
+pub(crate) fn format_float<F>(buffer: &mut ryu::Buffer, value: F) -> &str
+where
+    F: ryu::Float + Into<f64>,
+{
+    let wide: f64 = value.into();
+
+    if wide.is_nan() {
+        ".nan"
+    } else if wide.is_infinite() {
+        if wide.is_sign_negative() {
+            "-.inf"
+        } else {
+            ".inf"
+        }
+    } else {
+        buffer.format_finite(value)
+    }
 }
 
 macro_rules! set_number {
