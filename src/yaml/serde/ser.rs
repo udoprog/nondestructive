@@ -4,7 +4,7 @@ use serde::ser::{Error, SerializeMap, SerializeSeq};
 use serde::{Serialize, Serializer};
 
 use crate::yaml::raw;
-use crate::yaml::serde_hint::RawNumberHint;
+use crate::yaml::serde::number::Number;
 use crate::yaml::{Mapping, Sequence, Value};
 
 impl Serialize for Value<'_> {
@@ -15,55 +15,28 @@ impl Serialize for Value<'_> {
         match self.data.raw(self.id) {
             raw::Raw::Null(..) => serializer.serialize_none(),
             raw::Raw::Boolean(bool) => serializer.serialize_bool(bool.value),
-            raw::Raw::Number(raw) => match raw.hint {
-                RawNumberHint::Float32 => match self.as_f32() {
-                    Some(value) => serializer.serialize_f32(value),
-                    None => serializer.serialize_none(),
-                },
-                RawNumberHint::Float64 => match self.as_f64() {
-                    Some(value) => serializer.serialize_f64(value),
-                    None => serializer.serialize_none(),
-                },
-                RawNumberHint::Unsigned8 => match self.as_u8() {
-                    Some(value) => serializer.serialize_u8(value),
-                    None => serializer.serialize_none(),
-                },
-                RawNumberHint::Unsigned16 => match self.as_u16() {
-                    Some(value) => serializer.serialize_u16(value),
-                    None => serializer.serialize_none(),
-                },
-                RawNumberHint::Unsigned32 => match self.as_u32() {
-                    Some(value) => serializer.serialize_u32(value),
-                    None => serializer.serialize_none(),
-                },
-                RawNumberHint::Unsigned64 => match self.as_u64() {
-                    Some(value) => serializer.serialize_u64(value),
-                    None => serializer.serialize_none(),
-                },
-                RawNumberHint::Unsigned128 => match self.as_u128() {
-                    Some(value) => serializer.serialize_u128(value),
-                    None => serializer.serialize_none(),
-                },
-                RawNumberHint::Signed8 => match self.as_i8() {
-                    Some(value) => serializer.serialize_i8(value),
-                    None => serializer.serialize_none(),
-                },
-                RawNumberHint::Signed16 => match self.as_i16() {
-                    Some(value) => serializer.serialize_i16(value),
-                    None => serializer.serialize_none(),
-                },
-                RawNumberHint::Signed32 => match self.as_i32() {
-                    Some(value) => serializer.serialize_i32(value),
-                    None => serializer.serialize_none(),
-                },
-                RawNumberHint::Signed64 => match self.as_i64() {
-                    Some(value) => serializer.serialize_i64(value),
-                    None => serializer.serialize_none(),
-                },
-                RawNumberHint::Signed128 => match self.as_i128() {
-                    Some(value) => serializer.serialize_i128(value),
-                    None => serializer.serialize_none(),
-                },
+            raw::Raw::Number(raw) => match Number::parse(self, raw.hint) {
+                Some(Number::F32(value)) => serializer.serialize_f32(value),
+                Some(Number::F64(value)) => serializer.serialize_f64(value),
+                Some(Number::U8(value)) => serializer.serialize_u8(value),
+                Some(Number::U16(value)) => serializer.serialize_u16(value),
+                Some(Number::U32(value)) => serializer.serialize_u32(value),
+                Some(Number::U64(value)) => serializer.serialize_u64(value),
+                Some(Number::U128(value)) => serializer.serialize_u128(value),
+                Some(Number::I8(value)) => serializer.serialize_i8(value),
+                Some(Number::I16(value)) => serializer.serialize_i16(value),
+                Some(Number::I32(value)) => serializer.serialize_i32(value),
+                Some(Number::I64(value)) => serializer.serialize_i64(value),
+                Some(Number::I128(value)) => serializer.serialize_i128(value),
+                None => {
+                    let string = self.data.str(raw.string);
+
+                    if let Ok(string) = string.to_str() {
+                        serializer.serialize_str(string)
+                    } else {
+                        serializer.serialize_bytes(string)
+                    }
+                }
             },
             raw::Raw::String(raw) => {
                 let string = self.data.str(raw.id);

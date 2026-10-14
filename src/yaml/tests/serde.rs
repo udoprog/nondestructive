@@ -312,3 +312,34 @@ fn enum_errors() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn serialize_out_of_range_numbers() -> Result<()> {
+    let doc = yaml::from_slice("x: 99999999999999999999\ny: -99999999999999999999\nz: 1e999\n")?;
+    let out = serde_yaml::to_string(&doc.as_ref())?;
+    assert_eq!(
+        out,
+        "x: 99999999999999999999\ny: -99999999999999999999\nz: .inf\n"
+    );
+    Ok(())
+}
+
+#[test]
+fn serialize_integer_overflow_widens_to_float() -> Result<()> {
+    let doc = yaml::from_slice("999999999999999999999999999999999999999999\n")?;
+    let value = serde_yaml::to_value(doc.as_ref())?;
+    let value = value.as_f64().expect("float");
+    assert!((value - 1e42).abs() < 1e27);
+    Ok(())
+}
+
+#[test]
+fn serialize_non_numbers_as_strings() -> Result<()> {
+    for (source, text) in [("x: .\n", "."), ("x: 1e\n", "1e")] {
+        let doc = yaml::from_slice(source)?;
+        let value = serde_yaml::to_value(doc.as_ref())?;
+        assert_eq!(value["x"].as_str(), Some(text));
+    }
+
+    Ok(())
+}
