@@ -204,3 +204,45 @@ fn key_does_not_span_lines() {
     let err = yaml::from_slice("a: 1\n\"b\"\nc: 2").unwrap_err();
     assert_eq!(*err.kind(), yaml::ErrorKind::BadMappingSeparator);
 }
+
+#[test]
+fn remove_first() -> Result<()> {
+    fn remove(input: &str, path: &[&str]) -> Result<alloc::string::String> {
+        let mut doc = yaml::from_slice(input)?;
+        let (last, path) = path.split_last().context("empty path")?;
+        let mut value = doc.as_mut();
+
+        for key in path {
+            value = value
+                .into_mapping_mut()
+                .context("missing mapping")?
+                .get_into_mut(key)
+                .context("missing key")?;
+        }
+
+        let mut mapping = value.into_mapping_mut().context("missing mapping")?;
+        assert!(mapping.remove(last));
+        let mut out = alloc::vec::Vec::new();
+        doc.write_to(&mut out)?;
+        assert_eq!(out, doc.to_string().as_bytes());
+        Ok(doc.to_string())
+    }
+
+    assert_eq!(remove("a: 1\nb: 2\n", &["a"])?, "b: 2\n");
+    assert_eq!(
+        remove("x:\n  a: 1\n  b: 2\ny: 3\n", &["x", "a"])?,
+        "x:\n  b: 2\ny: 3\n"
+    );
+    assert_eq!(remove("a: 1 # a\n# b\nb: 2\n", &["a"])?, "# b\nb: 2\n");
+    assert_eq!(
+        remove("x:\n  a: 1\n  # b\n  b: 2\n", &["x", "a"])?,
+        "x:\n  # b\n  b: 2\n"
+    );
+    assert_eq!(remove("a: 1\r\nb: 2\r\n", &["a"])?, "b: 2\r\n");
+    assert_eq!(remove("a: 1\nb: 2\nc: 3\n", &["b"])?, "a: 1\nc: 3\n");
+    assert_eq!(remove("a: 1\n", &["a"])?, "\n");
+    assert_eq!(remove("{a: 1, b: 2}", &["a"])?, "{b: 2}");
+    assert_eq!(remove("{ a: 1 , b: 2 }", &["a"])?, "{ b: 2 }");
+    assert_eq!(remove("{\n  a: 1,\n  b: 2,\n}", &["a"])?, "{\n  b: 2,\n}");
+    Ok(())
+}

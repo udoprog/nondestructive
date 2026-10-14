@@ -434,7 +434,15 @@ impl<'a> MappingMut<'a> {
             return false;
         };
 
-        let item = self.data.mapping_mut(self.id).items.remove(index);
+        let items = &mut self.data.mapping_mut(self.id).items;
+        let item = items.remove(index);
+
+        if index == 0 {
+            if let Some(&next) = items.first() {
+                self.data.take_first_prefix(item, next);
+            }
+        }
+
         self.data.drop(item);
         true
     }

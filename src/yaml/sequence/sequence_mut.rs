@@ -6,6 +6,40 @@ use crate::yaml::data::{Data, Id, StringId};
 use crate::yaml::raw::{self, Raw};
 use crate::yaml::{Block, Separator, Sequence, ValueMut};
 
+impl Data {
+    /// Make `next` take the place of the removed first item `removed` of a
+    /// collection.
+    ///
+    /// The first item has no separator in its prefix, while `next` has one.
+    /// Everything up to and including the first line break in the prefix of
+    /// `next` (and the indentation after it) belongs to the line of the removed
+    /// item and is dropped, the rest (such as comments on lines of their own)
+    /// is kept after the prefix of `removed`.
+    pub(crate) fn take_first_prefix(&mut self, removed: Id, next: Id) {
+        let next_prefix = self.prefix(next);
+
+        let rest = match next_prefix.iter().position(|&b| b == b'\n') {
+            Some(n) => {
+                let rest = &next_prefix[n + 1..];
+                let ws = rest
+                    .iter()
+                    .take_while(|&&b| matches!(b, b' ' | b'\t'))
+                    .count();
+                &rest[ws..]
+            }
+            None => &[][..],
+        };
+
+        let mut prefix = Vec::new();
+        prefix.extend_from_slice(self.prefix(removed));
+        prefix.extend_from_slice(rest);
+        let prefix = self.insert_str(prefix);
+
+        let raw = mem::replace(self.raw_mut(next), Raw::Null(raw::Null::Empty));
+        self.replace_with(next, prefix, raw);
+    }
+}
+
 /// Mutator for a sequence.
 pub struct SequenceMut<'a> {
     data: &'a mut Data,
@@ -329,6 +363,13 @@ impl<'a> SequenceMut<'a> {
         }
 
         let item = raw.items.remove(index);
+
+        if index == 0 {
+            if let Some(&next) = raw.items.first() {
+                self.data.take_first_prefix(item, next);
+            }
+        }
+
         self.data.drop(item);
         true
     }
