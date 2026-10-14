@@ -3,7 +3,6 @@ use core::fmt;
 use alloc::string::String;
 use alloc::vec::Vec;
 
-#[cfg(feature = "std")]
 use std::io;
 
 #[cfg(feature = "serde-edits")]
@@ -296,8 +295,6 @@ impl Document {
     /// );
     /// # Ok::<_, anyhow::Error>(())
     /// ```
-    #[cfg(feature = "std")]
-    #[cfg_attr(doc_cfg, doc(cfg(feature = "std")))]
     pub fn write_to<O>(&self, mut output: O) -> io::Result<()>
     where
         O: io::Write,
@@ -328,7 +325,6 @@ impl fmt::Display for Document {
         // matches whatever would've been produced through `Document::write_to`.
         //
         // This is only enabled with `--cfg nondestructive_write_to_eq`.
-        #[cfg(feature = "std")]
         if cfg!(nondestructive_write_to_eq) {
             use bstr::BStr;
             use std::fmt::Write;

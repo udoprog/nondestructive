@@ -4,7 +4,7 @@ use alloc::string::ToString;
 
 use serde::de;
 
-/// A error raised during deserialization.
+/// An error raised during deserialization.
 ///
 /// See [`serde` module][crate::yaml::serde] for documentation.
 #[derive(Debug)]

@@ -28,9 +28,9 @@ impl<'de, 'a: 'de> IntoDeserializer<'de, Error> for Value<'a> {
     }
 }
 
-/// [`Deserializer`] implementation for [`Document`].
+/// [`Deserializer`] implementation for [`Value`].
 ///
-/// This allows a [`Document`] to be deserialized from any compatible type.
+/// This allows a [`Value`] to be deserialized from any compatible type.
 impl<'de> Deserializer<'de> for Value<'de> {
     type Error = Error;
 

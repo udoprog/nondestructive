@@ -4,8 +4,8 @@
 //! are serialized through their [`std::fmt::Display`] and
 //! [`Document::write_to`] implementations.
 //!
-//! With `serde` support enabled, [`Document`] can also be serialized through
-//! [`serde`].
+//! With `serde` support enabled, a [`Document`] can be deserialized through
+//! [`serde`] and a [`Value`] can be both serialized and deserialized.
 //!
 //! ## Specification compliance
 //!
@@ -45,7 +45,7 @@
 //!
 //! ## Serde support
 //!
-//! Serde is supported for [`Document`] and [`Value`] through the `serde`
+//! Serde is supported through the `serde`
 //! feature, see the [`serde` module][serde] for documentation.
 //!
 //! # Examples

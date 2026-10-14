@@ -79,10 +79,11 @@ impl Serialize for Mapping<'_> {
         let mut map = serializer.serialize_map(Some(self.len()))?;
 
         for (key, value) in self {
-            if let Ok(key) = key.to_str() {
-                map.serialize_entry(key, &value)?;
-            } else {
-                map.serialize_entry(key, &value)?;
+            // `key` is shadowed so that valid UTF-8 keys serialize as `str` and
+            // the rest as bytes.
+            match key.to_str() {
+                Ok(key) => map.serialize_entry(key, &value)?,
+                Err(..) => map.serialize_entry(key, &value)?,
             }
         }
 
