@@ -123,6 +123,42 @@ impl<'de> Deserialize<'de> for StringId {
     }
 }
 
+#[cfg(feature = "musli02")]
+impl<M> musli_core02::Encode<M> for StringId {
+    type Encode = Self;
+
+    const IS_BITWISE_ENCODE: bool = false;
+
+    #[inline]
+    fn encode<E>(&self, encoder: E) -> Result<(), E::Error>
+    where
+        E: musli_core02::Encoder<Mode = M>,
+    {
+        encoder.encode_array(&self.0)
+    }
+
+    #[inline]
+    fn as_encode(&self) -> &Self::Encode {
+        self
+    }
+}
+
+#[cfg(feature = "musli02")]
+impl<'de, M, A> musli_core02::Decode<'de, M, A> for StringId
+where
+    A: musli_core02::Allocator,
+{
+    const IS_BITWISE_DECODE: bool = false;
+
+    #[inline]
+    fn decode<D>(decoder: D) -> Result<Self, D::Error>
+    where
+        D: musli_core02::Decoder<'de, Mode = M, Allocator = A>,
+    {
+        Ok(StringId(decoder.decode_array()?))
+    }
+}
+
 impl fmt::Display for StringId {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -171,6 +207,11 @@ impl fmt::Debug for Hex<'_> {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde-edits", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde-edits", serde(transparent))]
+#[cfg_attr(
+    feature = "musli02",
+    derive(musli_core02::Encode, musli_core02::Decode),
+    musli(crate = musli_core02, transparent)
+)]
 #[repr(transparent)]
 pub struct Id(NonZeroUsize);
 
@@ -189,6 +230,11 @@ impl fmt::Display for Id {
 
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde-edits", derive(Serialize, Deserialize))]
+#[cfg_attr(
+    feature = "musli02",
+    derive(musli_core02::Encode, musli_core02::Decode),
+    musli(crate = musli_core02)
+)]
 pub(crate) struct Entry {
     raw: raw::Raw,
     layout: raw::Layout,
@@ -197,8 +243,15 @@ pub(crate) struct Entry {
 /// Strings cache.
 #[derive(Clone, Default)]
 #[cfg_attr(feature = "serde-edits", derive(Serialize, Deserialize))]
+#[cfg_attr(
+    feature = "musli02",
+    derive(musli_core02::Encode, musli_core02::Decode),
+    musli(crate = musli_core02)
+)]
 pub(crate) struct Data {
+    #[cfg_attr(feature = "musli02", musli(with = musli02::strings))]
     strings: HashMap<StringId, Box<[u8]>>,
+    #[cfg_attr(feature = "musli02", musli(with = musli02::entries))]
     slab: slab::Slab<Entry>,
     /// Whitespace and comments after the root value, empty if unset.
     suffix: Option<StringId>,
@@ -444,5 +497,112 @@ impl Data {
         value.layout.prefix = prefix;
         let removed = mem::replace(&mut value.raw, raw);
         self.drop_kind(removed);
+    }
+}
+
+/// Field codecs for [`Data`] which musli-core has no impls for.
+#[cfg(feature = "musli02")]
+mod musli02 {
+    /// Strings as a map from id to bytes, rather than to a sequence of `u8`.
+    pub(super) mod strings {
+        use alloc::boxed::Box;
+
+        use std::collections::HashMap;
+
+        use musli_core02::de::{DecodeBytes, EntryDecoder, MapDecoder};
+        use musli_core02::en::{EntryEncoder, MapEncoder};
+        use musli_core02::{Allocator, Decoder, Encoder};
+
+        use crate::yaml::data::StringId;
+
+        pub(crate) fn encode<E>(
+            strings: &HashMap<StringId, Box<[u8]>>,
+            encoder: E,
+        ) -> Result<(), E::Error>
+        where
+            E: Encoder,
+        {
+            encoder.encode_map_fn(strings.len(), |map| {
+                for (id, string) in strings {
+                    map.encode_entry_fn(|entry| {
+                        entry.encode_key()?.encode(id)?;
+                        entry.encode_value()?.encode_bytes(string)?;
+                        Ok(())
+                    })?;
+                }
+
+                Ok(())
+            })
+        }
+
+        pub(crate) fn decode<'de, D, A>(
+            decoder: D,
+        ) -> Result<HashMap<StringId, Box<[u8]>>, D::Error>
+        where
+            D: Decoder<'de, Allocator = A>,
+            A: Allocator,
+        {
+            decoder.decode_map(|map| {
+                let mut strings = HashMap::new();
+
+                while let Some(mut entry) = map.decode_entry()? {
+                    let id = entry.decode_key()?.decode()?;
+                    let string = <Box<[u8]> as DecodeBytes<'de, D::Mode, A>>::decode_bytes(
+                        entry.decode_value()?,
+                    )?;
+                    strings.insert(id, string);
+                }
+
+                Ok(strings)
+            })
+        }
+    }
+
+    /// The slab as a map from index to entry, like slab's serde impls.
+    pub(super) mod entries {
+        use alloc::vec::Vec;
+
+        use musli_core02::de::{EntryDecoder, MapDecoder};
+        use musli_core02::en::{EntryEncoder, MapEncoder};
+        use musli_core02::{Allocator, Decode, Decoder, Encode, Encoder};
+
+        use crate::yaml::data::Entry;
+
+        pub(crate) fn encode<E, M>(slab: &slab::Slab<Entry>, encoder: E) -> Result<(), E::Error>
+        where
+            E: Encoder<Mode = M>,
+            Entry: Encode<M>,
+        {
+            encoder.encode_map_fn(slab.len(), |map| {
+                for (index, entry) in slab {
+                    map.encode_entry_fn(|e| {
+                        e.encode_key()?.encode(index)?;
+                        e.encode_value()?.encode(entry)?;
+                        Ok(())
+                    })?;
+                }
+
+                Ok(())
+            })
+        }
+
+        pub(crate) fn decode<'de, D, M, A>(decoder: D) -> Result<slab::Slab<Entry>, D::Error>
+        where
+            D: Decoder<'de, Mode = M, Allocator = A>,
+            A: Allocator,
+            Entry: Decode<'de, M, A>,
+        {
+            decoder.decode_map(|map| {
+                let mut entries = Vec::new();
+
+                while let Some(mut e) = map.decode_entry()? {
+                    let index: usize = e.decode_key()?.decode()?;
+                    let entry: Entry = e.decode_value()?.decode()?;
+                    entries.push((index, entry));
+                }
+
+                Ok(entries.into_iter().collect())
+            })
+        }
     }
 }

@@ -126,7 +126,7 @@ pub use self::mapping::{Mapping, MappingMut};
 #[cfg_attr(doc_cfg, doc(cfg(feature = "serde")))]
 pub mod serde;
 
-#[cfg(any(feature = "serde", feature = "serde-edits"))]
+#[cfg(any(feature = "serde", feature = "serde-edits", feature = "musli02"))]
 mod serde_hint {
     #[cfg(feature = "serde-edits")]
     use serde::{Deserialize, Serialize};
@@ -135,6 +135,11 @@ mod serde_hint {
     #[derive(Debug, Clone, Copy)]
     #[cfg_attr(feature = "serde-edits", derive(Serialize, Deserialize))]
     #[cfg_attr(feature = "serde-edits", serde(tag = "kind"))]
+    #[cfg_attr(
+        feature = "musli02",
+        derive(musli_core02::Encode, musli_core02::Decode),
+        musli(crate = musli_core02)
+    )]
     pub(crate) enum RawNumberHint {
         /// A 32-bit float.
         Float32,
@@ -176,7 +181,7 @@ mod serde_hint {
     pub(crate) const I128: RawNumberHint = RawNumberHint::Signed128;
 }
 
-#[cfg(not(any(feature = "serde", feature = "serde-edits")))]
+#[cfg(not(any(feature = "serde", feature = "serde-edits", feature = "musli02")))]
 mod serde_hint {
     #[derive(Debug, Clone, Copy)]
     #[repr(transparent)]

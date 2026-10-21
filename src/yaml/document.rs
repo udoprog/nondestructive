@@ -37,6 +37,11 @@ use crate::yaml::{Value, ValueMut};
 /// ```
 #[derive(Clone)]
 #[cfg_attr(feature = "serde-edits", derive(Serialize, Deserialize))]
+#[cfg_attr(
+    feature = "musli02",
+    derive(musli_core02::Encode, musli_core02::Decode),
+    musli(crate = musli_core02)
+)]
 pub struct Document {
     pub(crate) root: Id,
     pub(crate) data: Data,

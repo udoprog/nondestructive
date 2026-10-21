@@ -523,7 +523,7 @@ impl<'a> Parser<'a> {
             1 => self.scratch.push(b' '),
             n => self
                 .scratch
-                .extend(iter::repeat(raw::NEWLINE).take(n.saturating_sub(1))),
+                .extend(iter::repeat_n(raw::NEWLINE, n.saturating_sub(1))),
         }
     }
 
@@ -532,7 +532,7 @@ impl<'a> Parser<'a> {
         if self.line_break_len() > 0 {
             let n = self.skip_line_breaks();
             self.scratch
-                .extend(iter::repeat(raw::NEWLINE).take(n.saturating_sub(1)));
+                .extend(iter::repeat_n(raw::NEWLINE, n.saturating_sub(1)));
             return Ok(());
         }
 
@@ -1172,11 +1172,11 @@ impl<'a> Parser<'a> {
                         self.scratch.push(raw::SPACE);
                     } else {
                         let n = breaks.saturating_sub(1);
-                        self.scratch.extend(iter::repeat(raw::NEWLINE).take(n));
+                        self.scratch.extend(iter::repeat_n(raw::NEWLINE, n));
                     }
                 }
                 _ => {
-                    self.scratch.extend(iter::repeat(raw::NEWLINE).take(breaks));
+                    self.scratch.extend(iter::repeat_n(raw::NEWLINE, breaks));
                 }
             }
 
@@ -1197,8 +1197,7 @@ impl<'a> Parser<'a> {
             Chomp::Keep => breaks,
         };
 
-        self.scratch
-            .extend(iter::repeat(raw::NEWLINE).take(trailing));
+        self.scratch.extend(iter::repeat_n(raw::NEWLINE, trailing));
 
         let string = self.data.insert_str(&self.scratch);
         self.scratch.clear();

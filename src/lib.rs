@@ -27,6 +27,10 @@
 //! * `serde-edits`: derives [`serde`] implementations for a document's internal
 //!   data, so a parsed document and its edits can be serialized and restored as
 //!   a whole. Implies `std`; only takes effect together with `yaml`.
+//! * `musli02`: implements musli 0.2 `Encode` and `Decode` (through `musli-core`)
+//!   for the same data as `serde-edits`, so a document and the ids into it can be
+//!   stored with formats such as `musli::storage`. Only takes effect together
+//!   with `yaml`.
 //!
 //! <br>
 //!

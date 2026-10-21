@@ -3,7 +3,7 @@ name = "nondestructive"
 version = "0.0.28"
 authors = ["John-John Tedro <udoprog@tedro.se>"]
 edition = "2021"
-rust-version = "1.81"
+rust-version = "1.85"
 description = "Nondestructive editing over various file formats."
 documentation = "https://docs.rs/nondestructive"
 readme = "README.md"
@@ -18,8 +18,9 @@ default = ["std", "yaml"]
 yaml = ["std"]
 serde = ["dep:serde", "bstr/serde"]
 serde-edits = ["std", "dep:serde", "bstr/serde", "serde?/derive", "slab/serde"]
-std = ["alloc", "bstr/std"]
-alloc = []
+musli02 = ["dep:musli-core02"]
+std = ["alloc", "bstr/std", "musli-core02?/std"]
+alloc = ["musli-core02?/alloc"]
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(doc_cfg, nondestructive_write_to_eq)'] }
@@ -29,6 +30,7 @@ bstr = { version = "1.4.0", default-features = false }
 itoa = "1.0.6"
 lexical-core = { version = "1.0.0", default-features = false, features = ["parse-floats", "parse-integers"] }
 memchr = "2.5.0"
+musli-core02 = { package = "musli-core", version = "0.2.0", default-features = false, optional = true }
 ryu = "1.0.13"
 serde = { version = "1.0.160", optional = true }
 slab = "0.4.8"
@@ -36,6 +38,7 @@ twox-hash = { version = "1.6.3", default-features = false }
 
 [dev-dependencies]
 anyhow = "1.0.70"
+musli02 = { package = "musli", version = "0.2.0", features = ["storage"] }
 serde = { version = "1.0.160", features = ["derive"] }
 serde_json = "1.0.140"
 serde_yaml = "0.9.21"

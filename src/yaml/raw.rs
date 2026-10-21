@@ -393,6 +393,11 @@ where
 
 #[derive(Debug, Clone, Copy)]
 #[cfg_attr(feature = "serde-edits", derive(Serialize, Deserialize))]
+#[cfg_attr(
+    feature = "musli02",
+    derive(musli_core02::Encode, musli_core02::Decode),
+    musli(crate = musli_core02)
+)]
 pub(crate) struct Layout {
     /// Reference to the indentation just preceding the current value.
     pub(crate) prefix: StringId,
@@ -404,6 +409,11 @@ pub(crate) struct Layout {
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde-edits", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde-edits", serde(tag = "kind", content = "value"))]
+#[cfg_attr(
+    feature = "musli02",
+    derive(musli_core02::Encode, musli_core02::Decode),
+    musli(crate = musli_core02)
+)]
 pub(crate) enum Raw {
     /// A null value.
     Null(Null),
@@ -563,6 +573,11 @@ from!(SequenceItem);
 /// A YAML null.
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde-edits", derive(Serialize, Deserialize))]
+#[cfg_attr(
+    feature = "musli02",
+    derive(musli_core02::Encode, musli_core02::Decode),
+    musli(crate = musli_core02)
+)]
 pub(crate) enum Null {
     /// A keyword `null` value.
     Keyword(StringId),
@@ -627,6 +642,11 @@ impl Null {
 /// A YAML boolean.
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde-edits", derive(Serialize, Deserialize))]
+#[cfg_attr(
+    feature = "musli02",
+    derive(musli_core02::Encode, musli_core02::Decode),
+    musli(crate = musli_core02)
+)]
 pub(crate) struct Boolean {
     pub(crate) value: bool,
     pub(crate) string: StringId,
@@ -654,6 +674,11 @@ impl Boolean {
 /// A YAML number.
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde-edits", derive(Serialize, Deserialize))]
+#[cfg_attr(
+    feature = "musli02",
+    derive(musli_core02::Encode, musli_core02::Decode),
+    musli(crate = musli_core02)
+)]
 pub(crate) struct Number {
     pub(crate) string: StringId,
     #[cfg_attr(not(feature = "serde"), allow(unused))]
@@ -684,6 +709,11 @@ impl Number {
 #[derive(Debug, Clone, Copy)]
 #[cfg_attr(feature = "serde-edits", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde-edits", serde(tag = "kind"))]
+#[cfg_attr(
+    feature = "musli02",
+    derive(musli_core02::Encode, musli_core02::Decode),
+    musli(crate = musli_core02)
+)]
 #[non_exhaustive]
 pub(crate) enum RawStringKind {
     /// A bare string without quotes, such as `hello-world`.
@@ -806,6 +836,11 @@ fn resolves_as_non_string(bytes: &[u8]) -> bool {
 /// A YAML string.
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde-edits", derive(Serialize, Deserialize))]
+#[cfg_attr(
+    feature = "musli02",
+    derive(musli_core02::Encode, musli_core02::Decode),
+    musli(crate = musli_core02)
+)]
 pub(crate) struct String {
     /// The kind of the string.
     pub(crate) kind: RawStringKind,
@@ -1016,6 +1051,11 @@ impl String {
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde-edits", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde-edits", serde(tag = "kind"))]
+#[cfg_attr(
+    feature = "musli02",
+    derive(musli_core02::Encode, musli_core02::Decode),
+    musli(crate = musli_core02)
+)]
 pub(crate) enum SequenceKind {
     /// An expanded tabular YAML sequence.
     ///
@@ -1041,6 +1081,11 @@ pub(crate) enum SequenceKind {
 /// A YAML sequence.
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde-edits", derive(Serialize, Deserialize))]
+#[cfg_attr(
+    feature = "musli02",
+    derive(musli_core02::Encode, musli_core02::Decode),
+    musli(crate = musli_core02)
+)]
 pub(crate) struct Sequence {
     /// Indentation used for this sequence.
     pub(crate) indent: usize,
@@ -1143,6 +1188,11 @@ impl Sequence {
 /// An element in a YAML sequence.
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde-edits", derive(Serialize, Deserialize))]
+#[cfg_attr(
+    feature = "musli02",
+    derive(musli_core02::Encode, musli_core02::Decode),
+    musli(crate = musli_core02)
+)]
 pub(crate) struct SequenceItem {
     pub(crate) value: Id,
     /// Whitespace and comments between the value and a following flow `,`.
@@ -1170,6 +1220,11 @@ impl SequenceItem {
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde-edits", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde-edits", serde(tag = "kind"))]
+#[cfg_attr(
+    feature = "musli02",
+    derive(musli_core02::Encode, musli_core02::Decode),
+    musli(crate = musli_core02)
+)]
 pub(crate) enum MappingKind {
     /// An expanded tabular YAML mapping.
     ///
@@ -1194,6 +1249,11 @@ pub(crate) enum MappingKind {
 /// A YAML mapping.
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde-edits", derive(Serialize, Deserialize))]
+#[cfg_attr(
+    feature = "musli02",
+    derive(musli_core02::Encode, musli_core02::Decode),
+    musli(crate = musli_core02)
+)]
 pub(crate) struct Mapping {
     /// Number of unicode characters worth of indentation in this mapping.
     pub(crate) indent: usize,
@@ -1288,6 +1348,11 @@ impl Mapping {
 /// An element in a YAML mapping.
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde-edits", derive(Serialize, Deserialize))]
+#[cfg_attr(
+    feature = "musli02",
+    derive(musli_core02::Encode, musli_core02::Decode),
+    musli(crate = musli_core02)
+)]
 pub(crate) struct MappingItem {
     pub(crate) key: String,
     pub(crate) value: Id,

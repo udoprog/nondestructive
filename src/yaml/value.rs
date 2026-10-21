@@ -104,6 +104,11 @@ pub enum Separator<'a> {
 /// The kind of a null value.
 #[derive(Debug, Clone, Copy)]
 #[cfg_attr(feature = "serde-edits", derive(Serialize, Deserialize))]
+#[cfg_attr(
+    feature = "musli02",
+    derive(musli_core02::Encode, musli_core02::Decode),
+    musli(crate = musli_core02)
+)]
 #[non_exhaustive]
 pub enum Null {
     /// A keyword `null` value.

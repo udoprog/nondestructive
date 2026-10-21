@@ -17,15 +17,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    - uses: dtolnay/rust-toolchain@1.81
+    - uses: dtolnay/rust-toolchain@1.85
     - run: cargo build --workspace --lib --no-default-features
     - run: cargo build --workspace --lib
+    - run: cargo build --workspace --lib --features musli02
 
   feature:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        feature: [ "std", "yaml", "serde", "serde-edits", "alloc", "default", "yaml,serde", "yaml,serde-edits" ]
+        feature: [ "std", "yaml", "serde", "serde-edits", "alloc", "default", "yaml,serde", "yaml,serde-edits", "musli02", "yaml,musli02" ]
     steps:
     - uses: actions/checkout@v4
     - uses: dtolnay/rust-toolchain@stable
