@@ -10,7 +10,7 @@ use std::collections::hash_map::{self, HashMap};
 use bstr::BStr;
 #[cfg(feature = "serde-edits")]
 use serde::{Deserialize, Serialize};
-use twox_hash::xxh3::{Hash128, HasherExt};
+use twox_hash::XxHash3_128;
 
 use crate::yaml::raw;
 
@@ -274,11 +274,7 @@ impl Data {
     where
         B: AsRef<[u8]>,
     {
-        let mut hasher = Hash128::default();
-        string.as_ref().hash(&mut hasher);
-        let hash = hasher.finish_ext();
-        let hash = hash.to_le_bytes();
-        let id = StringId(hash);
+        let id = StringId(XxHash3_128::oneshot(string.as_ref()).to_le_bytes());
 
         if let hash_map::Entry::Vacant(e) = self.strings.entry(id) {
             e.insert(string.as_ref().into());
